@@ -217,5 +217,9 @@ func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInf
 
 // GetWorkerInfo is an implementation of GetWorkerInfo from Workers interface.
 func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
-	return WorkerInfo{}, ErrNotImplemented
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return WorkerInfo{}, ErrWorkerNotFound
+	}
+	return *worker, nil
 }

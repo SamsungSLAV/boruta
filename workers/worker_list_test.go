@@ -432,5 +432,19 @@ var _ = Describe("WorkerList", func() {
 						refWorkerList[2], refWorkerList[3], refWorkerList[5]})
 			})
 		})
+
+		Describe("GetWorkerInfo", func() {
+			It("should fail to GetWorkerInfo of nonexistent worker", func() {
+				uuid := randomUUID()
+				_, err := wl.GetWorkerInfo(uuid)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+
+			It("should work to GetWorkerInfo", func() {
+				workerInfo, err := wl.GetWorkerInfo(worker)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(workerInfo).To(Equal(*wl.workers[worker]))
+			})
+		})
 	})
 })
