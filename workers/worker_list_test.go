@@ -271,7 +271,7 @@ var _ = Describe("WorkerList", func() {
 
 			It("should work to SetGroup", func() {
 				var group Groups = []Group{
-					Group("group1"),
+					"group1",
 				}
 
 				By("setting it")
@@ -283,6 +283,153 @@ var _ = Describe("WorkerList", func() {
 				err = wl.SetGroups(worker, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(wl.workers[worker].Groups).To(BeNil())
+			})
+		})
+
+		Describe("ListWorkers", func() {
+			var refWorkerList []WorkerInfo
+
+			registerAndSetGroups := func(groups Groups, caps Capabilities) WorkerInfo {
+				capsUUID := uuid.NewV4().String()
+				caps[UUID] = capsUUID
+				err := wl.Register(caps)
+				Expect(err).ToNot(HaveOccurred())
+				workerID := WorkerUUID(capsUUID)
+
+				err = wl.SetGroups(workerID, groups)
+				Expect(err).ToNot(HaveOccurred())
+
+				return *wl.workers[workerID]
+			}
+
+			BeforeEach(func() {
+				refWorkerList = make([]WorkerInfo, 1)
+				// Add worker with minimal caps and empty groups.
+				refWorkerList[0] = *wl.workers[worker]
+				// Add worker with both groups and caps declared.
+				refWorkerList = append(refWorkerList, registerAndSetGroups(
+					Groups{"all", "small_1", "small_2"},
+					Capabilities{
+						"target":  "yes",
+						"display": "yes",
+					}))
+				// Add worker similar to the second one, but without caps.
+				refWorkerList = append(refWorkerList, registerAndSetGroups(
+					Groups{"all", "small_1", "small_2"},
+					Capabilities{},
+				))
+				// Add worker similar to the second one, but without groups.
+				refWorkerList = append(refWorkerList, registerAndSetGroups(
+					Groups{},
+					Capabilities{
+						"target":  "yes",
+						"display": "yes",
+					}))
+				// Add worker similar to the second one, but with display set to no.
+				refWorkerList = append(refWorkerList, registerAndSetGroups(
+					Groups{"all", "small_1", "small_2"},
+					Capabilities{
+						"target":  "yes",
+						"display": "no",
+					}))
+				// Add worker similar to the second one, but absent from small_1 group.
+				refWorkerList = append(refWorkerList, registerAndSetGroups(
+					Groups{"all", "small_2"},
+					Capabilities{
+						"target":  "yes",
+						"display": "yes",
+					}))
+			})
+
+			testWorkerList := func(groups Groups, caps Capabilities,
+				present, absent []WorkerInfo) {
+				workers, err := wl.ListWorkers(groups, caps)
+				Expect(err).ToNot(HaveOccurred())
+				for _, workerInfo := range present {
+					Expect(workers).To(ContainElement(workerInfo))
+				}
+				for _, workerInfo := range absent {
+					Expect(workers).ToNot(ContainElement(workerInfo))
+				}
+			}
+
+			It("should return all workers when parameters are nil", func() {
+				testWorkerList(nil, nil, refWorkerList, nil)
+			})
+
+			It("should return all workers when parameters are empty", func() {
+				testWorkerList(Groups{}, Capabilities{}, refWorkerList, nil)
+			})
+
+			Describe("filterCaps", func() {
+				It("should return all workers satisfying defined caps", func() {
+					By("Returning all workers with display")
+					testWorkerList(Groups{},
+						Capabilities{"display": "yes"},
+						[]WorkerInfo{refWorkerList[1], refWorkerList[3], refWorkerList[5]},
+						[]WorkerInfo{refWorkerList[0], refWorkerList[2], refWorkerList[4]})
+
+					By("Returning all workers without display")
+					testWorkerList(Groups{},
+						Capabilities{"display": "no"},
+						[]WorkerInfo{refWorkerList[4]},
+						[]WorkerInfo{refWorkerList[0], refWorkerList[1],
+							refWorkerList[2], refWorkerList[3], refWorkerList[5]})
+				})
+
+				It("should return empty list if no worker matches the caps", func() {
+					workers, err := wl.ListWorkers(Groups{},
+						Capabilities{
+							"non-existing-caps": "",
+						})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(workers).To(BeEmpty())
+				})
+			})
+
+			Describe("filterGroups", func() {
+				It("should return all workers satisfying defined groups", func() {
+					By("Returning all workers in group all")
+					testWorkerList(Groups{"all"},
+						nil,
+						[]WorkerInfo{refWorkerList[1], refWorkerList[2],
+							refWorkerList[4], refWorkerList[5]},
+						[]WorkerInfo{refWorkerList[0], refWorkerList[3]})
+
+					By("Returning all workers in group small_1")
+					testWorkerList(Groups{"small_1"},
+						nil,
+						[]WorkerInfo{refWorkerList[1], refWorkerList[2], refWorkerList[4]},
+						[]WorkerInfo{refWorkerList[0], refWorkerList[3], refWorkerList[5]})
+				})
+
+				It("should return empty list if no worker matches the group", func() {
+					workers, err := wl.ListWorkers(Groups{"non-existing-group"}, nil)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(workers).To(BeEmpty())
+				})
+			})
+
+			It("should work with many groups and caps defined", func() {
+				By("Returning all targets with display in both groups")
+				testWorkerList(Groups{"small_1", "small_2"},
+					Capabilities{
+						"target":  "yes",
+						"display": "yes",
+					},
+					[]WorkerInfo{refWorkerList[1], refWorkerList[5]},
+					[]WorkerInfo{refWorkerList[0], refWorkerList[2],
+						refWorkerList[3], refWorkerList[4]})
+
+				By("Returning all targets without display in group all and small_1")
+				testWorkerList(Groups{"all", "small_1"},
+					Capabilities{
+						"target":  "yes",
+						"display": "no",
+					},
+					[]WorkerInfo{refWorkerList[4]},
+					[]WorkerInfo{refWorkerList[0], refWorkerList[1],
+						refWorkerList[2], refWorkerList[3], refWorkerList[5]})
 			})
 		})
 	})

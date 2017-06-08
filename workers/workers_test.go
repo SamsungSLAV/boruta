@@ -32,15 +32,9 @@ var _ = Describe("WorkerList", func() {
 
 	It("should return ErrNotImplemented", func() {
 		var (
-			err    error
-			uuid   WorkerUUID   = ""
-			caps   Capabilities = nil
-			groups Groups       = nil
+			err  error
+			uuid WorkerUUID = ""
 		)
-
-		By("ListWorkers")
-		_, err = wl.ListWorkers(groups, caps)
-		Expect(err).To(Equal(ErrNotImplemented))
 
 		By("GetWorkerInfo")
 		_, err = wl.GetWorkerInfo(uuid)
