@@ -21,6 +21,9 @@ import (
 	. "git.tizen.org/tools/boruta"
 )
 
+// UUID denotes a key in Capabilities where WorkerUUID is stored.
+const UUID string = "UUID"
+
 // WorkerList implements Superviser and Workers interfaces.
 // It manages a list of Workers.
 type WorkerList struct {
@@ -37,8 +40,25 @@ func NewWorkerList() *WorkerList {
 }
 
 // Register is an implementation of Register from Superviser interface.
+// UUID, which identifies Worker, must be present in caps.
 func (wl *WorkerList) Register(caps Capabilities) error {
-	return ErrNotImplemented
+	capsUUID, present := caps[UUID]
+	if !present {
+		return ErrMissingUUID
+	}
+	uuid := WorkerUUID(capsUUID)
+	worker, registered := wl.workers[uuid]
+	if registered {
+		// Subsequent Register calls update the caps.
+		worker.Caps = caps
+	} else {
+		wl.workers[uuid] = &WorkerInfo{
+			WorkerUUID: uuid,
+			State:      MAINTENANCE,
+			Caps:       caps,
+		}
+	}
+	return nil
 }
 
 // SetFail is an implementation of SetFail from Superviser interface.

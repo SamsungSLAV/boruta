@@ -38,10 +38,6 @@ var _ = Describe("WorkerList", func() {
 			groups Groups       = nil
 		)
 
-		By("Register")
-		err = wl.Register(caps)
-		Expect(err).To(Equal(ErrNotImplemented))
-
 		By("SetFail")
 		err = wl.SetFail(uuid, "")
 		Expect(err).To(Equal(ErrNotImplemented))

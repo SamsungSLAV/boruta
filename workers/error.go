@@ -23,4 +23,7 @@ import (
 var (
 	// ErrNotImplemented is returned when function is not implemented yet.
 	ErrNotImplemented = errors.New("function not implemented")
+	// ErrMissingUUID is returned when Register is called
+	// with caps, which do not contain "UUID" field.
+	ErrMissingUUID = errors.New("Capabilities are missing UUID entry")
 )
