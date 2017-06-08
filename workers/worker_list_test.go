@@ -261,5 +261,29 @@ var _ = Describe("WorkerList", func() {
 				}
 			})
 		})
+
+		Describe("SetGroups", func() {
+			It("should fail to SetGroup of nonexistent worker", func() {
+				uuid := randomUUID()
+				err := wl.SetGroups(uuid, nil)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+
+			It("should work to SetGroup", func() {
+				var group Groups = []Group{
+					Group("group1"),
+				}
+
+				By("setting it")
+				err := wl.SetGroups(worker, group)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[worker].Groups).To(Equal(group))
+
+				By("setting it to nil")
+				err = wl.SetGroups(worker, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[worker].Groups).To(BeNil())
+			})
+		})
 	})
 })

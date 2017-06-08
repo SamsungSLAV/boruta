@@ -96,7 +96,12 @@ func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
 
 // SetGroups is an implementation of SetGroups from Workers interface.
 func (wl *WorkerList) SetGroups(uuid WorkerUUID, groups Groups) error {
-	return ErrNotImplemented
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	worker.Groups = groups
+	return nil
 }
 
 // Deregister is an implementation of Deregister from Workers interface.
