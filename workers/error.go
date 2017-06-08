@@ -30,4 +30,7 @@ var (
 	ErrWorkerNotFound = errors.New("Worker is not present on the list")
 	// ErrInMaintenance is returned when SetFail has been called for Worker in MAINTENANCE state.
 	ErrInMaintenance = errors.New("It is forbidden to set FAIL state when Worker is in MAINTENANCE state")
+	// ErrNotInMaintenance is returned when Deregister is called for a worker not in MAINTENANCE state.
+	// Only workers in MAINTENANCE state can be removed from the list.
+	ErrNotInMaintenance = errors.New("Worker is not in MAINTENANCE state")
 )

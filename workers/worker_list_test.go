@@ -173,5 +173,37 @@ var _ = Describe("WorkerList", func() {
 				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
 			})
 		})
+
+		Describe("Deregister", func() {
+			It("should fail to deregister nonexistent worker", func() {
+				uuid := randomUUID()
+				err := wl.Deregister(uuid)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+
+			It("should work to deregister", func() {
+				err := wl.Deregister(worker)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers).ToNot(HaveKey(worker))
+			})
+
+			It("should fail to deregister same worker twice", func() {
+				err := wl.Deregister(worker)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers).ToNot(HaveKey(worker))
+
+				err = wl.Deregister(worker)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+
+			It("should fail to deregister worker not in MAINTENANCE state", func() {
+				for _, state := range []WorkerState{IDLE, RUN, FAIL} {
+					wl.workers[worker].State = state
+					err := wl.Deregister(worker)
+					Expect(err).To(Equal(ErrNotInMaintenance))
+					Expect(wl.workers).To(HaveKey(worker))
+				}
+			})
+		})
 	})
 })

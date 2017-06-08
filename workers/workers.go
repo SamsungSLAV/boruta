@@ -88,7 +88,15 @@ func (wl *WorkerList) SetGroups(uuid WorkerUUID, groups Groups) error {
 
 // Deregister is an implementation of Deregister from Workers interface.
 func (wl *WorkerList) Deregister(uuid WorkerUUID) error {
-	return ErrNotImplemented
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	if worker.State != MAINTENANCE {
+		return ErrNotInMaintenance
+	}
+	delete(wl.workers, uuid)
+	return nil
 }
 
 // ListWorkers is an implementation of ListWorkers from Workers interface.

@@ -46,10 +46,6 @@ var _ = Describe("WorkerList", func() {
 		err = wl.SetGroups(uuid, groups)
 		Expect(err).To(Equal(ErrNotImplemented))
 
-		By("Deregister")
-		err = wl.Deregister(uuid)
-		Expect(err).To(Equal(ErrNotImplemented))
-
 		By("ListWorkers")
 		_, err = wl.ListWorkers(groups, caps)
 		Expect(err).To(Equal(ErrNotImplemented))
