@@ -62,8 +62,18 @@ func (wl *WorkerList) Register(caps Capabilities) error {
 }
 
 // SetFail is an implementation of SetFail from Superviser interface.
+//
+// TODO(amistewicz): WorkerList should process the reason and store it.
 func (wl *WorkerList) SetFail(uuid WorkerUUID, reason string) error {
-	return ErrNotImplemented
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	if worker.State == MAINTENANCE {
+		return ErrInMaintenance
+	}
+	worker.State = FAIL
+	return nil
 }
 
 // SetState is an implementation of SetState from Workers interface.

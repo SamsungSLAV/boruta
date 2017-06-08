@@ -26,4 +26,8 @@ var (
 	// ErrMissingUUID is returned when Register is called
 	// with caps, which do not contain "UUID" field.
 	ErrMissingUUID = errors.New("Capabilities are missing UUID entry")
+	// ErrWorkerNotFound is returned when UUID argument does not match any worker on the list.
+	ErrWorkerNotFound = errors.New("Worker is not present on the list")
+	// ErrInMaintenance is returned when SetFail has been called for Worker in MAINTENANCE state.
+	ErrInMaintenance = errors.New("It is forbidden to set FAIL state when Worker is in MAINTENANCE state")
 )

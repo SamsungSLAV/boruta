@@ -126,4 +126,52 @@ var _ = Describe("WorkerList", func() {
 			compareLists()
 		})
 	})
+
+	Context("with worker registered", func() {
+		var worker WorkerUUID
+
+		randomUUID := func() WorkerUUID {
+			newUUID := worker
+			for newUUID == worker {
+				newUUID = WorkerUUID(uuid.NewV4().String())
+			}
+			return newUUID
+		}
+		registerWorker := func() WorkerUUID {
+			capsUUID := uuid.NewV4().String()
+			err := wl.Register(Capabilities{UUID: capsUUID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(wl.workers).ToNot(BeEmpty())
+			return WorkerUUID(capsUUID)
+		}
+
+		BeforeEach(func() {
+			Expect(wl.workers).To(BeEmpty())
+			worker = registerWorker()
+		})
+
+		Describe("SetFail", func() {
+			It("should fail to SetFail of nonexistent worker", func() {
+				uuid := randomUUID()
+				err := wl.SetFail(uuid, "")
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+
+			It("should work to SetFail", func() {
+				for _, state := range []WorkerState{IDLE, RUN} {
+					wl.workers[worker].State = state
+					err := wl.SetFail(worker, "")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(wl.workers[worker].State).To(Equal(FAIL))
+				}
+			})
+
+			It("Should fail to SetFail in MAINTENANCE state", func() {
+				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
+				err := wl.SetFail(worker, "")
+				Expect(err).To(Equal(ErrInMaintenance))
+				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
+			})
+		})
+	})
 })

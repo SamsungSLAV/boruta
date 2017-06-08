@@ -38,10 +38,6 @@ var _ = Describe("WorkerList", func() {
 			groups Groups       = nil
 		)
 
-		By("SetFail")
-		err = wl.SetFail(uuid, "")
-		Expect(err).To(Equal(ErrNotImplemented))
-
 		By("SetState")
 		err = wl.SetState(uuid, MAINTENANCE)
 		Expect(err).To(Equal(ErrNotImplemented))
