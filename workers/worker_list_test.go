@@ -205,5 +205,61 @@ var _ = Describe("WorkerList", func() {
 				}
 			})
 		})
+
+		Describe("SetState", func() {
+			It("should fail to SetState of nonexistent worker", func() {
+				uuid := randomUUID()
+				err := wl.SetState(uuid, MAINTENANCE)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+
+			It("should work to SetState for valid transitions", func() {
+				validTransitions := [][]WorkerState{
+					{MAINTENANCE, IDLE},
+					{IDLE, MAINTENANCE},
+					{RUN, MAINTENANCE},
+					{FAIL, MAINTENANCE},
+				}
+				for _, transition := range validTransitions {
+					fromState, toState := transition[0], transition[1]
+					wl.workers[worker].State = fromState
+					err := wl.SetState(worker, toState)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(wl.workers[worker].State).To(Equal(toState))
+				}
+			})
+
+			It("should fail to SetState for invalid transitions", func() {
+				invalidTransitions := [][]WorkerState{
+					{RUN, IDLE},
+					{FAIL, IDLE},
+				}
+				for _, transition := range invalidTransitions {
+					fromState, toState := transition[0], transition[1]
+					wl.workers[worker].State = fromState
+					err := wl.SetState(worker, toState)
+					Expect(err).To(Equal(ErrForbiddenStateChange))
+					Expect(wl.workers[worker].State).To(Equal(fromState))
+				}
+			})
+
+			It("should fail to SetState for incorrect state argument", func() {
+				invalidArgument := [][]WorkerState{
+					{MAINTENANCE, RUN},
+					{MAINTENANCE, FAIL},
+					{IDLE, FAIL},
+					{IDLE, RUN},
+					{RUN, FAIL},
+					{FAIL, RUN},
+				}
+				for _, transition := range invalidArgument {
+					fromState, toState := transition[0], transition[1]
+					wl.workers[worker].State = fromState
+					err := wl.SetState(worker, toState)
+					Expect(err).To(Equal(ErrWrongStateArgument))
+					Expect(wl.workers[worker].State).To(Equal(fromState))
+				}
+			})
+		})
 	})
 })

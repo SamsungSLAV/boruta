@@ -78,7 +78,20 @@ func (wl *WorkerList) SetFail(uuid WorkerUUID, reason string) error {
 
 // SetState is an implementation of SetState from Workers interface.
 func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
-	return ErrNotImplemented
+	// Only state transitions to IDLE or MAINTENANCE are allowed.
+	if state != MAINTENANCE && state != IDLE {
+		return ErrWrongStateArgument
+	}
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	// State transitions to IDLE are allowed from MAINTENANCE state only.
+	if state == IDLE && worker.State != MAINTENANCE {
+		return ErrForbiddenStateChange
+	}
+	worker.State = state
+	return nil
 }
 
 // SetGroups is an implementation of SetGroups from Workers interface.

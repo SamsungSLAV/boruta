@@ -33,4 +33,10 @@ var (
 	// ErrNotInMaintenance is returned when Deregister is called for a worker not in MAINTENANCE state.
 	// Only workers in MAINTENANCE state can be removed from the list.
 	ErrNotInMaintenance = errors.New("Worker is not in MAINTENANCE state")
+	// ErrWrongStateArgument is returned when SetState is called with incorrect state argument.
+	// Worker state can be changed by Admin to IDLE or MAINTENANCE only.
+	ErrWrongStateArgument = errors.New("Only state changes to IDLE and MAINTENANCE are allowed")
+	// ErrForbiddenStateChange is returned when transition from state, Worker is in,
+	// to state, SetState has been called with, is forbidden.
+	ErrForbiddenStateChange = errors.New("Invalid state transition was requested")
 )
