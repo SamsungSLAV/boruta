@@ -124,7 +124,8 @@ type ListFilter struct{}
 type User interface {
 	// NewRequest creates a Request with given features and adds it to the Queue.
 	// It returns ID of the created Request.
-	NewRequest(caps Capabilities, priority Priority, validAfter time.Time, deadline time.Time) (ReqID, error)
+	NewRequest(caps Capabilities, priority Priority, owner UserInfo,
+		validAfter time.Time, deadline time.Time) (ReqID, error)
 	// CloseRequest sets the Request's State to CANCEL (removes from the Queue)
 	// or DONE (finishes the Job).
 	CloseRequest(reqID ReqID) error
