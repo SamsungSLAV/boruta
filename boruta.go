@@ -70,6 +70,13 @@ type ReqID uint64
 // Priority is the importance of the Request. Lower - more important.
 type Priority uint8
 
+const (
+	// HiPrio - most important priority (minimum value).
+	HiPrio Priority = 0
+	// LoPrio - least important priority (maximum value).
+	LoPrio Priority = 15
+)
+
 // UserInfo is a definition of the User or the Admin.
 type UserInfo struct{}
 
