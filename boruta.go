@@ -26,37 +26,37 @@ import (
 )
 
 // ReqState denotes state of the Request.
-type ReqState byte
+type ReqState string
 
 const (
 	// WAIT - Request is in the Queue waiting for processing.
-	WAIT ReqState = iota
+	WAIT ReqState = "WAITING"
 	// INPROGRESS - Request has Job with Worker assigned.
-	INPROGRESS
+	INPROGRESS = "IN PROGRESS"
 	// CANCEL - Request has been cancelled by the User.
-	CANCEL
+	CANCEL = "CANCELLED"
 	// TIMEOUT - Deadline is past due.
-	TIMEOUT
+	TIMEOUT = "TIMEOUT"
 	// INVALID - Request can no longer be satisfied.
-	INVALID
+	INVALID = "INVALID"
 	// DONE - Request has finished execution.
-	DONE
+	DONE = "DONE"
 	// FAILED - Worker has failed or has been put into MAINTENANCE state by the Admin.
-	FAILED
+	FAILED = "FAILED"
 )
 
 // WorkerState denotes state of the Worker.
-type WorkerState byte
+type WorkerState string
 
 const (
 	// MAINTENANCE - Worker will not be assigned any Jobs.
-	MAINTENANCE WorkerState = iota
+	MAINTENANCE WorkerState = "MAINTENANCE"
 	// IDLE - Worker is waiting for the Job.
-	IDLE
+	IDLE = "IDLE"
 	// RUN - Job is currently being executed on the Worker.
-	RUN
+	RUN = "RUNNING"
 	// FAIL - An error occured, reported by the Worker itself or the Server.
-	FAIL
+	FAIL = "FAILED"
 )
 
 // Capabilities describe the features provided by the Worker and required by the Request.
