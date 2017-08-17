@@ -22,6 +22,7 @@
 package boruta
 
 import (
+	"crypto/rsa"
 	"time"
 )
 
@@ -186,4 +187,18 @@ type Server interface {
 	Requests
 	Superviser
 	Workers
+}
+
+// Dryad is a MuxPi management interface used by Boruta.
+type Dryad interface {
+	// PutInMaintenance prepares MuxPi for administrative action.
+	// It blinks LEDs, prints msg on the OLED display, etc.
+	PutInMaintenance(msg string) error
+	// Prepare creates appropriate user, generates RSA key, installs public key
+	// so that it can be used for SSH authentication and returns private key.
+	// It removes current instance of the user, etc.
+	Prepare() (*rsa.PrivateKey, error)
+	// Healthcheck tests Dryad for system state, STM functions and state on MuxPi.
+	// It may cause Dryad to call SetFail of Worker interface if the problem detected is critical.
+	Healthcheck() error
 }
