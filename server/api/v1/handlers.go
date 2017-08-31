@@ -1,0 +1,77 @@
+/*
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License
+ */
+
+// File server/api/v1/handlers.go contains all handlers that are used in v1 API.
+
+package v1
+
+import (
+	"net/http"
+)
+
+// newRequestHandler parses HTTP request for creating new Boruta request and
+// calls NewRequest().
+func (api *API) newRequestHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "new request")
+}
+
+// closeRequestHandler parses HTTP request for closing existing Boruta request
+// and calls CloseRequest().
+func (api *API) closeRequestHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "close request")
+}
+
+// updateRequestHandler parses HTTP request for modification of existing Boruta
+// request and calls appropriate methods: SetRequestValidAfter(),
+// SetRequestDeadline() and SetRequestPriority().
+func (api *API) updateRequestHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "update request")
+}
+
+// getRequestInfoHandler parses HTTP request for getting information about Boruta
+// request and calls GetRequestInfo().
+func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "get request info")
+}
+
+// listRequestsHandler parses HTTP request for listing Boruta requests and calls
+// ListRequests().
+func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "list requests")
+}
+
+// acquireWorkerHandler parses HTTP request for acquiring worker for Boruta
+// request and calls AcquireWorker().
+func (api *API) acquireWorkerHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "acquire worker")
+}
+
+// prolongAccessHandler parses HTTP request for prolonging previously acquired
+// worker and calls ProlongAccess().
+func (api *API) prolongAccessHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "prolong access")
+}
+
+// listWorkersHandler parses HTTP request for listing workers and calls ListWorkers().
+func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "list workers")
+}
+
+// getWorkerInfoHandler parses HTTP request for obtaining worker information and
+// calls GetWorkerInfo().
+func (api *API) getWorkerInfoHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "get worker info")
+}
