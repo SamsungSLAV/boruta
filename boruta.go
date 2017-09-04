@@ -53,11 +53,11 @@ const (
 	// MAINTENANCE - Worker will not be assigned any Jobs.
 	MAINTENANCE WorkerState = "MAINTENANCE"
 	// IDLE - Worker is waiting for the Job.
-	IDLE = "IDLE"
+	IDLE WorkerState = "IDLE"
 	// RUN - Job is currently being executed on the Worker.
-	RUN = "RUNNING"
+	RUN WorkerState = "RUNNING"
 	// FAIL - An error occured, reported by the Worker itself or the Server.
-	FAIL = "FAILED"
+	FAIL WorkerState = "FAILED"
 )
 
 // Capabilities describe the features provided by the Worker and required by the Request.
