@@ -34,7 +34,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const contentTypeJSON = "application/json"
+const (
+	contentTypeJSON = "application/json"
+	validReqJSON    = `{
+		"ID":1,
+		"State":"WAITING",
+		"Job":null,
+		"Priority":8,
+		"Deadline":"2200-12-31T01:02:03Z",
+		"ValidAfter":"2100-01-01T04:05:06Z",
+		"Caps":{
+			"architecture":"armv7l",
+			"monitor":"yes"
+		},
+		"Owner":{}
+	}`
+)
 
 var update bool
 
@@ -53,6 +68,20 @@ type allMocks struct {
 	wm   *mocks.MockWorkers
 }
 
+var (
+	// malformedJSONTestTempl may be used by functions that need to check
+	// for malformed JSON to initialize test. Every test must set path, name
+	// and method appropriately.
+	malformedJSONTestTempl = &requestTest{
+		name:        "malformed-json",
+		path:        "",
+		methods:     []string{},
+		json:        `{"Priority{}`,
+		contentType: contentTypeJSON,
+		status:      http.StatusBadRequest,
+	}
+)
+
 func TestMain(m *testing.M) {
 	flag.BoolVar(&update, "update", false, "update testdata")
 	flag.Parse()
@@ -66,11 +95,22 @@ func initTest(t *testing.T) (*assert.Assertions, *allMocks, *API) {
 		rq:   mocks.NewMockRequests(ctrl),
 		wm:   mocks.NewMockWorkers(ctrl),
 	}
-	return assert.New(t), m, NewAPI(httptreemux.New())
+	return assert.New(t), m, NewAPI(httptreemux.New(), m.rq)
 }
 
 func (m *allMocks) finish() {
 	m.ctrl.Finish()
+}
+
+func testFromTempl(templ *requestTest, name string, path string,
+	methods ...string) (ret requestTest) {
+	ret = *templ
+	ret.name = name + templ.name
+	ret.path = path
+	if len(methods) != 0 {
+		ret.methods = methods
+	}
+	return
 }
 
 func runTests(assert *assert.Assertions, api *API, tests []requestTest) {

@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 
+	. "git.tizen.org/tools/boruta"
 	"github.com/dimfeld/httptreemux"
 )
 
@@ -31,12 +32,18 @@ import (
 // Returned values are directly converted to JSON responses.
 type responseData interface{}
 
+// reqIDPack is used as input for JSON (un)marshaller.
+type reqIDPack struct {
+	ReqID
+}
+
 // reqHandler denotes function that parses HTTP request and returns responseData.
 type reqHandler func(*http.Request, map[string]string) responseData
 
 // API provides HTTP API handlers.
 type API struct {
-	r *httptreemux.TreeMux
+	r    *httptreemux.TreeMux
+	reqs Requests
 }
 
 // jsonMustMarshal tries to marshal responseData to JSON. Panics if error occurs.
@@ -99,8 +106,10 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 
 // NewAPI takes router and registers HTTP API in it. httptreemux.PanicHandler
 // function is set. Also other setting of the router may be modified.
-func NewAPI(router *httptreemux.TreeMux) (api *API) {
+func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests) (api *API) {
 	api = new(API)
+
+	api.reqs = requestsAPI
 
 	api.r = router
 	api.r.PanicHandler = panicHandler

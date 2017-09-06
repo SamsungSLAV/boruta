@@ -16,23 +16,53 @@
 package v1
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
+
+	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/requests"
 )
 
 func TestNewRequestHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	prefix := "new-req-"
+	path := "/api/v1/reqs/"
+	methods := []string{http.MethodPost}
+	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, path, methods...)
+
+	var req ReqInfo
+	err := json.Unmarshal([]byte(validReqJSON), &req)
+	assert.Nil(err)
+
+	m.rq.EXPECT().NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter,
+		req.Deadline).Return(ReqID(1), nil)
+	m.rq.EXPECT().NewRequest(req.Caps, Priority(32), req.Owner, req.ValidAfter,
+		req.Deadline).Return(ReqID(0), requests.ErrPriority)
+
 	tests := []requestTest{
 		{
-			name:        "new-req",
-			path:        "/api/v1/reqs/",
-			methods:     []string{http.MethodPost},
-			json:        ``,
+			// valid request
+			name:        prefix + "valid",
+			path:        path,
+			methods:     methods,
+			json:        validReqJSON,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusCreated,
 		},
+		{
+			// bad request - priority out of bounds
+			name:        prefix + "bad-prio",
+			path:        path,
+			methods:     methods,
+			json:        `{"Priority":32,"Deadline":"2200-12-31T01:02:03Z","ValidAfter":"2100-01-01T04:05:06Z","Caps":{"architecture":"armv7l","monitor":"yes"}}`,
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		// bad request - malformed request JSON
+		malformedJSONTest,
 	}
 
 	runTests(assert, api, tests)

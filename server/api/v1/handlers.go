@@ -19,13 +19,30 @@
 package v1
 
 import (
+	"encoding/json"
 	"net/http"
+
+	. "git.tizen.org/tools/boruta"
 )
 
 // newRequestHandler parses HTTP request for creating new Boruta request and
 // calls NewRequest().
 func (api *API) newRequestHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "new request")
+	var newReq ReqInfo
+	defer r.Body.Close()
+
+	if err := json.NewDecoder(r.Body).Decode(&newReq); err != nil {
+		return newServerError(err)
+	}
+
+	//FIXME: currently UserInfo is ignored. Change when user support is added.
+	rid, err := api.reqs.NewRequest(newReq.Caps, newReq.Priority, UserInfo{},
+		newReq.ValidAfter.UTC(), newReq.Deadline.UTC())
+	if err != nil {
+		return newServerError(err)
+	}
+
+	return reqIDPack{rid}
 }
 
 // closeRequestHandler parses HTTP request for closing existing Boruta request
