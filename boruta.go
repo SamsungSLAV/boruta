@@ -120,8 +120,8 @@ type WorkerInfo struct {
 // ListFilter is used to filter Requests in the Queue.
 type ListFilter struct{}
 
-// User defines an interaction of the User with the Queue.
-type User interface {
+// Requests defines an interaction of a user with Requests Queue.
+type Requests interface {
 	// NewRequest creates a Request with given features and adds it to the Queue.
 	// It returns ID of the created Request.
 	NewRequest(caps Capabilities, priority Priority, owner UserInfo,
@@ -148,15 +148,10 @@ type User interface {
 	// ProlongAccess sets the Job's Deadline to a predefined time.Duration from the time.Now().
 	// It can be called multiple times, but is limited.
 	ProlongAccess(reqID ReqID) error
-	// ListWorkers returns a list of all Workers matching Groups and Capabilities
-	// or all registered Workers if both arguments are empty.
-	ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error)
-	// GetWorkerInfo returns WorkerInfo of specified worker.
-	GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error)
 }
 
-// Worker defines actions that can be done by Worker only.
-type Worker interface {
+// Superviser defines registration and repost actions that can be done by a worker only.
+type Superviser interface {
 	// Register adds a new Worker to the system in the MAINTENANCE state.
 	// Capabilities are set on the Worker and can be changed by subsequent Register calls.
 	Register(caps Capabilities) error
@@ -165,8 +160,17 @@ type Worker interface {
 	SetFail(uuid WorkerUUID, reason string) error
 }
 
-// Admin is responsible for management of the Workers.
-type Admin interface {
+// Workers defines all actions that can be done by users and admins on workers.
+// Users (and admins) can also call methods from Requests interface.
+type Workers interface {
+	// ListWorkers returns a list of all Workers matching Groups and Capabilities
+	// or all registered Workers if both arguments are empty.
+	ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error)
+	// GetWorkerInfo returns WorkerInfo of specified worker.
+	GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error)
+
+	// Following methods are for administrators only.
+
 	// SetState sets the Worker's state to either MAINTENANCE or IDLE.
 	SetState(uuid WorkerUUID, state WorkerState) error
 	// SetGroups updates the groups parameter of the Worker.
@@ -179,7 +183,7 @@ type Admin interface {
 // Server combines all interfaces for regular Users, Admins and Workers
 // It can also implement HTTP API.
 type Server interface {
-	User
-	Worker
-	Admin
+	Requests
+	Superviser
+	Workers
 }
