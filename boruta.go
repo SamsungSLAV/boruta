@@ -33,17 +33,17 @@ const (
 	// WAIT - Request is in the Queue waiting for processing.
 	WAIT ReqState = "WAITING"
 	// INPROGRESS - Request has Job with Worker assigned.
-	INPROGRESS = "IN PROGRESS"
+	INPROGRESS ReqState = "IN PROGRESS"
 	// CANCEL - Request has been cancelled by the User.
-	CANCEL = "CANCELLED"
+	CANCEL ReqState = "CANCELLED"
 	// TIMEOUT - Deadline is past due.
-	TIMEOUT = "TIMEOUT"
+	TIMEOUT ReqState = "TIMEOUT"
 	// INVALID - Request can no longer be satisfied.
-	INVALID = "INVALID"
+	INVALID ReqState = "INVALID"
 	// DONE - Request has finished execution.
-	DONE = "DONE"
+	DONE ReqState = "DONE"
 	// FAILED - Worker has failed or has been put into MAINTENANCE state by the Admin.
-	FAILED = "FAILED"
+	FAILED ReqState = "FAILED"
 )
 
 // WorkerState denotes state of the Worker.
