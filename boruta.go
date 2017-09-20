@@ -119,7 +119,10 @@ type WorkerInfo struct {
 }
 
 // ListFilter is used to filter Requests in the Queue.
-type ListFilter struct{}
+type ListFilter interface {
+	// Match tells if request matches the filter.
+	Match(req *ReqInfo) bool
+}
 
 // Requests defines an interaction of a user with Requests Queue.
 type Requests interface {
