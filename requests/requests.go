@@ -18,6 +18,7 @@
 package requests
 
 import (
+	"sync"
 	"time"
 
 	. "git.tizen.org/tools/boruta"
@@ -28,6 +29,7 @@ import (
 type ReqsCollection struct {
 	requests map[ReqID]*ReqInfo
 	queue    *prioQueue
+	mutex    *sync.RWMutex
 }
 
 // NewRequestQueue provides initialized priority queue for requests.
@@ -35,6 +37,7 @@ func NewRequestQueue() *ReqsCollection {
 	return &ReqsCollection{
 		requests: make(map[ReqID]*ReqInfo),
 		queue:    newPrioQueue(),
+		mutex:    new(sync.RWMutex),
 	}
 }
 
@@ -80,7 +83,9 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 	// TODO(mwereski): Check if capabilities can be satisfied.
 
 	reqs.queue.pushRequest(req)
+	reqs.mutex.Lock()
 	reqs.requests[req.ID] = req
+	reqs.mutex.Unlock()
 
 	return req.ID, nil
 }
@@ -91,6 +96,8 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 // doesn't exist in the queue or ErrModificationForbidden if request is in state
 // which can't be closed.
 func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return NotFoundError("Request")
@@ -119,6 +126,8 @@ func modificationPossible(state ReqState) bool {
 // possible. NotFoundError, ErrModificationForbidden or ErrPriority (if given
 // priority is out of bounds) may be returned.
 func (reqs *ReqsCollection) SetRequestPriority(reqID ReqID, priority Priority) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return NotFoundError("Request")
@@ -144,6 +153,8 @@ func (reqs *ReqsCollection) SetRequestPriority(reqID ReqID, priority Priority) e
 // must be before deadline of request. Otherwise NotFoundError,
 // ErrModificationForbidden or ErrInvalidTimeRange will be returned.
 func (reqs *ReqsCollection) SetRequestValidAfter(reqID ReqID, validAfter time.Time) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return NotFoundError("Request")
@@ -166,6 +177,8 @@ func (reqs *ReqsCollection) SetRequestValidAfter(reqID ReqID, validAfter time.Ti
 // following errors are returned: NotFoundError, ErrModificationForbidden,
 // ErrDeadlineInThePast and ErrInvalidTimeRange.
 func (reqs *ReqsCollection) SetRequestDeadline(reqID ReqID, deadline time.Time) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return NotFoundError("Request")
@@ -188,6 +201,8 @@ func (reqs *ReqsCollection) SetRequestDeadline(reqID ReqID, deadline time.Time) 
 // ReqInfo for given request ID or NotFoundError if request with given ID doesn't
 // exits in the collection.
 func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
+	reqs.mutex.RLock()
+	defer reqs.mutex.RUnlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return ReqInfo{}, NotFoundError("Request")
@@ -198,6 +213,8 @@ func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
 // ListRequests is part of implementation of Requests interface. It returns slice
 // of ReqInfo that matches ListFilter.
 func (reqs *ReqsCollection) ListRequests(filter ListFilter) ([]ReqInfo, error) {
+	reqs.mutex.RLock()
+	defer reqs.mutex.RUnlock()
 	res := make([]ReqInfo, 0, len(reqs.requests))
 	for _, req := range reqs.requests {
 		if filter == nil || filter.Match(req) {
@@ -211,6 +228,8 @@ func (reqs *ReqsCollection) ListRequests(filter ListFilter) ([]ReqInfo, error) {
 // assigned to the requests then owner of such requests may call AcquireWorker
 // to get all information required to use assigned worker.
 func (reqs *ReqsCollection) AcquireWorker(reqID ReqID) (AccessInfo, error) {
+	reqs.mutex.RLock()
+	defer reqs.mutex.RUnlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return AccessInfo{}, NotFoundError("Request")
@@ -226,6 +245,8 @@ func (reqs *ReqsCollection) AcquireWorker(reqID ReqID) (AccessInfo, error) {
 // the request has acquired worker that to extend time for which the worker is
 // assigned to the request.
 func (reqs *ReqsCollection) ProlongAccess(reqID ReqID) error {
+	reqs.mutex.RLock()
+	defer reqs.mutex.RUnlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return NotFoundError("Request")
