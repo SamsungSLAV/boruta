@@ -48,7 +48,14 @@ func (api *API) newRequestHandler(r *http.Request, ps map[string]string) respons
 // closeRequestHandler parses HTTP request for closing existing Boruta request
 // and calls CloseRequest().
 func (api *API) closeRequestHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "close request")
+	defer r.Body.Close()
+
+	reqid, err := parseReqID(ps["id"])
+	if err != nil {
+		return newServerError(ErrBadID)
+	}
+
+	return newServerError(api.reqs.CloseRequest(reqid))
 }
 
 // updateRequestHandler parses HTTP request for modification of existing Boruta

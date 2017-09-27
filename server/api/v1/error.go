@@ -23,6 +23,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+
+	. "git.tizen.org/tools/boruta"
 )
 
 // serverError represents error that occured while creating response.
@@ -42,7 +44,16 @@ var (
 	ErrInternalServerError = errors.New("internal server error")
 	// ErrBadRequest is returned when User request is invalid.
 	ErrBadRequest = errors.New("invalid request")
+	// ErrBadID is returned when User provided ID which can't be parsed into
+	// uint.
+	ErrBadID = errors.New("ID provided in URL isn't valid")
 )
+
+// isNotFoundError returns true if passed error is of type NotFoundError.
+func isNotFoundError(err error) bool {
+	_, ok := err.(NotFoundError)
+	return ok
+}
 
 // newServerError provides pointer to initialized serverError.
 func newServerError(err error, details ...string) (ret *serverError) {
@@ -55,6 +66,10 @@ func newServerError(err error, details ...string) (ret *serverError) {
 	ret.Err = err.Error()
 	if len(details) > 0 {
 		ret.Err += ": " + details[0]
+	}
+	if isNotFoundError(err) {
+		ret.Status = http.StatusNotFound
+		return
 	}
 
 	switch err {

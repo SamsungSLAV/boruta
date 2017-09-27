@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 
+	. "git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
@@ -36,6 +37,7 @@ import (
 
 const (
 	contentTypeJSON = "application/json"
+	invalidID       = "test"
 	validReqJSON    = `{
 		"ID":1,
 		"State":"WAITING",
@@ -68,6 +70,8 @@ type allMocks struct {
 	wm   *mocks.MockWorkers
 }
 
+// TestTempl variables shouldn't be used directly, but rather as an input for
+// testFromTempl() function.
 var (
 	// malformedJSONTestTempl may be used by functions that need to check
 	// for malformed JSON to initialize test. Every test must set path, name
@@ -79,6 +83,30 @@ var (
 		json:        `{"Priority{}`,
 		contentType: contentTypeJSON,
 		status:      http.StatusBadRequest,
+	}
+
+	// invalidIDTestTempl may be used by functions that need to check for
+	// cases where malformed ID is given in a URL to initialize test.
+	// Every test must set path, name and method appropriately.
+	invalidIDTestTempl = &requestTest{
+		name:        "bad-id",
+		path:        "",
+		methods:     []string{},
+		json:        ``,
+		contentType: contentTypeJSON,
+		status:      http.StatusBadRequest,
+	}
+
+	// notFoundTestTempl may be used by functions that need to check for
+	// not existing requests to initialize test. Every test must set path,
+	// name and method appropriately.
+	notFoundTestTempl = &requestTest{
+		name:        "missing",
+		path:        "",
+		methods:     []string{},
+		json:        ``,
+		contentType: contentTypeJSON,
+		status:      http.StatusNotFound,
 	}
 )
 
@@ -201,11 +229,16 @@ func TestNewServerError(t *testing.T) {
 		Err:    "invalid request: more details",
 		Status: http.StatusBadRequest,
 	}
+	notFound := &serverError{
+		Err:    NotFoundError("Fern Flower").Error(),
+		Status: http.StatusNotFound,
+	}
 	assert.Equal(badRequest, newServerError(errors.New("foo")))
 	assert.Equal(missingBody, newServerError(io.EOF))
 	assert.Equal(notImplemented, newServerError(ErrNotImplemented))
 	assert.Equal(internalErr, newServerError(ErrInternalServerError))
 	assert.Equal(customErr, newServerError(ErrBadRequest, "more details"))
+	assert.Equal(notFound, newServerError(NotFoundError("Fern Flower")))
 	assert.Nil(newServerError(nil))
 }
 
@@ -269,4 +302,13 @@ func TestPanicHandler(t *testing.T) {
 		assert.Equal(contentType, resp.Header.Get("Content-Type"), tcaseErrStr)
 		assert.Equal(expected, body, tcaseErrStr)
 	}
+}
+
+func TestParseReqID(t *testing.T) {
+	assert := assert.New(t)
+	reqid, err := parseReqID("1")
+	assert.Nil(err)
+	assert.Equal(ReqID(1), reqid)
+	_, err = parseReqID(invalidID)
+	assert.NotNil(err)
 }

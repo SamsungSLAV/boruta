@@ -17,6 +17,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -72,15 +73,29 @@ func TestCloseRequestHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	methods := []string{http.MethodPost}
+	pathfmt := "/api/v1/reqs/%s/close"
+	prefix := "close-req-"
+
+	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, fmt.Sprintf(pathfmt, invalidID), methods...)
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(pathfmt, "2"), methods...)
+	m.rq.EXPECT().CloseRequest(ReqID(1)).Return(nil)
+	m.rq.EXPECT().CloseRequest(ReqID(2)).Return(NotFoundError("Request"))
+
 	tests := []requestTest{
+		// Close valid request in state WAIT (cancel).
 		{
-			name:        "close-req",
-			path:        "/api/v1/reqs/8/close",
-			methods:     []string{http.MethodPost},
+			name:        prefix + "valid",
+			path:        fmt.Sprintf(pathfmt, "1"),
+			methods:     methods,
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusNoContent,
 		},
+		// Try to close request with invalid ID.
+		invalidIDTest,
+		// Try to close request which doesn't exist.
+		notFoundTest,
 	}
 
 	runTests(assert, api, tests)

@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	. "git.tizen.org/tools/boruta"
 	"github.com/dimfeld/httptreemux"
@@ -145,4 +146,9 @@ func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests) (api *API) {
 		http.MethodGet, http.MethodHead)
 
 	return
+}
+
+func parseReqID(id string) (ReqID, error) {
+	reqid, err := strconv.ParseUint(id, 10, 64)
+	return ReqID(reqid), err
 }
