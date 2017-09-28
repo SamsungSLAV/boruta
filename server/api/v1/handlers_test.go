@@ -123,15 +123,33 @@ func TestGetRequestInfoHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	methods := []string{http.MethodGet, http.MethodHead}
+	prefix := "req-info-"
+	path := "/api/v1/reqs/"
+
+	var req ReqInfo
+	err := json.Unmarshal([]byte(validReqJSON), &req)
+	assert.Nil(err)
+
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+"2", methods...)
+	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, path+invalidID, methods...)
+	m.rq.EXPECT().GetRequestInfo(ReqID(1)).Return(req, nil).Times(2)
+	m.rq.EXPECT().GetRequestInfo(ReqID(2)).Return(ReqInfo{}, NotFoundError("Request")).Times(2)
+
 	tests := []requestTest{
+		// Get information of existing request.
 		{
 			name:        "req-info",
-			path:        "/api/v1/reqs/8",
-			methods:     []string{http.MethodGet, http.MethodHead},
+			path:        path + "1",
+			methods:     methods,
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		// Try to get request information of request that doesn't exist.
+		notFoundTest,
+		// Try to get request with invalid ID.
+		invalidIDTest,
 	}
 
 	runTests(assert, api, tests)

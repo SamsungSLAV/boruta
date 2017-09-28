@@ -68,7 +68,19 @@ func (api *API) updateRequestHandler(r *http.Request, ps map[string]string) resp
 // getRequestInfoHandler parses HTTP request for getting information about Boruta
 // request and calls GetRequestInfo().
 func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "get request info")
+	defer r.Body.Close()
+
+	reqid, err := parseReqID(ps["id"])
+	if err != nil {
+		return newServerError(ErrBadID)
+	}
+
+	reqinfo, err := api.reqs.GetRequestInfo(reqid)
+	if err != nil {
+		return newServerError(err)
+	}
+
+	return reqinfo
 }
 
 // listRequestsHandler parses HTTP request for listing Boruta requests and calls
