@@ -19,7 +19,9 @@
 package v1
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net/http"
 
@@ -111,7 +113,26 @@ func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) respo
 // acquireWorkerHandler parses HTTP request for acquiring worker for Boruta
 // request and calls AcquireWorker().
 func (api *API) acquireWorkerHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "acquire worker")
+	defer r.Body.Close()
+
+	reqid, err := parseReqID(ps["id"])
+	if err != nil {
+		return newServerError(ErrBadID)
+	}
+
+	accessInfo, err := api.reqs.AcquireWorker(reqid)
+	if err != nil {
+		return newServerError(err)
+	}
+	key := string(pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(&accessInfo.Key),
+	}))
+	return AccessInfo2{
+		Addr:     accessInfo.Addr,
+		Key:      key,
+		Username: accessInfo.Username,
+	}
 }
 
 // prolongAccessHandler parses HTTP request for prolonging previously acquired

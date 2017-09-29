@@ -16,9 +16,12 @@
 package v1
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -269,15 +272,40 @@ func TestAcquireWorkerHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	methods := []string{http.MethodPost}
+	prefix := "acquire-worker-"
+	pathfmt := "/api/v1/reqs/%s/acquire_worker"
+
+	keyPem := "-----BEGIN RSA PRIVATE KEY-----\nMIICXgIBAAKBgQCyBgKbrwKh75BDoigwltbazFGDLdlxf9YLpFj5v+4ieKgsaN+W\n+kRvamSuB5CC2tqFql5x7kPt1U+vVMwkzVRewF/HHzRYxgLHlge6d1ZALpCWywaz\nslt5pNCmF7NoZ//WTSrafufDI4IRoNgkHtEKvnWdBaPPnY4Cf+PCbZOYNQIDAQAB\nAoGBAJvoz5fxKekQmdPhzDjhocF1d13fZbQVNSx0/seb476k1QQvxMHA5PZ+wzX2\nwgUYDpFJp/U3qp48VtFC/pasjNoG7zLPLLUJcg15eOoh4Ld7I1e4lRkLl3CwnqMk\nbc6UoKQRLli4O3cmaMxVHXal0o72s3o0qnHlRlZXLekwi6aBAkEA69j3bnbAybsF\n/NHelRYDH8bou+LCX2d/p6ReUR0bJ4yCAWRi/9Ld0ng482xinxGSpfovbIplBMFx\nH2eT2Cw0OQJBAME8LLz/3zb/vLG/t8Lfsequ1ZhVca/LlVR4yJLlyaVcywT9SJlO\nmKCy13SpKl8TY7czyufYrY4lobZjYaIsm90CQQCKhkRGWG/BzRymMyp2DJjHKFB4\nUqbx3FuJPqy7HcpeP1P4t1rCgbsSLNTefRGr9mlZHYqPSPYuheQImxCmTshZAkEA\nwAp5u+vfft1yPoT2r+l4/G99P8PLFJcTdbwEOlm8qWcrLW47dIE0FqEml3536b1v\nYGdMxFYHRjoIGSdzpKUI0QJAAqPdDp+y7kWaeIbKkp3Z3bLrj5wii2QAy2YlBDKe\npXrvruWJvL75OCYcxRju3DpVaoYqEmso+UEiQEDRB42YYg==\n-----END RSA PRIVATE KEY-----\n"
+	block, _ := pem.Decode([]byte(keyPem))
+	assert.NotNil(block)
+	key, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
+
+	access := AccessInfo{
+		Addr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 22,
+		},
+		Key:      *key,
+		Username: "wołchw",
+	}
+
+	m.rq.EXPECT().AcquireWorker(ReqID(1)).Return(access, nil)
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(pathfmt, "2"), methods...)
+	m.rq.EXPECT().AcquireWorker(ReqID(2)).Return(AccessInfo{}, NotFoundError("Request"))
+	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, fmt.Sprintf(pathfmt, invalidID), methods...)
+
 	tests := []requestTest{
 		{
-			name:        "acquire-worker",
-			path:        "/api/v1/reqs/8/acquire_worker",
-			methods:     []string{http.MethodPost},
-			json:        ``,
+			name:        prefix + "valid",
+			path:        fmt.Sprintf(pathfmt, "1"),
+			methods:     methods,
+			json:        string(jsonMustMarshal(access)),
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		notFoundTest,
+		invalidIDTest,
 	}
 
 	runTests(assert, api, tests)

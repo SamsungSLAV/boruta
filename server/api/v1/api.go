@@ -22,6 +22,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -36,6 +37,19 @@ type responseData interface{}
 // reqIDPack is used as input for JSON (un)marshaller.
 type reqIDPack struct {
 	ReqID
+}
+
+// AccessInfo2 structure is used by HTTP instead of AccessInfo when acquiring
+// worker. The only difference is that key field is in PEM format instead of
+// rsa.PrivateKey. It is temporary solution - session private keys will be
+// replaces with users' public keys when proper user support is added.
+type AccessInfo2 struct {
+	// Addr is necessary information to connect to a tunnel to Dryad.
+	Addr net.Addr
+	// Key is private RSA key in PEM format.
+	Key string
+	// Username is a login name for the job session.
+	Username string
 }
 
 // reqHandler denotes function that parses HTTP request and returns responseData.
