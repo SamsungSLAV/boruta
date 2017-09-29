@@ -38,6 +38,9 @@ import (
 const (
 	contentTypeJSON = "application/json"
 	invalidID       = "test"
+	dateLayout      = "2006-01-02"
+	past            = "1683-09-12"
+	future          = "2222-12-31"
 	validReqJSON    = `{
 		"ID":1,
 		"State":"WAITING",

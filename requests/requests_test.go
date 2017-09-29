@@ -471,7 +471,14 @@ func TestListRequests(t *testing.T) {
 	}
 
 	// Nil filter should return all requests.
+
+	// Nil interface.
 	resp, err := rqueue.ListRequests(nil)
+	assert.Nil(err)
+	checkReqs(reqs, resp)
+	var flt *reqFilter
+	// Concrete type is nil but interface isn't nil.
+	resp, err = rqueue.ListRequests(flt)
 	assert.Nil(err)
 	checkReqs(reqs, resp)
 }

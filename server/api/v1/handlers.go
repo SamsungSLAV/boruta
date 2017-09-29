@@ -20,6 +20,7 @@ package v1
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	. "git.tizen.org/tools/boruta"
@@ -86,7 +87,25 @@ func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) res
 // listRequestsHandler parses HTTP request for listing Boruta requests and calls
 // ListRequests().
 func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "list requests")
+	var filter *RequestFilter
+	defer r.Body.Close()
+
+	if r.Method == http.MethodPost {
+		filter = new(RequestFilter)
+		if err := json.NewDecoder(r.Body).Decode(filter); err != nil {
+			if err != io.EOF {
+				return newServerError(err)
+			}
+			filter = nil
+		}
+	}
+
+	reqs, err := api.reqs.ListRequests(filter)
+	if err != nil {
+		return newServerError(err)
+	}
+
+	return reqs
 }
 
 // acquireWorkerHandler parses HTTP request for acquiring worker for Boruta

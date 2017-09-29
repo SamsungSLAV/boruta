@@ -17,9 +17,11 @@ package v1
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	. "git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/requests"
@@ -159,23 +161,105 @@ func TestListRequestsHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	deadline, err := time.Parse(dateLayout, future)
+	assert.Nil(err)
+	validAfter, err := time.Parse(dateLayout, past)
+	assert.Nil(err)
+	reqs := []ReqInfo{
+		{ID: 1, Priority: (HiPrio + LoPrio) / 2, State: WAIT,
+			Deadline: deadline, ValidAfter: validAfter},
+		{ID: 2, Priority: (HiPrio+LoPrio)/2 + 1, State: WAIT,
+			Deadline: deadline, ValidAfter: validAfter},
+		{ID: 3, Priority: (HiPrio + LoPrio) / 2, State: CANCEL,
+			Deadline: deadline, ValidAfter: validAfter},
+		{ID: 4, Priority: (HiPrio+LoPrio)/2 + 1, State: CANCEL,
+			Deadline: deadline, ValidAfter: validAfter},
+	}
+
+	methods := []string{http.MethodPost}
+	prefix := "filter-reqs-"
+	filterPath := "/api/v1/reqs/list"
+	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
+
+	validFilter := NewRequestFilter("WAIT", "")
+	m.rq.EXPECT().ListRequests(validFilter).Return(reqs[:2], nil)
+
+	emptyFilter := NewRequestFilter("", "")
+	m.rq.EXPECT().ListRequests(emptyFilter).Return(reqs, nil).Times(2)
+	m.rq.EXPECT().ListRequests(nil).Return(reqs, nil).Times(3)
+
+	missingFilter := NewRequestFilter("INVALID", "")
+	m.rq.EXPECT().ListRequests(missingFilter).Return([]ReqInfo{}, nil)
+
+	// Currently ListRequests doesn't return any error hence the meaningless values.
+	badFilter := NewRequestFilter("FAIL", "-1")
+	m.rq.EXPECT().ListRequests(badFilter).Return([]ReqInfo{}, errors.New("foo bar: pizza failed"))
+
 	tests := []requestTest{
+		// Valid filter - list some requests.
+		{
+			name:        prefix + "valid-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(validFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// List all requests.
 		{
 			name:        "list-reqs-all",
 			path:        "/api/v1/reqs/",
 			methods:     []string{http.MethodGet, http.MethodHead},
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		// Empty body - list all requests.
 		{
-			name:        "list-reqs-filter",
-			path:        "/api/v1/reqs/list",
-			methods:     []string{http.MethodPost},
-			json:        ``,
+			name:        prefix + "empty-json",
+			path:        filterPath,
+			methods:     methods,
+			json:        "",
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		// Nil filter - list all requests (same as emptyFilter).
+		{
+			name:        prefix + "nil",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(nil)),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// Empty filter - list all requests.
+		{
+			name:        prefix + "empty",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(emptyFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// No matches
+		{
+			name:        prefix + "nomatch-all",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(missingFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// Error
+		{
+			name:        prefix + "bad-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(badFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		malformedJSONTest,
 	}
 
 	runTests(assert, api, tests)
