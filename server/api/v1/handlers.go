@@ -138,7 +138,14 @@ func (api *API) acquireWorkerHandler(r *http.Request, ps map[string]string) resp
 // prolongAccessHandler parses HTTP request for prolonging previously acquired
 // worker and calls ProlongAccess().
 func (api *API) prolongAccessHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "prolong access")
+	defer r.Body.Close()
+
+	reqid, err := parseReqID(ps["id"])
+	if err != nil {
+		return newServerError(ErrBadID)
+	}
+
+	return newServerError(api.reqs.ProlongAccess(reqid))
 }
 
 // listWorkersHandler parses HTTP request for listing workers and calls ListWorkers().

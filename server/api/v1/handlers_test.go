@@ -315,15 +315,26 @@ func TestProlongAccessHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	methods := []string{http.MethodPost}
+	prefix := "prolong-access-"
+	pathfmt := "/api/v1/reqs/%s/prolong"
+
+	m.rq.EXPECT().ProlongAccess(ReqID(1)).Return(nil)
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(pathfmt, "2"), methods...)
+	m.rq.EXPECT().ProlongAccess(ReqID(2)).Return(NotFoundError("Request"))
+	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, fmt.Sprintf(pathfmt, invalidID), methods...)
+
 	tests := []requestTest{
 		{
-			name:        "prolong-access",
-			path:        "/api/v1/reqs/8/prolong",
-			methods:     []string{http.MethodPost},
-			json:        ``,
+			name:        prefix + "valid",
+			path:        fmt.Sprintf(pathfmt, "1"),
+			methods:     methods,
+			json:        "",
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusNoContent,
 		},
+		notFoundTest,
+		invalidIDTest,
 	}
 
 	runTests(assert, api, tests)
