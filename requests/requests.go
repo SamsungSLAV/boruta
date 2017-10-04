@@ -121,78 +121,57 @@ func modificationPossible(state ReqState) bool {
 	return state == WAIT
 }
 
-// SetRequestPriority is part of implementation of Requests interface. It will
-// change priority for given request ID only if modification of request is
-// possible. NotFoundError, ErrModificationForbidden or ErrPriority (if given
-// priority is out of bounds) may be returned.
-func (reqs *ReqsCollection) SetRequestPriority(reqID ReqID, priority Priority) error {
-	reqs.mutex.Lock()
-	defer reqs.mutex.Unlock()
-	req, ok := reqs.requests[reqID]
-	if !ok {
-		return NotFoundError("Request")
-	}
-	// TODO(mwereski): Check if user has rights to set given priority.
-	if priority < HiPrio || priority > LoPrio {
-		return ErrPriority
-	}
-	if !modificationPossible(req.State) {
-		return ErrModificationForbidden
-	}
-	if priority == req.Priority {
+// UpdateRequest is part of implementation of Requests interface. It may be used
+// to modify ValidAfter, Deadline or Priority of request. Caller should pass
+// pointer to new ReqInfo struct which has any of these fields set. Zero value
+// means that field shouldn't be changed. All fields that cannot be changed are
+// ignored.
+func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
+	if src == nil || (src.Priority == Priority(0) &&
+		src.ValidAfter.IsZero() &&
+		src.Deadline.IsZero()) {
 		return nil
 	}
-	reqs.queue.setRequestPriority(req, priority)
-	req.Priority = priority
-	return nil
-}
-
-// SetRequestValidAfter is part of implementation of Requests interface.
-// It changes date after which request will be sent to worker. Provided time is
-// converted to UTC. Request must exist, must be in WAIT state and given date
-// must be before deadline of request. Otherwise NotFoundError,
-// ErrModificationForbidden or ErrInvalidTimeRange will be returned.
-func (reqs *ReqsCollection) SetRequestValidAfter(reqID ReqID, validAfter time.Time) error {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
-	req, ok := reqs.requests[reqID]
+
+	dst, ok := reqs.requests[src.ID]
 	if !ok {
 		return NotFoundError("Request")
 	}
-	if !modificationPossible(req.State) {
+	if !modificationPossible(dst.State) {
 		return ErrModificationForbidden
 	}
-	if validAfter.After(req.Deadline) && !req.Deadline.IsZero() {
+	if src.Priority == dst.Priority &&
+		src.ValidAfter.Equal(dst.ValidAfter) &&
+		src.Deadline.Equal(dst.Deadline) {
+		return nil
+	}
+	// TODO(mwereski): Check if user has rights to set given priority.
+	if src.Priority != Priority(0) && (src.Priority < HiPrio ||
+		src.Priority > LoPrio) {
+		return ErrPriority
+	}
+	deadline := dst.Deadline
+	if !src.Deadline.IsZero() {
+		if src.Deadline.Before(time.Now().UTC()) {
+			return ErrDeadlineInThePast
+		}
+		deadline = src.Deadline
+	}
+	if (!src.ValidAfter.IsZero()) && !deadline.IsZero() &&
+		src.ValidAfter.After(deadline) {
 		return ErrInvalidTimeRange
 	}
-	req.ValidAfter = validAfter
-	// TODO(mwereski): check if request is ready to go.
-	return nil
-}
 
-// SetRequestDeadline is part of implementation of Requests interface. It changes
-// date before which request must be sent to worker. Provided time is converted
-// to UTC. Request must exist, must be in WAIT state. Given date must be in the
-// future and must be after ValidAfer. In case of not meeting these constrains
-// following errors are returned: NotFoundError, ErrModificationForbidden,
-// ErrDeadlineInThePast and ErrInvalidTimeRange.
-func (reqs *ReqsCollection) SetRequestDeadline(reqID ReqID, deadline time.Time) error {
-	reqs.mutex.Lock()
-	defer reqs.mutex.Unlock()
-	req, ok := reqs.requests[reqID]
-	if !ok {
-		return NotFoundError("Request")
+	if src.Priority != Priority(0) {
+		reqs.queue.setRequestPriority(dst, src.Priority)
+		dst.Priority = src.Priority
 	}
-	if !modificationPossible(req.State) {
-		return ErrModificationForbidden
+	if !src.ValidAfter.IsZero() {
+		dst.ValidAfter = src.ValidAfter
 	}
-	if !deadline.IsZero() && deadline.Before(time.Now().UTC()) {
-		return ErrDeadlineInThePast
-	}
-	if !deadline.IsZero() && deadline.Before(req.ValidAfter) {
-		return ErrInvalidTimeRange
-	}
-	req.Deadline = deadline
+	dst.Deadline = deadline
 	// TODO(mwereski): check if request is ready to go.
 	return nil
 }

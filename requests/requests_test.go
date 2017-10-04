@@ -151,109 +151,83 @@ func TestCloseRequest(t *testing.T) {
 	assert.EqualValues(0, rqueue.queue.length)
 }
 
-func TestSetRequestPriority(t *testing.T) {
+func TestUpdateRequest(t *testing.T) {
 	assert, rqueue := initTest(t)
-	req := requestsTests[0].req
+	tmp := requestsTests[0].req
 
 	// Add valid request.
-	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
+	reqid, err := rqueue.NewRequest(tmp.Caps, tmp.Priority, tmp.Owner, tmp.ValidAfter, tmp.Deadline)
 	assert.Nil(err)
+	req := rqueue.requests[reqid]
+	reqBefore, err := rqueue.GetRequestInfo(reqid)
+	assert.Nil(err)
+	reqUpdate := new(ReqInfo)
+	*reqUpdate = *req
 
-	legalPrio := req.Priority + 1
-	illegalPrio := 2 * LoPrio
-
-	// Change priority of the request to the same value.
-	err = rqueue.SetRequestPriority(reqid, req.Priority)
+	// Check noop.
+	err = rqueue.UpdateRequest(nil)
 	assert.Nil(err)
-	reqinfo, err := rqueue.GetRequestInfo(reqid)
+	reqUpdate.ValidAfter = zeroTime
+	reqUpdate.Deadline = zeroTime
+	reqUpdate.Priority = Priority(0)
+	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Nil(err)
-	assert.Equal(req.Priority, reqinfo.Priority)
-
-	// Change priority of the request.
-	err = rqueue.SetRequestPriority(reqid, legalPrio)
-	assert.Nil(err)
-	reqinfo, err = rqueue.GetRequestInfo(reqid)
-	assert.Nil(err)
-	assert.Equal(legalPrio, reqinfo.Priority)
-
-	// Try to change priority of request that doesn't exist.
-	err = rqueue.SetRequestPriority(req.ID+1, legalPrio)
+	assert.Equal(req, &reqBefore)
+	// Check request that doesn't exist.
+	*reqUpdate = *req
+	reqUpdate.ID++
+	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Equal(NotFoundError("Request"), err)
-	reqinfo, err = rqueue.GetRequestInfo(reqid)
+	reqUpdate.ID = req.ID
+	// Change Priority only.
+	reqUpdate.Priority = req.Priority - 1
+	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Nil(err)
-	assert.Equal(legalPrio, reqinfo.Priority)
-
-	// Try to change priority of request to invalid value.
-	err = rqueue.SetRequestPriority(reqid, illegalPrio)
+	assert.Equal(reqUpdate.Priority, req.Priority)
+	// Change ValidAfter only.
+	reqUpdate.ValidAfter = yesterday
+	err = rqueue.UpdateRequest(reqUpdate)
+	assert.Nil(err)
+	assert.Equal(reqUpdate.ValidAfter, req.ValidAfter)
+	// Change Deadline only.
+	reqUpdate.Deadline = tomorrow.AddDate(0, 0, 1).UTC()
+	err = rqueue.UpdateRequest(reqUpdate)
+	assert.Nil(err)
+	assert.Equal(reqUpdate.Deadline, req.Deadline)
+	// Change Priority, ValidAfter and Deadline.
+	reqUpdate.Deadline = tomorrow
+	reqUpdate.ValidAfter = time.Now().Add(time.Hour)
+	reqUpdate.Priority = LoPrio
+	err = rqueue.UpdateRequest(reqUpdate)
+	assert.Nil(err)
+	assert.Equal(reqUpdate, req)
+	// Change values to the same ones that are already set.
+	err = rqueue.UpdateRequest(reqUpdate)
+	assert.Nil(err)
+	assert.Equal(reqUpdate, req)
+	// Change Priority to illegal value.
+	reqUpdate.Priority = LoPrio + 1
+	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Equal(ErrPriority, err)
-	reqinfo, err = rqueue.GetRequestInfo(reqid)
-	assert.Nil(err)
-	assert.Equal(legalPrio, reqinfo.Priority)
-
-	// Try to change priority of request which is in state that forbid changes.
-	rqueue.requests[reqid].State = INVALID
-	err = rqueue.SetRequestPriority(reqid, legalPrio)
-	assert.EqualValues(ErrModificationForbidden, err)
-	reqinfo, err = rqueue.GetRequestInfo(reqid)
-	assert.Nil(err)
-	assert.Equal(legalPrio, reqinfo.Priority)
-}
-
-func TestSetRequestValidAfter(t *testing.T) {
-	assert, rqueue := initTest(t)
-	req := requestsTests[0].req
-	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
-	assert.Nil(err)
-
-	// Set legal ValidAfter value.
-	err = rqueue.SetRequestValidAfter(reqid, tomorrow)
-	assert.Nil(err)
-	assert.Equal(tomorrow, rqueue.requests[reqid].ValidAfter)
-
-	// Try to set ValidAfter for non-existent request.
-	err = rqueue.SetRequestValidAfter(ReqID(2), tomorrow)
-	assert.Equal(NotFoundError("Request"), err)
-
-	// Try to set ValidAfter newer then Deadline.
-	rqueue.requests[reqid].Deadline = now
-	err = rqueue.SetRequestValidAfter(reqid, tomorrow)
-	assert.Equal(ErrInvalidTimeRange, err)
-
-	// Try to set ValidAfter for request which cannot be modified.
-	rqueue.requests[reqid].State = INVALID
-	err = rqueue.SetRequestValidAfter(reqid, yesterday)
-	assert.EqualValues(ErrModificationForbidden, err)
-}
-
-func TestSetRequestDeadline(t *testing.T) {
-	assert, rqueue := initTest(t)
-	req := requestsTests[0].req
-	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
-	assert.Nil(err)
-
-	// Set legal Deadline value.
-	dayAfter := tomorrow.AddDate(0, 0, 1).UTC()
-	err = rqueue.SetRequestDeadline(reqid, dayAfter)
-	assert.Nil(err)
-	assert.Equal(dayAfter, rqueue.requests[reqid].Deadline)
-
-	// Try to set Deadline for non-existent request.
-	err = rqueue.SetRequestDeadline(ReqID(2), tomorrow)
-	assert.Equal(NotFoundError("Request"), err)
-
-	// Try to set Deadline in the past.
-	err = rqueue.SetRequestDeadline(reqid, yesterday)
+	reqUpdate.Priority = req.Priority
+	//Change Deadline to illegal value.
+	reqUpdate.Deadline = yesterday
+	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Equal(ErrDeadlineInThePast, err)
-
-	// Try to set Deadline before ValidAfter.
-	rqueue.requests[reqid].ValidAfter = dayAfter
-	err = rqueue.SetRequestDeadline(reqid, tomorrow)
+	reqUpdate.Deadline = time.Now().Add(time.Minute)
+	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Equal(ErrInvalidTimeRange, err)
-
-	// Try to set Deadline for request which cannot be modified.
-	rqueue.requests[reqid].State = INVALID
-	err = rqueue.SetRequestDeadline(reqid, tomorrow)
-	assert.EqualValues(ErrModificationForbidden, err)
+	// Change ValidAfer to illegal value.
+	reqUpdate.ValidAfter = req.Deadline.Add(time.Hour)
+	err = rqueue.UpdateRequest(reqUpdate)
+	assert.Equal(ErrInvalidTimeRange, err)
+	// Try to change values for other changes.
+	states := [...]ReqState{INVALID, CANCEL, TIMEOUT, DONE, FAILED, INPROGRESS}
+	for _, state := range states {
+		rqueue.requests[reqid].State = state
+		err = rqueue.UpdateRequest(reqUpdate)
+		assert.Equal(ErrModificationForbidden, err)
+	}
 }
 
 func TestGetRequestInfo(t *testing.T) {
