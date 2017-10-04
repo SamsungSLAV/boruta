@@ -37,11 +37,11 @@ func TestQueue(t *testing.T) {
 		pr Priority
 	}{
 		{ReqID(1), Priority(7)},
-		{ReqID(2), Priority(0)},
-		{ReqID(3), Priority(1)},
+		{ReqID(2), Priority(1)},
+		{ReqID(3), Priority(2)},
 		{ReqID(4), Priority(12)},
-		{ReqID(5), Priority(2)},
-		{ReqID(6), Priority(2)},
+		{ReqID(5), Priority(3)},
+		{ReqID(6), Priority(3)},
 	}
 	sorted := []ReqID{ReqID(2), ReqID(3), ReqID(5), ReqID(6), ReqID(1), ReqID(4)}
 

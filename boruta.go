@@ -72,9 +72,9 @@ type Priority uint8
 
 const (
 	// HiPrio - most important priority (minimum value).
-	HiPrio Priority = 0
+	HiPrio Priority = 1
 	// LoPrio - least important priority (maximum value).
-	LoPrio Priority = 15
+	LoPrio Priority = 16
 )
 
 // UserInfo is a definition of the User or the Admin.
@@ -139,12 +139,9 @@ type Requests interface {
 	// CloseRequest sets the Request's State to CANCEL (removes from the Queue)
 	// or DONE (finishes the Job).
 	CloseRequest(reqID ReqID) error
-	// SetRequestPriority sets the Request's Priority after it has been created.
-	SetRequestPriority(reqID ReqID, priority Priority) error
-	// SetRequestValidAfter sets the Request's ValidAfter after it has been created.
-	SetRequestValidAfter(reqID ReqID, validAfter time.Time) error
-	// SetRequestDeadline sets the Request's Deadline after it has been created.
-	SetRequestDeadline(reqID ReqID, deadline time.Time) error
+	// UpdateRequest modifies existing request. Request can be modified only
+	// when it is in WAIT state.
+	UpdateRequest(reqInfo *ReqInfo) error
 	// GetRequestInfo returns ReqInfo associated with ReqID.
 	GetRequestInfo(reqID ReqID) (ReqInfo, error)
 	// ListRequests returns ReqInfo matching the filter
