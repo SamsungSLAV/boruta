@@ -47,6 +47,9 @@ var (
 	// ErrBadID is returned when User provided ID which can't be parsed into
 	// uint.
 	ErrBadID = errors.New("ID provided in URL isn't valid")
+	// ErrIDMismatch is returned when User provided different ID values in
+	// URL and JSON.
+	ErrIDMismatch = errors.New("request ID set in JSON doesn't match ID from URL")
 )
 
 // isNotFoundError returns true if passed error is of type NotFoundError.

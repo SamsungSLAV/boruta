@@ -65,7 +65,26 @@ func (api *API) closeRequestHandler(r *http.Request, ps map[string]string) respo
 // request and calls appropriate methods: SetRequestValidAfter(),
 // SetRequestDeadline() and SetRequestPriority().
 func (api *API) updateRequestHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "update request")
+	defer r.Body.Close()
+
+	reqid, err := parseReqID(ps["id"])
+	if err != nil {
+		return newServerError(ErrBadID)
+	}
+
+	var req ReqInfo
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return newServerError(err)
+	}
+
+	if req.ID != 0 && req.ID != reqid {
+		return newServerError(ErrIDMismatch)
+	}
+	// When ID wasn't set in JSON (or was set to 0) then it should be set to
+	// the value from URL.
+	req.ID = reqid
+
+	return newServerError(api.reqs.UpdateRequest(&req))
 }
 
 // getRequestInfoHandler parses HTTP request for getting information about Boruta

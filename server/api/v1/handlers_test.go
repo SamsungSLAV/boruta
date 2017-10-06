@@ -110,15 +110,73 @@ func TestUpdateRequestHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	methods := []string{http.MethodPost}
+	path := "/api/v1/reqs/"
+	setPrioJSON := `{"Priority":4}`
+	prefix := "update-req-"
+
+	valid := &ReqInfo{
+		ID:       ReqID(1),
+		Priority: Priority(4),
+	}
+	missing := &ReqInfo{
+		ID:       ReqID(2),
+		Priority: Priority(4),
+	}
+	m.rq.EXPECT().UpdateRequest(valid).Return(nil).Times(2)
+	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, path+"1", methods...)
+	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, path+invalidID, methods...)
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+"2", methods...)
+	notFoundTest.json = setPrioJSON
+	m.rq.EXPECT().UpdateRequest(missing).Return(NotFoundError("Request"))
+
+	var req ReqInfo
+	var err error
+	req.Deadline, err = time.Parse(dateLayout, future)
+	assert.Nil(err)
+	req.ValidAfter, err = time.Parse(dateLayout, past)
+	assert.Nil(err)
+
 	tests := []requestTest{
 		{
-			name:        "update-req",
-			path:        "/api/v1/reqs/8",
-			methods:     []string{http.MethodPost},
+			// valid - only priority in JSON
+			name:        prefix + "prio",
+			path:        path + "1",
+			methods:     methods,
+			json:        setPrioJSON,
+			contentType: contentTypeJSON,
+			status:      http.StatusNoContent,
+		},
+		{
+			// valid - full JSON
+			name:        prefix + "valid",
+			path:        path + "1",
+			methods:     methods,
+			json:        string(jsonMustMarshal(valid)),
+			contentType: contentTypeJSON,
+			status:      http.StatusNoContent,
+		},
+		{
+			// no action
+			name:        prefix + "empty",
+			path:        path + "1",
+			methods:     methods,
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusBadRequest,
 		},
+		{
+			// Request ID mismatch between URL and JSON
+			name:        prefix + "mismatch",
+			path:        path + "2",
+			methods:     methods,
+			json:        string(jsonMustMarshal(valid)),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		malformedJSONTest,
+		invalidIDTest,
+		notFoundTest,
 	}
 
 	runTests(assert, api, tests)
