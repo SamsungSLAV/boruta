@@ -65,10 +65,10 @@ const (
 type Capabilities map[string]string
 
 // ReqID refers to the Request created by the User.
-type ReqID uint
+type ReqID uint64
 
 // Priority is the importance of the Request. Lower - more important.
-type Priority uint
+type Priority uint8
 
 // UserInfo is a definition of the User or the Admin.
 type UserInfo struct{}
