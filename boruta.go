@@ -85,7 +85,10 @@ const (
 )
 
 // UserInfo is a definition of the User or the Admin.
-type UserInfo struct{}
+type UserInfo struct {
+	// Groups defines workers group that are accessible for user's requests.
+	Groups Groups
+}
 
 // ReqInfo describes the Request.
 type ReqInfo struct {
