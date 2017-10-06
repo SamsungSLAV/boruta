@@ -115,7 +115,6 @@ type WorkerInfo struct {
 	State      WorkerState
 	Groups     Groups
 	Caps       Capabilities
-	AccessInfo AccessInfo
 }
 
 // ListFilter is used to filter Requests in the Queue.
