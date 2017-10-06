@@ -17,6 +17,10 @@
 package workers
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"net"
+
 	. "git.tizen.org/tools/boruta"
 
 	. "github.com/onsi/ginkgo"
@@ -444,6 +448,75 @@ var _ = Describe("WorkerList", func() {
 				workerInfo, err := wl.GetWorkerInfo(worker)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(workerInfo).To(Equal(wl.workers[worker].WorkerInfo))
+			})
+		})
+
+		Describe("Setters and Getters", func() {
+			type genericGet func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error)
+			getIP := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+				item, err := wl.GetWorkerIP(uuid)
+				if expectedErr != nil {
+					Expect(item).To(BeNil())
+					Expect(err).To(Equal(expectedErr))
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(item).To(Equal(expectedItem.(net.IP)))
+			})
+			getKey := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+				item, err := wl.GetWorkerKey(uuid)
+				if expectedErr != nil {
+					Expect(err).To(Equal(expectedErr))
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(&item).To(Equal(expectedItem.(*rsa.PrivateKey)))
+			})
+			getters := []genericGet{getIP, getKey}
+
+			type genericSet func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{}
+			setIP := genericSet(func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{} {
+				ip := net.IP{255, 255, 255, 255}
+				err := wl.SetWorkerIP(uuid, ip)
+				if expectedErr != nil {
+					Expect(err).To(Equal(expectedErr))
+					return nil
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return ip
+			})
+			setKey := genericSet(func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{} {
+				key, err := rsa.GenerateKey(rand.Reader, 128)
+				Expect(err).ToNot(HaveOccurred())
+				err = wl.SetWorkerKey(uuid, key)
+				if expectedErr != nil {
+					Expect(err).To(Equal(expectedErr))
+					return nil
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return key
+			})
+			setters := []genericSet{setIP, setKey}
+
+			It("should fail to get information of nonexistent worker", func() {
+				uuid := randomUUID()
+				for _, fn := range getters {
+					fn(wl, uuid, nil, ErrWorkerNotFound)
+				}
+			})
+
+			It("should fail to set information of nonexistent worker", func() {
+				uuid := randomUUID()
+				for _, fn := range setters {
+					fn(wl, uuid, ErrWorkerNotFound)
+				}
+			})
+
+			It("should work to set and get information", func() {
+				for i, set := range setters {
+					get := getters[i]
+					get(wl, worker, set(wl, worker, nil), nil)
+				}
 			})
 		})
 	})

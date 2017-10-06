@@ -18,6 +18,9 @@
 package workers
 
 import (
+	"crypto/rsa"
+	"net"
+
 	. "git.tizen.org/tools/boruta"
 )
 
@@ -28,6 +31,8 @@ const UUID string = "UUID"
 // (public and private) structures representing Worker.
 type mapWorker struct {
 	WorkerInfo
+	ip  net.IP
+	key *rsa.PrivateKey
 }
 
 // WorkerList implements Superviser and Workers interfaces.
@@ -229,4 +234,47 @@ func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
 		return WorkerInfo{}, ErrWorkerNotFound
 	}
 	return worker.WorkerInfo, nil
+}
+
+// SetWorkerIP stores ip in the worker structure referenced by uuid.
+// It should be called after Register by function which is aware of
+// the source of the connection and therefore its IP address.
+func (wl *WorkerList) SetWorkerIP(uuid WorkerUUID, ip net.IP) error {
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	worker.ip = ip
+	return nil
+}
+
+// GetWorkerIP retrieves IP address from the internal structure.
+func (wl *WorkerList) GetWorkerIP(uuid WorkerUUID) (net.IP, error) {
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return nil, ErrWorkerNotFound
+	}
+	return worker.ip, nil
+}
+
+// SetWorkerKey stores private key in the worker structure referenced by uuid.
+// It is safe to modify key after call to this function.
+func (wl *WorkerList) SetWorkerKey(uuid WorkerUUID, key *rsa.PrivateKey) error {
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	// Copy key so that it couldn't be changed outside this function.
+	worker.key = new(rsa.PrivateKey)
+	*worker.key = *key
+	return nil
+}
+
+// GetWorkerKey retrieves key from the internal structure.
+func (wl *WorkerList) GetWorkerKey(uuid WorkerUUID) (rsa.PrivateKey, error) {
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return rsa.PrivateKey{}, ErrWorkerNotFound
+	}
+	return *worker.key, nil
 }
