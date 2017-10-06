@@ -24,18 +24,24 @@ import (
 // UUID denotes a key in Capabilities where WorkerUUID is stored.
 const UUID string = "UUID"
 
+// mapWorker is used by WorkerList to store all
+// (public and private) structures representing Worker.
+type mapWorker struct {
+	WorkerInfo
+}
+
 // WorkerList implements Superviser and Workers interfaces.
 // It manages a list of Workers.
 type WorkerList struct {
 	Superviser
 	Workers
-	workers map[WorkerUUID]*WorkerInfo
+	workers map[WorkerUUID]*mapWorker
 }
 
 // NewWorkerList returns a new WorkerList with all fields set.
 func NewWorkerList() *WorkerList {
 	return &WorkerList{
-		workers: make(map[WorkerUUID]*WorkerInfo),
+		workers: make(map[WorkerUUID]*mapWorker),
 	}
 }
 
@@ -52,11 +58,12 @@ func (wl *WorkerList) Register(caps Capabilities) error {
 		// Subsequent Register calls update the caps.
 		worker.Caps = caps
 	} else {
-		wl.workers[uuid] = &WorkerInfo{
-			WorkerUUID: uuid,
-			State:      MAINTENANCE,
-			Caps:       caps,
-		}
+		wl.workers[uuid] = &mapWorker{
+			WorkerInfo: WorkerInfo{
+				WorkerUUID: uuid,
+				State:      MAINTENANCE,
+				Caps:       caps,
+			}}
 	}
 	return nil
 }
@@ -119,10 +126,10 @@ func (wl *WorkerList) Deregister(uuid WorkerUUID) error {
 
 // convertToSlice converts given map to slice.
 // It is a helper function of ListWorkers.
-func convertToSlice(workers map[WorkerUUID]*WorkerInfo) []WorkerInfo {
+func convertToSlice(workers map[WorkerUUID]*mapWorker) []WorkerInfo {
 	all := make([]WorkerInfo, 0, len(workers))
 	for _, worker := range workers {
-		all = append(all, *worker)
+		all = append(all, worker.WorkerInfo)
 	}
 	return all
 }
@@ -221,5 +228,5 @@ func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
 	if !ok {
 		return WorkerInfo{}, ErrWorkerNotFound
 	}
-	return *worker, nil
+	return worker.WorkerInfo, nil
 }

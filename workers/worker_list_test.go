@@ -299,13 +299,13 @@ var _ = Describe("WorkerList", func() {
 				err = wl.SetGroups(workerID, groups)
 				Expect(err).ToNot(HaveOccurred())
 
-				return *wl.workers[workerID]
+				return wl.workers[workerID].WorkerInfo
 			}
 
 			BeforeEach(func() {
 				refWorkerList = make([]WorkerInfo, 1)
 				// Add worker with minimal caps and empty groups.
-				refWorkerList[0] = *wl.workers[worker]
+				refWorkerList[0] = wl.workers[worker].WorkerInfo
 				// Add worker with both groups and caps declared.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
 					Groups{"all", "small_1", "small_2"},
@@ -443,7 +443,7 @@ var _ = Describe("WorkerList", func() {
 			It("should work to GetWorkerInfo", func() {
 				workerInfo, err := wl.GetWorkerInfo(worker)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(workerInfo).To(Equal(*wl.workers[worker]))
+				Expect(workerInfo).To(Equal(wl.workers[worker].WorkerInfo))
 			})
 		})
 	})
