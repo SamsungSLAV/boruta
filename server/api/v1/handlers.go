@@ -175,7 +175,18 @@ func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) respon
 // getWorkerInfoHandler parses HTTP request for obtaining worker information and
 // calls GetWorkerInfo().
 func (api *API) getWorkerInfoHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "get worker info")
+	defer r.Body.Close()
+
+	if !isValidUUID(ps["id"]) {
+		return newServerError(ErrBadUUID)
+	}
+
+	workerinfo, err := api.workers.GetWorkerInfo(WorkerUUID(ps["id"]))
+	if err != nil {
+		return newServerError(err)
+	}
+
+	return workerinfo
 }
 
 // setWorkerStateHandler parses HTTP workers for setting worker state and calls

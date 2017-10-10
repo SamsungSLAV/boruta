@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	. "git.tizen.org/tools/boruta"
@@ -61,6 +62,9 @@ type API struct {
 	reqs    Requests
 	workers Workers
 }
+
+// uuidRE matches only valid UUID strings.
+var uuidRE = regexp.MustCompile("^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$")
 
 // jsonMustMarshal tries to marshal responseData to JSON. Panics if error occurs.
 // TODO(mwereski): check type of data.
@@ -176,4 +180,9 @@ func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests,
 func parseReqID(id string) (ReqID, error) {
 	reqid, err := strconv.ParseUint(id, 10, 64)
 	return ReqID(reqid), err
+}
+
+// isValidUUID checks if given string is properly formatted UUID.
+func isValidUUID(id string) bool {
+	return uuidRE.MatchString(id)
 }

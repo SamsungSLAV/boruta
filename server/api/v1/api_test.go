@@ -41,6 +41,8 @@ const (
 	dateLayout      = "2006-01-02"
 	past            = "1683-09-12"
 	future          = "2222-12-31"
+	validUUID       = "ec4898ac-0853-407c-8501-cbb24ef6bd77"
+	missingUUID     = "8f8ade90-a319-4275-9407-977ca3e9607c"
 	validReqJSON    = `{
 		"ID":1,
 		"State":"WAITING",
@@ -142,6 +144,16 @@ func testFromTempl(templ *requestTest, name string, path string,
 		ret.methods = methods
 	}
 	return
+}
+
+func newWorker(uuid string, state WorkerState) WorkerInfo {
+	caps := make(Capabilities)
+	caps["UUID"] = uuid
+	return WorkerInfo{
+		WorkerUUID: WorkerUUID(uuid),
+		State:      state,
+		Caps:       caps,
+	}
 }
 
 func runTests(assert *assert.Assertions, api *API, tests []requestTest) {
@@ -314,4 +326,10 @@ func TestParseReqID(t *testing.T) {
 	assert.Equal(ReqID(1), reqid)
 	_, err = parseReqID(invalidID)
 	assert.NotNil(err)
+}
+
+func TestIsValidUUID(t *testing.T) {
+	assert := assert.New(t)
+	assert.True(isValidUUID(validUUID))
+	assert.False(isValidUUID(invalidID))
 }

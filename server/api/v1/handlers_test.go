@@ -428,15 +428,34 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	prefix := "worker-info-"
+	path := "/api/v1/workers/"
+	methods := []string{http.MethodGet, http.MethodHead}
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+missingUUID, methods...)
+
+	worker := newWorker(validUUID, IDLE)
+	missingErr := NotFoundError("Worker")
+	m.wm.EXPECT().GetWorkerInfo(WorkerUUID(validUUID)).Return(worker, nil).Times(2)
+	m.wm.EXPECT().GetWorkerInfo(WorkerUUID(missingUUID)).Return(WorkerInfo{}, missingErr).Times(2)
+
 	tests := []requestTest{
 		{
-			name:        "worker-info",
-			path:        "/api/v1/workers/8",
-			methods:     []string{http.MethodGet, http.MethodHead},
+			name:        prefix + "valid",
+			path:        path + validUUID,
+			methods:     methods,
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		{
+			name:        prefix + "bad-uuid",
+			path:        path + invalidID,
+			methods:     methods,
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		notFoundTest,
 	}
 
 	runTests(assert, api, tests)

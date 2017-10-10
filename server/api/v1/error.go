@@ -47,6 +47,8 @@ var (
 	// ErrBadID is returned when User provided ID which can't be parsed into
 	// uint.
 	ErrBadID = errors.New("ID provided in URL isn't valid")
+	// ErrBadUUID is returned when User provided ID which isn't valid UUID.
+	ErrBadUUID = errors.New("ID provided in URL isn't valid UUID")
 	// ErrIDMismatch is returned when User provided different ID values in
 	// URL and JSON.
 	ErrIDMismatch = errors.New("request ID set in JSON doesn't match ID from URL")
