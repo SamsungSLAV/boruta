@@ -25,11 +25,12 @@ import (
 )
 
 // ReqsCollection contains information (also historical) about handled requests.
-// It implements Requests interface.
+// It implements Requests and RequestsManager interfaces.
 type ReqsCollection struct {
-	requests map[ReqID]*ReqInfo
-	queue    *prioQueue
-	mutex    *sync.RWMutex
+	requests  map[ReqID]*ReqInfo
+	queue     *prioQueue
+	mutex     *sync.RWMutex
+	iterating bool
 }
 
 // NewRequestQueue provides initialized priority queue for requests.
@@ -90,11 +91,20 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 	return req.ID, nil
 }
 
-// CloseRequest is part of implementation of Requests interface. It checks that
-// request is in WAIT state and changes it to CANCEL or in INPROGRESS state and
-// changes it to DONE. NotFoundError may be returned if request with given reqID
-// doesn't exist in the queue or ErrModificationForbidden if request is in state
-// which can't be closed.
+// closeRequest is an internal ReqsCollection method for closing running request.
+// It is used by both Close and CloseRequest methods after verification that
+// all required conditions to close request are met.
+// The method must be called in reqs.mutex critical section.
+func (reqs *ReqsCollection) closeRequest(req *ReqInfo) {
+	req.State = DONE
+	// TODO(mwereski): release worker
+}
+
+// CloseRequest is part of implementation of Requests interface.
+// It checks that request is in WAIT state and changes it to CANCEL or
+// in INPROGRESS state and changes it to DONE. NotFoundError may be returned
+// if request with given reqID doesn't exist in the queue
+// or ErrModificationForbidden if request is in state which can't be closed.
 func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
@@ -107,8 +117,7 @@ func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
 		req.State = CANCEL
 		reqs.queue.removeRequest(req)
 	case INPROGRESS:
-		req.State = DONE
-		// TODO(mwereski): release worker
+		reqs.closeRequest(req)
 	default:
 		return ErrModificationForbidden
 	}
@@ -182,11 +191,7 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
 	reqs.mutex.RLock()
 	defer reqs.mutex.RUnlock()
-	req, ok := reqs.requests[reqID]
-	if !ok {
-		return ReqInfo{}, NotFoundError("Request")
-	}
-	return *req, nil
+	return reqs.Get(reqID)
 }
 
 // ListRequests is part of implementation of Requests interface. It returns slice
@@ -234,5 +239,124 @@ func (reqs *ReqsCollection) ProlongAccess(reqID ReqID) error {
 		return ErrWorkerNotAssigned
 	}
 	// TODO(mwereski): prolong access
+	return nil
+}
+
+// InitIteration initializes queue iterator and sets global lock for requests
+// structures. It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) InitIteration() error {
+	reqs.mutex.Lock()
+	if reqs.iterating {
+		reqs.mutex.Unlock()
+		return ErrInternalLogicError
+	}
+	reqs.queue.initIterator()
+	reqs.iterating = true
+	return nil
+}
+
+// TerminateIteration releases queue iterator if iterations are in progress
+// and release global lock for requests structures.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) TerminateIteration() {
+	if reqs.iterating {
+		reqs.queue.releaseIterator()
+		reqs.iterating = false
+	}
+	reqs.mutex.Unlock()
+}
+
+// Next gets next ID from request queue. Method returns {ID, true} if there is
+// pending request or {ReqID(0), false} if queue's end has been reached.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Next() (ReqID, bool) {
+	if reqs.iterating {
+		return reqs.queue.next()
+	}
+	panic("Should never call Next(), when not iterating")
+}
+
+// VerifyIfReady checks if the request is ready to be run on worker.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) VerifyIfReady(rid ReqID, now time.Time) bool {
+	req, ok := reqs.requests[rid]
+	return ok && req.State == WAIT && req.Deadline.After(now) && !req.ValidAfter.After(now)
+}
+
+// Get retrieves request's information structure for request with given ID.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Get(rid ReqID) (ReqInfo, error) {
+	req, ok := reqs.requests[rid]
+	if !ok {
+		return ReqInfo{}, NotFoundError("Request")
+	}
+	return *req, nil
+}
+
+// Timeout sets request to TIMEOUT state after Deadline time is exceeded.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Timeout(rid ReqID) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
+	req, ok := reqs.requests[rid]
+	if !ok {
+		return NotFoundError("Request")
+	}
+	if req.State != WAIT || req.Deadline.After(time.Now()) {
+		return ErrModificationForbidden
+	}
+	req.State = TIMEOUT
+	reqs.queue.removeRequest(req)
+	return nil
+}
+
+// Close verifies if request time has been exceeded and if so closes it.
+// If request is still valid to continue it's job an error is returned.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Close(reqID ReqID) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
+	req, ok := reqs.requests[reqID]
+	if !ok {
+		return NotFoundError("Request")
+	}
+	if req.State != INPROGRESS {
+		return ErrModificationForbidden
+	}
+	if req.Job == nil {
+		// TODO log a critical logic error. Job should be assigned to the request
+		// in INPROGRESS state.
+		return ErrInternalLogicError
+	}
+	if req.Job.Timeout.After(time.Now()) {
+		// Request prolonged not yet ready to be closed because of timeout.
+		return ErrModificationForbidden
+	}
+
+	reqs.closeRequest(req)
+
+	return nil
+}
+
+// Run starts job performing the request on the worker.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Run(rid ReqID, worker WorkerUUID) error {
+	req, ok := reqs.requests[rid]
+	if !ok {
+		return NotFoundError("Request")
+	}
+
+	if req.State != WAIT {
+		return ErrModificationForbidden
+	}
+	req.State = INPROGRESS
+
+	if reqs.iterating {
+		reqs.queue.releaseIterator()
+		reqs.iterating = false
+	}
+	reqs.queue.removeRequest(req)
+
+	// TODO(lwojciechow) assign req.Job.
 	return nil
 }
