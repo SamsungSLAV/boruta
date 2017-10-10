@@ -177,3 +177,21 @@ func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) respon
 func (api *API) getWorkerInfoHandler(r *http.Request, ps map[string]string) responseData {
 	return newServerError(ErrNotImplemented, "get worker info")
 }
+
+// setWorkerStateHandler parses HTTP workers for setting worker state and calls
+// workers.SetState().
+func (api *API) setWorkerStateHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "set worker state")
+}
+
+// setWorkerGroupsHandler parses HTTP workers for setting worker groups and calls
+// workers.SetGroups().
+func (api *API) setWorkerGroupsHandler(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "set worker groups")
+}
+
+// workerDeregister parses HTTP workers for deregistering worker state and calls
+// workers.Deregister().
+func (api *API) workerDeregister(r *http.Request, ps map[string]string) responseData {
+	return newServerError(ErrNotImplemented, "deregister worker")
+}

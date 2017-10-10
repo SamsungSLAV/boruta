@@ -57,8 +57,9 @@ type reqHandler func(*http.Request, map[string]string) responseData
 
 // API provides HTTP API handlers.
 type API struct {
-	r    *httptreemux.TreeMux
-	reqs Requests
+	r       *httptreemux.TreeMux
+	reqs    Requests
+	workers Workers
 }
 
 // jsonMustMarshal tries to marshal responseData to JSON. Panics if error occurs.
@@ -121,10 +122,12 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 
 // NewAPI takes router and registers HTTP API in it. httptreemux.PanicHandler
 // function is set. Also other setting of the router may be modified.
-func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests) (api *API) {
+func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests,
+	workersAPI Workers) (api *API) {
 	api = new(API)
 
 	api.reqs = requestsAPI
+	api.workers = workersAPI
 
 	api.r = router
 	api.r.PanicHandler = panicHandler
@@ -158,6 +161,14 @@ func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests) (api *API) {
 		http.MethodPost)
 	routerSetHandler(workers, "/:id", api.getWorkerInfoHandler, http.StatusOK,
 		http.MethodGet, http.MethodHead)
+
+	// Workers API - Admin part
+	routerSetHandler(workers, "/:id/setstate", api.setWorkerStateHandler,
+		http.StatusNoContent, http.MethodPost)
+	routerSetHandler(workers, "/:id/setgroups", api.setWorkerGroupsHandler,
+		http.StatusNoContent, http.MethodPost)
+	routerSetHandler(workers, "/:id/deregister", api.workerDeregister,
+		http.StatusNoContent, http.MethodPost)
 
 	return
 }

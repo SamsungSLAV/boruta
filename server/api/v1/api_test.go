@@ -126,7 +126,7 @@ func initTest(t *testing.T) (*assert.Assertions, *allMocks, *API) {
 		rq:   mocks.NewMockRequests(ctrl),
 		wm:   mocks.NewMockWorkers(ctrl),
 	}
-	return assert.New(t), m, NewAPI(httptreemux.New(), m.rq)
+	return assert.New(t), m, NewAPI(httptreemux.New(), m.rq, m.wm)
 }
 
 func (m *allMocks) finish() {

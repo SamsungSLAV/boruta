@@ -441,3 +441,57 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 
 	runTests(assert, api, tests)
 }
+
+func TestSetWorkerStateHandler(t *testing.T) {
+	assert, m, api := initTest(t)
+	defer m.finish()
+
+	tests := []requestTest{
+		{
+			name:        "worker-set-state",
+			path:        "/api/v1/workers/8/setstate",
+			methods:     []string{http.MethodPost},
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusNotImplemented,
+		},
+	}
+
+	runTests(assert, api, tests)
+}
+
+func TestSetWorkerGroupsHandler(t *testing.T) {
+	assert, m, api := initTest(t)
+	defer m.finish()
+
+	tests := []requestTest{
+		{
+			name:        "worker-set-groups",
+			path:        "/api/v1/workers/8/setgroups",
+			methods:     []string{http.MethodPost},
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusNotImplemented,
+		},
+	}
+
+	runTests(assert, api, tests)
+}
+
+func TestDeregisterWorkerHandler(t *testing.T) {
+	assert, m, api := initTest(t)
+	defer m.finish()
+
+	tests := []requestTest{
+		{
+			name:        "worker-deregister",
+			path:        "/api/v1/workers/8/deregister",
+			methods:     []string{http.MethodPost},
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusNotImplemented,
+		},
+	}
+
+	runTests(assert, api, tests)
+}
