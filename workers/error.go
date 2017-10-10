@@ -18,6 +18,8 @@ package workers
 
 import (
 	"errors"
+
+	. "git.tizen.org/tools/boruta"
 )
 
 var (
@@ -27,7 +29,7 @@ var (
 	// with caps, which do not contain "UUID" field.
 	ErrMissingUUID = errors.New("Capabilities are missing UUID entry")
 	// ErrWorkerNotFound is returned when UUID argument does not match any worker on the list.
-	ErrWorkerNotFound = errors.New("Worker is not present on the list")
+	ErrWorkerNotFound = NotFoundError("Worker")
 	// ErrInMaintenance is returned when SetFail has been called for Worker in MAINTENANCE state.
 	ErrInMaintenance = errors.New("It is forbidden to set FAIL state when Worker is in MAINTENANCE state")
 	// ErrNotInMaintenance is returned when Deregister is called for a worker not in MAINTENANCE state.
