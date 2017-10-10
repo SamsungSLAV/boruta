@@ -183,14 +183,6 @@ type Workers interface {
 	Deregister(uuid WorkerUUID) error
 }
 
-// Server combines all interfaces for regular Users, Admins and Workers
-// It can also implement HTTP API.
-type Server interface {
-	Requests
-	Superviser
-	Workers
-}
-
 // Dryad is a MuxPi management interface used by Boruta.
 type Dryad interface {
 	// PutInMaintenance prepares MuxPi for administrative action.
