@@ -20,6 +20,7 @@ package workers
 import (
 	"crypto/rsa"
 	"net"
+	"sync"
 
 	. "git.tizen.org/tools/boruta"
 )
@@ -41,12 +42,14 @@ type WorkerList struct {
 	Superviser
 	Workers
 	workers map[WorkerUUID]*mapWorker
+	mutex   *sync.RWMutex
 }
 
 // NewWorkerList returns a new WorkerList with all fields set.
 func NewWorkerList() *WorkerList {
 	return &WorkerList{
 		workers: make(map[WorkerUUID]*mapWorker),
+		mutex:   new(sync.RWMutex),
 	}
 }
 
@@ -58,6 +61,8 @@ func (wl *WorkerList) Register(caps Capabilities) error {
 		return ErrMissingUUID
 	}
 	uuid := WorkerUUID(capsUUID)
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, registered := wl.workers[uuid]
 	if registered {
 		// Subsequent Register calls update the caps.
@@ -77,6 +82,8 @@ func (wl *WorkerList) Register(caps Capabilities) error {
 //
 // TODO(amistewicz): WorkerList should process the reason and store it.
 func (wl *WorkerList) SetFail(uuid WorkerUUID, reason string) error {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
@@ -94,6 +101,8 @@ func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
 	if state != MAINTENANCE && state != IDLE {
 		return ErrWrongStateArgument
 	}
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
@@ -108,6 +117,8 @@ func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
 
 // SetGroups is an implementation of SetGroups from Workers interface.
 func (wl *WorkerList) SetGroups(uuid WorkerUUID, groups Groups) error {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
@@ -118,6 +129,8 @@ func (wl *WorkerList) SetGroups(uuid WorkerUUID, groups Groups) error {
 
 // Deregister is an implementation of Deregister from Workers interface.
 func (wl *WorkerList) Deregister(uuid WorkerUUID) error {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
@@ -202,6 +215,8 @@ func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInf
 
 // GetWorkerInfo is an implementation of GetWorkerInfo from Workers interface.
 func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
+	wl.mutex.RLock()
+	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return WorkerInfo{}, ErrWorkerNotFound
@@ -213,6 +228,8 @@ func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
 // It should be called after Register by function which is aware of
 // the source of the connection and therefore its IP address.
 func (wl *WorkerList) SetWorkerIP(uuid WorkerUUID, ip net.IP) error {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
@@ -223,6 +240,8 @@ func (wl *WorkerList) SetWorkerIP(uuid WorkerUUID, ip net.IP) error {
 
 // GetWorkerIP retrieves IP address from the internal structure.
 func (wl *WorkerList) GetWorkerIP(uuid WorkerUUID) (net.IP, error) {
+	wl.mutex.RLock()
+	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return nil, ErrWorkerNotFound
@@ -233,6 +252,8 @@ func (wl *WorkerList) GetWorkerIP(uuid WorkerUUID) (net.IP, error) {
 // SetWorkerKey stores private key in the worker structure referenced by uuid.
 // It is safe to modify key after call to this function.
 func (wl *WorkerList) SetWorkerKey(uuid WorkerUUID, key *rsa.PrivateKey) error {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
@@ -245,6 +266,8 @@ func (wl *WorkerList) SetWorkerKey(uuid WorkerUUID, key *rsa.PrivateKey) error {
 
 // GetWorkerKey retrieves key from the internal structure.
 func (wl *WorkerList) GetWorkerKey(uuid WorkerUUID) (rsa.PrivateKey, error) {
+	wl.mutex.RLock()
+	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return rsa.PrivateKey{}, ErrWorkerNotFound
