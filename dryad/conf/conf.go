@@ -54,6 +54,8 @@ type User struct {
 type General struct {
 	// Address is used to listen for connection from Boruta.
 	Address string `toml:"listen_address"`
+	// BorutaAddress is used to connect to Boruta server.
+	BorutaAddress string `toml:"boruta_address"`
 	// User refers information necessary to create the user.
 	User *User `toml:"user"`
 	// SDcard is a base path to block device of sdcard.

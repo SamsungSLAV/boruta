@@ -28,6 +28,7 @@ import (
 
 var _ = Describe("Conf", func() {
 	marshaled := `listen_address = ":7175"
+boruta_address = ""
 sdcard = "/dev/sdX"
 
 [user]
