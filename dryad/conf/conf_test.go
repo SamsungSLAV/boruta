@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"strings"
 
+	"git.tizen.org/tools/boruta"
 	. "git.tizen.org/tools/boruta/dryad/conf"
 
 	. "github.com/onsi/ginkgo"
@@ -31,12 +32,15 @@ var _ = Describe("Conf", func() {
 boruta_address = ""
 sdcard = "/dev/sdX"
 
+[caps]
+
 [user]
   name = "boruta-user"
   groups = []
 `
 	unmarshaled := &General{
 		Address: ":7175",
+		Caps:    boruta.Capabilities(map[string]string{}),
 		User: &User{
 			Name:   "boruta-user",
 			Groups: []string{},

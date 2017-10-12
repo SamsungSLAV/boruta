@@ -27,6 +27,7 @@ import (
 	"git.tizen.org/tools/boruta/dryad"
 	"git.tizen.org/tools/boruta/dryad/conf"
 	dryad_rpc "git.tizen.org/tools/boruta/rpc/dryad"
+	superviser_rpc "git.tizen.org/tools/boruta/rpc/superviser"
 )
 
 var (
@@ -85,6 +86,13 @@ func main() {
 	exitOnErr("can't start RPC service:", err)
 
 	go srv.Accept(l)
+
+	boruta, err := superviser_rpc.DialSuperviserClient(configuration.BorutaAddress)
+	exitOnErr("failed to initialize connection to boruta:", err)
+	defer boruta.Close()
+
+	err = boruta.Register(configuration.Caps)
+	exitOnErr("failed to register to boruta:", err)
 
 	// Wait for interrupt.
 	c := make(chan os.Signal, 1)
