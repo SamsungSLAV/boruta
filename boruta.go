@@ -64,6 +64,13 @@ const (
 // They are also known as caps.
 type Capabilities map[string]string
 
+// GetWorkerUUID returns WorkerUUID stored in caps.
+//
+// It assumes that "UUID" key is present and should be used only when this fact was verified.
+func (caps Capabilities) GetWorkerUUID() WorkerUUID {
+	return WorkerUUID(caps["UUID"])
+}
+
 // ReqID refers to the Request created by the User.
 type ReqID uint64
 
