@@ -483,15 +483,39 @@ func TestSetWorkerGroupsHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	path := "/api/v1/workers/%s/setgroups"
+	methods := []string{http.MethodPost}
+	prefix := "worker-set-groups-"
+
+	groups := Groups{"foo", "bar"}
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(path, missingUUID), methods...)
+	notFoundTest.json = string(jsonMustMarshal(groups))
+	missingErr := NotFoundError("Worker")
+	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, fmt.Sprintf(path, validUUID), methods...)
+
+	m.wm.EXPECT().SetGroups(WorkerUUID(validUUID), groups).Return(nil)
+	m.wm.EXPECT().SetGroups(WorkerUUID(missingUUID), groups).Return(missingErr)
+
 	tests := []requestTest{
+		// Set valid groups.
 		{
-			name:        "worker-set-groups",
-			path:        "/api/v1/workers/8/setgroups",
-			methods:     []string{http.MethodPost},
-			json:        ``,
-			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			name:    prefix + "valid",
+			path:    fmt.Sprintf(path, validUUID),
+			methods: methods,
+			json:    string(jsonMustMarshal(groups)),
+			status:  http.StatusNoContent,
 		},
+		// invalid UUID
+		{
+			name:        prefix + "bad-uuid",
+			path:        fmt.Sprintf(path, invalidID),
+			methods:     methods,
+			json:        string(jsonMustMarshal(groups)),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		notFoundTest,
+		malformedJSONTest,
 	}
 
 	runTests(assert, api, tests)

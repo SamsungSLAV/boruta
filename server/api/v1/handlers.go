@@ -198,7 +198,17 @@ func (api *API) setWorkerStateHandler(r *http.Request, ps map[string]string) res
 // setWorkerGroupsHandler parses HTTP workers for setting worker groups and calls
 // workers.SetGroups().
 func (api *API) setWorkerGroupsHandler(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "set worker groups")
+	var groups Groups
+	defer r.Body.Close()
+
+	if !isValidUUID(ps["id"]) {
+		return newServerError(ErrBadUUID)
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&groups); err != nil {
+		return newServerError(err)
+	}
+	return newServerError(api.workers.SetGroups(WorkerUUID(ps["id"]), groups))
 }
 
 // workerDeregister parses HTTP workers for deregistering worker state and calls
