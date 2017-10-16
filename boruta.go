@@ -23,6 +23,7 @@ package boruta
 
 import (
 	"crypto/rsa"
+	"net"
 	"time"
 )
 
@@ -112,6 +113,7 @@ type WorkerUUID string
 
 // JobInfo describes the Job.
 type JobInfo struct {
+	// WorkerUUID identifies worker that runs the job.
 	WorkerUUID WorkerUUID
 	// Timeout after which this Job will be terminated.
 	Timeout time.Time
@@ -124,7 +126,14 @@ type Group string
 type Groups []Group
 
 // AccessInfo contains necessary information to access the Worker.
-type AccessInfo struct{}
+type AccessInfo struct {
+	// Addr is necessary information to connect to a tunnel to Dryad.
+	Addr net.Addr
+	// Key is private RSA key of the job session.
+	Key rsa.PrivateKey
+	// Username is a login name for the job session.
+	Username string
+}
 
 // WorkerInfo describes the Worker.
 type WorkerInfo struct {
