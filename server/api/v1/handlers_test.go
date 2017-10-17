@@ -465,15 +465,37 @@ func TestSetWorkerStateHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	prefix := "worker-set-state-"
+	path := "/api/v1/workers/%s/setstate"
+	methods := []string{http.MethodPost}
+
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(path, missingUUID), methods...)
+	notFoundTest.json = string(jsonMustMarshal(workerStatePack{IDLE}))
+	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, fmt.Sprintf(path, validUUID), methods...)
+	missingErr := NotFoundError("Worker")
+
+	m.wm.EXPECT().SetState(WorkerUUID(validUUID), IDLE).Return(nil)
+	m.wm.EXPECT().SetState(WorkerUUID(missingUUID), IDLE).Return(missingErr)
+
 	tests := []requestTest{
 		{
-			name:        "worker-set-state",
-			path:        "/api/v1/workers/8/setstate",
-			methods:     []string{http.MethodPost},
-			json:        ``,
+			name:        prefix + "valid",
+			path:        fmt.Sprintf(path, validUUID),
+			methods:     methods,
+			json:        string(jsonMustMarshal(workerStatePack{IDLE})),
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusNoContent,
 		},
+		{
+			name:        prefix + "bad-uuid",
+			path:        fmt.Sprintf(path, invalidID),
+			methods:     methods,
+			json:        string(jsonMustMarshal(workerStatePack{IDLE})),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		notFoundTest,
+		malformedJSONTest,
 	}
 
 	runTests(assert, api, tests)

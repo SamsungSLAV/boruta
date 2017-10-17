@@ -53,6 +53,11 @@ type AccessInfo2 struct {
 	Username string
 }
 
+// workerStatePack is used as input for JSON (un)marshaller.
+type workerStatePack struct {
+	WorkerState
+}
+
 // reqHandler denotes function that parses HTTP request and returns responseData.
 type reqHandler func(*http.Request, map[string]string) responseData
 
