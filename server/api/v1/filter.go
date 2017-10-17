@@ -25,6 +25,12 @@ import (
 	. "git.tizen.org/tools/boruta"
 )
 
+// WorkersFilter contains Groups and Capabilities to be used to filter workers.
+type WorkersFilter struct {
+	Groups
+	Capabilities
+}
+
 // RequestFilter implements ListFilter interface. Currently it is possible to
 // filter by state and priority.
 type RequestFilter struct {

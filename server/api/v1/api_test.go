@@ -146,14 +146,20 @@ func testFromTempl(templ *requestTest, name string, path string,
 	return
 }
 
-func newWorker(uuid string, state WorkerState) WorkerInfo {
-	caps := make(Capabilities)
+func newWorker(uuid string, state WorkerState, groups Groups, caps Capabilities) (w WorkerInfo) {
+	if caps == nil {
+		caps = make(Capabilities)
+	}
 	caps["UUID"] = uuid
-	return WorkerInfo{
+	w = WorkerInfo{
 		WorkerUUID: WorkerUUID(uuid),
 		State:      state,
 		Caps:       caps,
 	}
+	if len(groups) != 0 {
+		w.Groups = groups
+	}
+	return
 }
 
 func runTests(assert *assert.Assertions, api *API, tests []requestTest) {

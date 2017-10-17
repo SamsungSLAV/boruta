@@ -402,23 +402,118 @@ func TestListWorkersHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	armCaps := make(Capabilities)
+	armCaps["architecture"] = "AArch64"
+	riscvCaps := make(Capabilities)
+	riscvCaps["architecture"] = "RISC-V"
+
+	workers := []WorkerInfo{
+		newWorker("0", IDLE, Groups{"Lędzianie"}, armCaps),
+		newWorker("1", FAIL, Groups{"Malinowy Chruśniak"}, armCaps),
+		newWorker("2", IDLE, Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
+		newWorker("3", FAIL, Groups{"Malinowy Chruśniak"}, riscvCaps),
+	}
+
+	methods := []string{http.MethodPost}
+	prefix := "filter-workers-"
+	filterPath := "/api/v1/workers/list"
+	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
+
+	validFilter := WorkersFilter{
+		Groups:       Groups{"Lędzianie"},
+		Capabilities: map[string]string{"architecture": "AArch64"},
+	}
+	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities).Return(workers[:2], nil)
+
+	m.wm.EXPECT().ListWorkers(nil, nil).Return(workers, nil).MinTimes(1)
+	m.wm.EXPECT().ListWorkers(Groups{}, nil).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(nil, make(Capabilities)).Return(workers, nil)
+
+	missingFilter := WorkersFilter{
+		Groups: Groups{"Fern Flower"},
+	}
+	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities).Return([]WorkerInfo{}, nil)
+
+	// Currently ListWorkers doesn't return any error hence the meaningless values.
+	badFilter := WorkersFilter{
+		Groups: Groups{"Oops"},
+	}
+	m.wm.EXPECT().ListWorkers(badFilter.Groups, badFilter.Capabilities).Return([]WorkerInfo{}, errors.New("foo bar: pizza failed"))
+
 	tests := []requestTest{
+		// Valid filter - list some requests.
+		{
+			name:        prefix + "valid-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(validFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// List all requests.
 		{
 			name:        "list-workers-all",
 			path:        "/api/v1/workers/",
 			methods:     []string{http.MethodGet, http.MethodHead},
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		// Empty body - list all requests.
 		{
-			name:        "list-workers-filter",
-			path:        "/api/v1/workers/list",
-			methods:     []string{http.MethodPost},
+			name:        prefix + "empty-body",
+			path:        filterPath,
+			methods:     methods,
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusOK,
 		},
+		// Empty filter (all nil) - list all requests.
+		{
+			name:        prefix + "empty-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(WorkersFilter{nil, nil})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// Empty filter (nil groups) - list all requests.
+		{
+			name:        prefix + "empty2-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(WorkersFilter{nil, make(Capabilities)})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// Empty filter (nil caps) - list all requests.
+		{
+			name:        prefix + "empty3-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(WorkersFilter{Groups{}, nil})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// No matches.
+		{
+			name:        prefix + "nomatch",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(missingFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// Error.
+		{
+			name:        prefix + "bad-filter",
+			path:        filterPath,
+			methods:     methods,
+			json:        string(jsonMustMarshal(badFilter)),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		malformedJSONTest,
 	}
 
 	runTests(assert, api, tests)
@@ -433,7 +528,7 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 	methods := []string{http.MethodGet, http.MethodHead}
 	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+missingUUID, methods...)
 
-	worker := newWorker(validUUID, IDLE)
+	worker := newWorker(validUUID, IDLE, Groups{}, nil)
 	missingErr := NotFoundError("Worker")
 	m.wm.EXPECT().GetWorkerInfo(WorkerUUID(validUUID)).Return(worker, nil).Times(2)
 	m.wm.EXPECT().GetWorkerInfo(WorkerUUID(missingUUID)).Return(WorkerInfo{}, missingErr).Times(2)
