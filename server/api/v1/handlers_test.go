@@ -547,15 +547,33 @@ func TestDeregisterWorkerHandler(t *testing.T) {
 	assert, m, api := initTest(t)
 	defer m.finish()
 
+	prefix := "worker-deregister-"
+	methods := []string{http.MethodPost}
+	pathfmt := "/api/v1/workers/%s/deregister"
+
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(pathfmt, missingUUID), methods...)
+
+	m.wm.EXPECT().Deregister(WorkerUUID(validUUID)).Return(nil)
+	m.wm.EXPECT().Deregister(WorkerUUID(missingUUID)).Return(NotFoundError("Worker"))
+
 	tests := []requestTest{
 		{
-			name:        "worker-deregister",
-			path:        "/api/v1/workers/8/deregister",
-			methods:     []string{http.MethodPost},
+			name:        prefix + "valid",
+			path:        fmt.Sprintf(pathfmt, validUUID),
+			methods:     methods,
 			json:        ``,
 			contentType: contentTypeJSON,
-			status:      http.StatusNotImplemented,
+			status:      http.StatusNoContent,
 		},
+		{
+			name:        prefix + "bad-uuid",
+			path:        fmt.Sprintf(pathfmt, invalidID),
+			methods:     methods,
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		notFoundTest,
 	}
 
 	runTests(assert, api, tests)

@@ -226,5 +226,11 @@ func (api *API) setWorkerGroupsHandler(r *http.Request, ps map[string]string) re
 // workerDeregister parses HTTP workers for deregistering worker state and calls
 // workers.Deregister().
 func (api *API) workerDeregister(r *http.Request, ps map[string]string) responseData {
-	return newServerError(ErrNotImplemented, "deregister worker")
+	defer r.Body.Close()
+
+	if !isValidUUID(ps["id"]) {
+		return newServerError(ErrBadUUID)
+	}
+
+	return newServerError(api.workers.Deregister(WorkerUUID(ps["id"])))
 }
