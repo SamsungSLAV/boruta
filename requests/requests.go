@@ -408,12 +408,19 @@ func (reqs *ReqsCollection) Run(rid ReqID, worker WorkerUUID) error {
 	}
 	req.State = INPROGRESS
 
+	req.Job = &JobInfo{WorkerUUID: worker}
+
 	if reqs.iterating {
 		reqs.queue.releaseIterator()
 		reqs.iterating = false
 	}
 	reqs.queue.removeRequest(req)
 
-	// TODO(lwojciechow) assign req.Job.
+	// TODO(mwereski) Get timeout period from default config / user capabilities.
+	timeoutPeriod := time.Hour
+
+	req.Job.Timeout = time.Now().Add(timeoutPeriod)
+	reqs.timeoutTimes.insert(requestTime{time: req.Job.Timeout, req: rid})
+
 	return nil
 }
