@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,15 +23,18 @@ import (
 	"testing"
 
 	. "git.tizen.org/tools/boruta"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRemovePanic(t *testing.T) {
-	assert, rqueue := initTest(t)
-	assert.Panics(func() { rqueue.queue._remove(ReqID(1), LoPrio) })
+	assert := assert.New(t)
+	queue := newPrioQueue()
+	assert.Panics(func() { queue._remove(ReqID(1), LoPrio) })
 }
 
 func TestQueue(t *testing.T) {
-	assert, rqueue := initTest(t)
+	assert := assert.New(t)
+	queue := newPrioQueue()
 	var reqs = []struct {
 		id ReqID
 		pr Priority
@@ -46,47 +49,54 @@ func TestQueue(t *testing.T) {
 	sorted := []ReqID{ReqID(2), ReqID(3), ReqID(5), ReqID(6), ReqID(1), ReqID(4)}
 
 	// Test for empty queue.
-	reqid, ok := rqueue.queue.next()
+	reqid, ok := queue.next()
 	assert.False(ok)
 	assert.Equal(ReqID(0), reqid)
 
 	// Test if iterator was initialized and queue is empty.
-	rqueue.queue.initIterator()
-	reqid, ok = rqueue.queue.next()
+	queue.initIterator()
+	reqid, ok = queue.next()
 	assert.False(ok)
 	assert.Equal(ReqID(0), reqid)
-	rqueue.queue.releaseIterator()
+	queue.releaseIterator()
 
 	req := requestsTests[0].req
 	// Push requests to the queue.
 	for _, r := range reqs {
-		_, err := rqueue.NewRequest(req.Caps, r.pr, req.Owner, req.ValidAfter, req.Deadline)
-		assert.Nil(err)
+		queue.pushRequest(&ReqInfo{
+			ID:         r.id,
+			Priority:   r.pr,
+			Owner:      req.Owner,
+			Deadline:   req.Deadline,
+			ValidAfter: req.ValidAfter,
+			State:      WAIT,
+			Caps:       req.Caps,
+		})
 	}
 
 	// Check if queue returns request IDs in proper order.
-	rqueue.queue.initIterator()
+	queue.initIterator()
 	for _, r := range sorted {
-		reqid, ok = rqueue.queue.next()
+		reqid, ok = queue.next()
 		assert.True(ok)
 		assert.Equal(r, reqid)
 	}
 
 	// Check if call to next() after iterating through whole queue returns false.
-	reqid, ok = rqueue.queue.next()
+	reqid, ok = queue.next()
 	assert.False(ok)
 	assert.Equal(ReqID(0), reqid)
-	rqueue.queue.releaseIterator()
+	queue.releaseIterator()
 
 	// Check if after another initialization next() returns first element.
-	rqueue.queue.initIterator()
-	reqid, ok = rqueue.queue.next()
+	queue.initIterator()
+	reqid, ok = queue.next()
 	assert.True(ok)
 	assert.Equal(sorted[0], reqid)
 	// Check call to releaseIterator() when iterator hasn't finished properly
 	// sets next().
-	rqueue.queue.releaseIterator()
-	reqid, ok = rqueue.queue.next()
+	queue.releaseIterator()
+	reqid, ok = queue.next()
 	assert.False(ok)
 	assert.Equal(ReqID(0), reqid)
 }

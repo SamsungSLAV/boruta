@@ -22,24 +22,55 @@ import (
 	"time"
 
 	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/matcher"
 )
 
 // ReqsCollection contains information (also historical) about handled requests.
 // It implements Requests and RequestsManager interfaces.
 type ReqsCollection struct {
-	requests  map[ReqID]*ReqInfo
-	queue     *prioQueue
-	mutex     *sync.RWMutex
-	iterating bool
+	requests          map[ReqID]*ReqInfo
+	queue             *prioQueue
+	mutex             *sync.RWMutex
+	iterating         bool
+	workers           matcher.WorkersManager
+	jobs              matcher.JobsManager
+	validAfterTimes   *requestTimes
+	deadlineTimes     *requestTimes
+	timeoutTimes      *requestTimes
+	validAfterMatcher matcher.Matcher
+	deadlineMatcher   matcher.Matcher
+	timeoutMatcher    matcher.Matcher
 }
 
 // NewRequestQueue provides initialized priority queue for requests.
-func NewRequestQueue() *ReqsCollection {
-	return &ReqsCollection{
-		requests: make(map[ReqID]*ReqInfo),
-		queue:    newPrioQueue(),
-		mutex:    new(sync.RWMutex),
+func NewRequestQueue(w matcher.WorkersManager, j matcher.JobsManager) *ReqsCollection {
+	r := &ReqsCollection{
+		requests:        make(map[ReqID]*ReqInfo),
+		queue:           newPrioQueue(),
+		mutex:           new(sync.RWMutex),
+		workers:         w,
+		jobs:            j,
+		validAfterTimes: newRequestTimes(),
+		deadlineTimes:   newRequestTimes(),
+		timeoutTimes:    newRequestTimes(),
 	}
+
+	r.validAfterMatcher = matcher.NewValidMatcher(r, w, j)
+	r.deadlineMatcher = matcher.NewDeadlineMatcher(r)
+	r.timeoutMatcher = matcher.NewTimeoutMatcher(r)
+
+	r.validAfterTimes.setMatcher(r.validAfterMatcher)
+	r.deadlineTimes.setMatcher(r.deadlineMatcher)
+	r.timeoutTimes.setMatcher(r.timeoutMatcher)
+
+	return r
+}
+
+// Finish releases requestTimes queues and stops started goroutines.
+func (reqs *ReqsCollection) Finish() {
+	reqs.validAfterTimes.finish()
+	reqs.deadlineTimes.finish()
+	reqs.timeoutTimes.finish()
 }
 
 // NewRequest is part of implementation of Requests interface. It validates
@@ -87,6 +118,9 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 	reqs.queue.pushRequest(req)
 	reqs.requests[req.ID] = req
 	reqs.mutex.Unlock()
+
+	reqs.validAfterTimes.insert(requestTime{time: req.ValidAfter, req: req.ID})
+	reqs.deadlineTimes.insert(requestTime{time: req.Deadline, req: req.ID})
 
 	return req.ID, nil
 }
@@ -141,36 +175,56 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 		src.Deadline.IsZero()) {
 		return nil
 	}
+	validAfterTime, deadlineTime, err := reqs.updateRequest(src)
+	if err != nil {
+		return err
+	}
+	if validAfterTime != nil {
+		reqs.validAfterTimes.insert(*validAfterTime)
+	}
+	if deadlineTime != nil {
+		reqs.deadlineTimes.insert(*deadlineTime)
+	}
+	return nil
+}
+
+// updateRequest is a part of UpdateRequest implementation run in critical section.
+func (reqs *ReqsCollection) updateRequest(src *ReqInfo) (validAfterTime, deadlineTime *requestTime, err error) {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 
 	dst, ok := reqs.requests[src.ID]
 	if !ok {
-		return NotFoundError("Request")
+		err = NotFoundError("Request")
+		return
 	}
 	if !modificationPossible(dst.State) {
-		return ErrModificationForbidden
+		err = ErrModificationForbidden
+		return
 	}
 	if src.Priority == dst.Priority &&
 		src.ValidAfter.Equal(dst.ValidAfter) &&
 		src.Deadline.Equal(dst.Deadline) {
-		return nil
+		return
 	}
 	// TODO(mwereski): Check if user has rights to set given priority.
 	if src.Priority != Priority(0) && (src.Priority < HiPrio ||
 		src.Priority > LoPrio) {
-		return ErrPriority
+		err = ErrPriority
+		return
 	}
 	deadline := dst.Deadline
 	if !src.Deadline.IsZero() {
 		if src.Deadline.Before(time.Now().UTC()) {
-			return ErrDeadlineInThePast
+			err = ErrDeadlineInThePast
+			return
 		}
 		deadline = src.Deadline
 	}
 	if (!src.ValidAfter.IsZero()) && !deadline.IsZero() &&
 		src.ValidAfter.After(deadline) {
-		return ErrInvalidTimeRange
+		err = ErrInvalidTimeRange
+		return
 	}
 
 	if src.Priority != Priority(0) {
@@ -179,10 +233,13 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 	}
 	if !src.ValidAfter.IsZero() {
 		dst.ValidAfter = src.ValidAfter
+		validAfterTime = &requestTime{time: src.ValidAfter, req: src.ID}
 	}
-	dst.Deadline = deadline
-	// TODO(mwereski): check if request is ready to go.
-	return nil
+	if !dst.Deadline.Equal(deadline) {
+		dst.Deadline = deadline
+		deadlineTime = &requestTime{time: deadline, req: src.ID}
+	}
+	return
 }
 
 // GetRequestInfo is part of implementation of Requests interface. It returns
