@@ -18,11 +18,13 @@ package requests
 
 import (
 	"errors"
+	"net"
 	"strconv"
 	"testing"
 	"time"
 
 	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/workers"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -63,12 +65,13 @@ var requestsTests = [...]struct {
 	},
 }
 
-func initTest(t *testing.T) (*assert.Assertions, *ReqsCollection, *gomock.Controller) {
+func initTest(t *testing.T) (*assert.Assertions, *ReqsCollection, *gomock.Controller, *MockJobsManager) {
 	ctrl := gomock.NewController(t)
 	wm := NewMockWorkersManager(ctrl)
+	jm := NewMockJobsManager(ctrl)
 	testErr := errors.New("Test Error")
 	wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(WorkerUUID(""), testErr).AnyTimes()
-	return assert.New(t), NewRequestQueue(wm, nil), ctrl
+	return assert.New(t), NewRequestQueue(wm, jm), ctrl, jm
 }
 
 func finiTest(rqueue *ReqsCollection, ctrl *gomock.Controller) {
@@ -77,7 +80,7 @@ func finiTest(rqueue *ReqsCollection, ctrl *gomock.Controller) {
 }
 
 func TestNewRequestQueue(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 
 	rqueue.mutex.RLock()
@@ -88,7 +91,7 @@ func TestNewRequestQueue(t *testing.T) {
 }
 
 func TestNewRequest(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 
 	for _, test := range requestsTests {
@@ -117,7 +120,7 @@ func TestNewRequest(t *testing.T) {
 }
 
 func TestCloseRequest(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
 
@@ -184,7 +187,7 @@ func TestCloseRequest(t *testing.T) {
 }
 
 func TestUpdateRequest(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	tmp := requestsTests[0].req
 
@@ -288,7 +291,7 @@ func TestUpdateRequest(t *testing.T) {
 }
 
 func TestGetRequestInfo(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
 	req.Job = nil
@@ -329,7 +332,7 @@ func (filter *reqFilter) Match(req *ReqInfo) bool {
 }
 
 func TestListRequests(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
 	const reqsCnt = 4
@@ -465,10 +468,12 @@ func TestListRequests(t *testing.T) {
 }
 
 func TestAcquireWorker(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, jm := initTest(t)
 	defer finiTest(rqueue, ctrl)
+
 	req := requestsTests[0].req
 	empty := AccessInfo{}
+	testErr := errors.New("Test Error")
 
 	// Add valid request.
 	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
@@ -489,18 +494,35 @@ func TestAcquireWorker(t *testing.T) {
 	assert.Equal(NotFoundError("Request"), err)
 	assert.Equal(empty, ainfo)
 
+	// Try to acquire worker when jobs.Get() fails.
+	jobInfo := JobInfo{
+		WorkerUUID: "Test WorkerUUID",
+	}
+	rqueue.mutex.Lock()
+	rqueue.requests[reqid].Job = &jobInfo
+	rqueue.mutex.Unlock()
+	ignoredJob := &workers.Job{Req: ReqID(0xBAD)}
+	jm.EXPECT().Get(jobInfo.WorkerUUID).Return(ignoredJob, testErr)
+	ainfo, err = rqueue.AcquireWorker(reqid)
+	assert.Equal(testErr, err)
+	assert.Equal(empty, ainfo)
+
 	// AcquireWorker to succeed needs JobInfo to be set. It also needs to be
 	// in INPROGRESS state, which was set in the loop.
+	job := &workers.Job{
+		Access: AccessInfo{Addr: &net.TCPAddr{IP: net.IPv4(1, 2, 3, 4)}},
+	}
 	rqueue.mutex.Lock()
-	rqueue.requests[reqid].Job = new(JobInfo)
+	rqueue.requests[reqid].Job = &jobInfo
 	rqueue.mutex.Unlock()
+	jm.EXPECT().Get(jobInfo.WorkerUUID).Return(job, nil)
 	ainfo, err = rqueue.AcquireWorker(reqid)
 	assert.Nil(err)
-	assert.Equal(empty, ainfo)
+	assert.Equal(job.Access, ainfo)
 }
 
 func TestProlongAccess(t *testing.T) {
-	assert, rqueue, ctrl := initTest(t)
+	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
 

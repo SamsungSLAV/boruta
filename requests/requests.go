@@ -278,8 +278,12 @@ func (reqs *ReqsCollection) AcquireWorker(reqID ReqID) (AccessInfo, error) {
 	if req.State != INPROGRESS || req.Job == nil {
 		return AccessInfo{}, ErrWorkerNotAssigned
 	}
-	// TODO(mwereski): create job and get access info
-	return AccessInfo{}, nil
+
+	job, err := reqs.jobs.Get(req.Job.WorkerUUID)
+	if err != nil {
+		return AccessInfo{}, err
+	}
+	return job.Access, nil
 }
 
 // ProlongAccess is part of implementation of Requests interface. When owner of
@@ -295,7 +299,14 @@ func (reqs *ReqsCollection) ProlongAccess(reqID ReqID) error {
 	if req.State != INPROGRESS || req.Job == nil {
 		return ErrWorkerNotAssigned
 	}
-	// TODO(mwereski): prolong access
+
+	// TODO(mwereski) Get timeout period  from default config / user capabilities.
+	timeoutPeriod := time.Hour
+
+	// TODO(mwereski) Check if user has reached maximum prolong count for the
+	// request, store the counter somewhere and update it here.
+	req.Job.Timeout = time.Now().Add(timeoutPeriod)
+	reqs.timeoutTimes.insert(requestTime{time: req.Job.Timeout, req: reqID})
 	return nil
 }
 
