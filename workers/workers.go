@@ -131,7 +131,12 @@ func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
 	if state == IDLE && worker.State != MAINTENANCE {
 		return ErrForbiddenStateChange
 	}
-	worker.State = state
+	switch state {
+	case IDLE:
+		go wl.prepareKeyAndSetState(uuid)
+	case MAINTENANCE:
+		go wl.putInMaintenanceWorker(uuid)
+	}
 	return nil
 }
 
@@ -371,6 +376,20 @@ func (wl *WorkerList) prepareKeyAndSetState(worker WorkerUUID) {
 	wl.setState(worker, IDLE)
 }
 
+// putInMaintenanceWorker puts Dryad into maintenance mode and sets worker
+// into MAINTENANCE state in case of success. In case of failure of entering
+// maintenance mode, worker is put into FAIL state instead.
+func (wl *WorkerList) putInMaintenanceWorker(worker WorkerUUID) {
+	err := wl.putInMaintenance(worker)
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
+	if err != nil {
+		wl.setState(worker, FAIL)
+		return
+	}
+	wl.setState(worker, MAINTENANCE)
+}
+
 // setState changes state of worker. It does not contain any verification if change
 // is feasible. It should be used only for internal boruta purposes. It must be
 // called inside WorkerList critical section guarded by WorkerList.mutex.
@@ -402,6 +421,21 @@ func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
 	}
 	err = wl.SetWorkerKey(worker, key)
 	return err
+}
+
+// putInMaintenance orders Dryad to enter maintenance mode.
+func (wl *WorkerList) putInMaintenance(worker WorkerUUID) error {
+	ip, err := wl.GetWorkerIP(worker)
+	if err != nil {
+		return err
+	}
+	client := wl.newDryadClient()
+	err = client.Create(ip, conf.DefaultRPCPort)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	return client.PutInMaintenance("maintenance")
 }
 
 // SetChangeListener sets change listener object in WorkerList. Listener should be
