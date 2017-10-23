@@ -31,13 +31,15 @@ var _ = Describe("Requests as RequestsManager", func() {
 	Describe("With RequestsManager created", func() {
 		var ctrl *gomock.Controller
 		var wm *MockWorkersManager
+		var jm *MockJobsManager
 		var R *ReqsCollection
 		testErr := errors.New("Test Error")
 
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			wm = NewMockWorkersManager(ctrl)
-			R = NewRequestQueue(wm, nil)
+			jm = NewMockJobsManager(ctrl)
+			R = NewRequestQueue(wm, jm)
 		})
 		AfterEach(func() {
 			R.Finish()
@@ -288,16 +290,20 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(err).To(Equal(ErrModificationForbidden))
 				})
 				It("should close request and release worker", func() {
+					testWorker := WorkerUUID("TestWorker")
 					R.mutex.Lock()
 					rinfo.State = INPROGRESS
 					rinfo.Job = &JobInfo{
-						Timeout: time.Now().AddDate(0, 0, -1),
+						Timeout:    time.Now().AddDate(0, 0, -1),
+						WorkerUUID: testWorker,
 					}
 					R.mutex.Unlock()
+					gomock.InOrder(
+						jm.EXPECT().Finish(testWorker),
+					)
 					err := R.Close(req)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(rinfo.State).To(Equal(DONE))
-					// TODO verify releasing worker when implemented
 				})
 			})
 			Describe("Run", func() {

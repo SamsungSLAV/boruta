@@ -118,8 +118,11 @@ func (m *JobsManagerImpl) Get(worker WorkerUUID) (*workers.Job, error) {
 }
 
 // Finish closes the job execution, breaks the tunnel to Dryad and removes job
-// from jobs collection. It is a part of JobsManager interface implementation.
+// from jobs collection.
+// The Dryad should be notified and prepared for next job with key regeneration.
+// It is a part of JobsManager interface implementation.
 func (m *JobsManagerImpl) Finish(worker WorkerUUID) error {
+	defer m.workers.PrepareWorker(worker, true)
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

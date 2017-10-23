@@ -130,8 +130,9 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 // all required conditions to close request are met.
 // The method must be called in reqs.mutex critical section.
 func (reqs *ReqsCollection) closeRequest(req *ReqInfo) {
+	worker := req.Job.WorkerUUID
+	reqs.jobs.Finish(worker)
 	req.State = DONE
-	// TODO(mwereski): release worker
 }
 
 // CloseRequest is part of implementation of Requests interface.

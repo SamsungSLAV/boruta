@@ -171,6 +171,7 @@ var _ = Describe("Jobs", func() {
 					ttm.EXPECT().Create(nil, ip).Return(nil),
 					ttm.EXPECT().Addr().Return(addr),
 					ttm.EXPECT().Close(),
+					w.EXPECT().PrepareWorker(worker, true),
 				)
 
 				err := jm.Create(req, worker)
@@ -182,6 +183,7 @@ var _ = Describe("Jobs", func() {
 				Expect(jm.(*JobsManagerImpl).jobs).To(BeEmpty())
 			})
 			It("should fail to finish nonexistent job", func() {
+				w.EXPECT().PrepareWorker(worker, true)
 				err := jm.Finish(worker)
 				Expect(err).To(Equal(NotFoundError("Job")))
 			})

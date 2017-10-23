@@ -120,9 +120,13 @@ func TestNewRequest(t *testing.T) {
 }
 
 func TestCloseRequest(t *testing.T) {
-	assert, rqueue, ctrl, _ := initTest(t)
+	assert, rqueue, ctrl, jm := initTest(t)
 	defer finiTest(rqueue, ctrl)
+
 	req := requestsTests[0].req
+	jobInfo := JobInfo{
+		WorkerUUID: "Test WorkerUUID",
+	}
 
 	// Add valid request to the queue.
 	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
@@ -152,9 +156,13 @@ func TestCloseRequest(t *testing.T) {
 	assert.Nil(err)
 	rqueue.mutex.Lock()
 	rqueue.requests[reqid].State = INPROGRESS
+	rqueue.requests[reqid].Job = &jobInfo
 	rqueue.queue.removeRequest(&reqinfo)
 	rqueue.mutex.Unlock()
 	// Close request.
+	gomock.InOrder(
+		jm.EXPECT().Finish(jobInfo.WorkerUUID),
+	)
 	err = rqueue.CloseRequest(reqid)
 	assert.Nil(err)
 	rqueue.mutex.RLock()
@@ -470,7 +478,6 @@ func TestListRequests(t *testing.T) {
 func TestAcquireWorker(t *testing.T) {
 	assert, rqueue, ctrl, jm := initTest(t)
 	defer finiTest(rqueue, ctrl)
-
 	req := requestsTests[0].req
 	empty := AccessInfo{}
 	testErr := errors.New("Test Error")
