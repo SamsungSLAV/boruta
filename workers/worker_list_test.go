@@ -29,6 +29,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
@@ -849,6 +850,72 @@ var _ = Describe("WorkerList", func() {
 					Expect(info.key).To(BeNil())
 				})
 			})
+		})
+		Describe("setState with changeListener", func() {
+			var ctrl *gomock.Controller
+			var wc *MockWorkerChange
+
+			set := func(state WorkerState) {
+				wl.mutex.Lock()
+				wl.workers[worker].State = state
+				wl.mutex.Unlock()
+			}
+			check := func(state WorkerState) {
+				wl.mutex.RLock()
+				Expect(wl.workers[worker].State).To(Equal(state))
+				wl.mutex.RUnlock()
+			}
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				wc = NewMockWorkerChange(ctrl)
+				wl.SetChangeListener(wc)
+				Expect(wl.changeListener).To(Equal(wc))
+			})
+			AfterEach(func() {
+				ctrl.Finish()
+			})
+			DescribeTable("Should change state without calling changeListener",
+				func(from, to WorkerState) {
+					set(from)
+					err := wl.setState(worker, to)
+					Expect(err).NotTo(HaveOccurred())
+					check(to)
+				},
+				Entry("MAINTENANCE->MAINTENANCE", MAINTENANCE, MAINTENANCE),
+				Entry("MAINTENANCE->RUN", MAINTENANCE, RUN),
+				Entry("MAINTENANCE->FAIL", MAINTENANCE, FAIL),
+				Entry("IDLE->MAINTENANCE", IDLE, MAINTENANCE),
+				Entry("IDLE->RUN", IDLE, RUN),
+				Entry("IDLE->FAIL", IDLE, FAIL),
+				Entry("FAIL->MAINTENANCE", FAIL, MAINTENANCE),
+				Entry("FAIL->RUN", FAIL, RUN),
+				Entry("FAIL->FAIL", FAIL, FAIL),
+			)
+			DescribeTable("Should change state and call OnWorkerIdle",
+				func(from, to WorkerState) {
+					set(from)
+					wc.EXPECT().OnWorkerIdle(worker)
+					err := wl.setState(worker, to)
+					Expect(err).NotTo(HaveOccurred())
+					check(to)
+				},
+				Entry("MAINTENANCE->IDLE", MAINTENANCE, IDLE),
+				Entry("IDLE->IDLE", IDLE, IDLE),
+				Entry("RUN->IDLE", RUN, IDLE),
+				Entry("FAIL->IDLE", FAIL, IDLE),
+			)
+			DescribeTable("Should change state and call OnWorkerFail",
+				func(from, to WorkerState) {
+					set(from)
+					wc.EXPECT().OnWorkerFail(worker)
+					err := wl.setState(worker, to)
+					Expect(err).NotTo(HaveOccurred())
+					check(to)
+				},
+				Entry("RUN->MAINTENANCE", RUN, MAINTENANCE),
+				Entry("RUN->RUN", RUN, RUN),
+				Entry("RUN->FAIL", RUN, FAIL),
+			)
 		})
 	})
 	Describe("TakeBestMatchingWorker", func() {

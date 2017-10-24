@@ -111,8 +111,7 @@ func (wl *WorkerList) SetFail(uuid WorkerUUID, reason string) error {
 	if worker.State == MAINTENANCE {
 		return ErrInMaintenance
 	}
-	worker.State = FAIL
-	return nil
+	return wl.setState(uuid, FAIL)
 }
 
 // SetState is an implementation of SetState from Workers interface.
@@ -397,6 +396,15 @@ func (wl *WorkerList) setState(worker WorkerUUID, state WorkerState) error {
 	w, ok := wl.workers[worker]
 	if !ok {
 		return ErrWorkerNotFound
+	}
+	if wl.changeListener != nil {
+		if state == IDLE {
+			wl.changeListener.OnWorkerIdle(worker)
+		} else {
+			if w.State == RUN {
+				wl.changeListener.OnWorkerFail(worker)
+			}
+		}
 	}
 	w.State = state
 	return nil
