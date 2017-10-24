@@ -26,7 +26,7 @@ import (
 )
 
 // ReqsCollection contains information (also historical) about handled requests.
-// It implements Requests and RequestsManager interfaces.
+// It implements Requests, RequestsManager and WorkerChange interfaces.
 type ReqsCollection struct {
 	requests          map[ReqID]*ReqInfo
 	queue             *prioQueue
@@ -435,4 +435,28 @@ func (reqs *ReqsCollection) Run(rid ReqID, worker WorkerUUID) error {
 	reqs.timeoutTimes.insert(requestTime{time: req.Job.Timeout, req: rid})
 
 	return nil
+}
+
+// OnWorkerIdle triggers ValidMatcher to rematch requests with idle worker.
+func (reqs *ReqsCollection) OnWorkerIdle(worker WorkerUUID) {
+	reqs.validAfterTimes.insert(requestTime{time: time.Now()})
+}
+
+// OnWorkerFail sets request being processed by failed worker into FAILED state.
+func (reqs *ReqsCollection) OnWorkerFail(worker WorkerUUID) {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
+
+	job, err := reqs.jobs.Get(worker)
+	if err != nil {
+		panic("no job related to running worker")
+	}
+
+	reqID := job.Req
+	req, ok := reqs.requests[reqID]
+	if !ok {
+		panic("request related to job not found")
+	}
+	reqs.jobs.Finish(worker)
+	req.State = FAILED
 }
