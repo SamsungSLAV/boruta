@@ -71,6 +71,7 @@ func initTest(t *testing.T) (*assert.Assertions, *ReqsCollection, *gomock.Contro
 	jm := NewMockJobsManager(ctrl)
 	testErr := errors.New("Test Error")
 	wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(WorkerUUID(""), testErr).AnyTimes()
+	wm.EXPECT().SetChangeListener(gomock.Any())
 	return assert.New(t), NewRequestQueue(wm, jm), ctrl, jm
 }
 

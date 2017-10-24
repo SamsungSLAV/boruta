@@ -63,6 +63,10 @@ func NewRequestQueue(w matcher.WorkersManager, j matcher.JobsManager) *ReqsColle
 	r.deadlineTimes.setMatcher(r.deadlineMatcher)
 	r.timeoutTimes.setMatcher(r.timeoutMatcher)
 
+	if w != nil {
+		w.SetChangeListener(r)
+	}
+
 	return r
 }
 

@@ -39,6 +39,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			wm = NewMockWorkersManager(ctrl)
 			jm = NewMockJobsManager(ctrl)
+			wm.EXPECT().SetChangeListener(gomock.Any())
 			R = NewRequestQueue(wm, jm)
 		})
 		AfterEach(func() {
