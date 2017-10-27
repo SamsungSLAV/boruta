@@ -19,10 +19,13 @@ package workers
 
 import (
 	"crypto/rsa"
+	"math"
 	"net"
 	"sync"
 
 	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/dryad/conf"
+	"git.tizen.org/tools/boruta/rpc/dryad"
 )
 
 // UUID denotes a key in Capabilities where WorkerUUID is stored.
@@ -38,18 +41,35 @@ type mapWorker struct {
 
 // WorkerList implements Superviser and Workers interfaces.
 // It manages a list of Workers.
+// It implements also WorkersManager from matcher package making it usable
+// as interface for acquiring workers by Matcher.
+// The implemnetation requires changeListener, which is notified after Worker's
+// state changes.
+// The dryad.ClientManager allows managing Dryads' clients for key generation.
+// One can be created using newDryadClient function.
 type WorkerList struct {
 	Superviser
 	Workers
-	workers map[WorkerUUID]*mapWorker
-	mutex   *sync.RWMutex
+	workers        map[WorkerUUID]*mapWorker
+	mutex          *sync.RWMutex
+	changeListener WorkerChange
+	newDryadClient func() dryad.ClientManager
+}
+
+// newDryadClient provides default implementation of dryad.ClientManager interface.
+// It uses dryad package implementation of DryadClient.
+// The function is set as WorkerList.newDryadClient. Field can be replaced
+// by another function providing dryad.ClientManager for tests purposes.
+func newDryadClient() dryad.ClientManager {
+	return new(dryad.DryadClient)
 }
 
 // NewWorkerList returns a new WorkerList with all fields set.
 func NewWorkerList() *WorkerList {
 	return &WorkerList{
-		workers: make(map[WorkerUUID]*mapWorker),
-		mutex:   new(sync.RWMutex),
+		workers:        make(map[WorkerUUID]*mapWorker),
+		mutex:          new(sync.RWMutex),
+		newDryadClient: newDryadClient,
 	}
 }
 
@@ -184,8 +204,8 @@ func isGroupsMatching(worker WorkerInfo, groupsMatcher map[Group]interface{}) bo
 		return true
 	}
 	for _, workerGroup := range worker.Groups {
-		_, ok := groupsMatcher[workerGroup]
-		if ok {
+		_, match := groupsMatcher[workerGroup]
+		if match {
 			return true
 		}
 	}
@@ -193,10 +213,18 @@ func isGroupsMatching(worker WorkerInfo, groupsMatcher map[Group]interface{}) bo
 }
 
 // ListWorkers is an implementation of ListWorkers from Workers interface.
-// It lists all workers when both:
+func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error) {
+	wl.mutex.RLock()
+	defer wl.mutex.RUnlock()
+
+	return wl.listWorkers(groups, caps)
+}
+
+// listWorkers lists all workers when both:
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
-func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error) {
+// Caller of this method should own the mutex.
+func (wl *WorkerList) listWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error) {
 	matching := make([]WorkerInfo, 0, len(wl.workers))
 
 	groupsMatcher := make(map[Group]interface{})
@@ -273,4 +301,113 @@ func (wl *WorkerList) GetWorkerKey(uuid WorkerUUID) (rsa.PrivateKey, error) {
 		return rsa.PrivateKey{}, ErrWorkerNotFound
 	}
 	return *worker.key, nil
+}
+
+// TakeBestMatchingWorker verifies which IDLE workers can satisfy Groups and
+// Capabilities required by the request. Among all matched workers a best worker
+// is choosen (least capable worker still fitting request). If a worker is found
+// it is put into RUN state and its UUID is returned. An error is returned if no
+// matching IDLE worker is found.
+// It is a part of WorkersManager interface implementation by WorkerList.
+func (wl *WorkerList) TakeBestMatchingWorker(groups Groups, caps Capabilities) (bestWorker WorkerUUID, err error) {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
+
+	var bestScore = math.MaxInt32
+
+	matching, _ := wl.listWorkers(groups, caps)
+	for _, info := range matching {
+		if info.State != IDLE {
+			continue
+		}
+		score := len(info.Caps) + len(info.Groups)
+		if score < bestScore {
+			bestScore = score
+			bestWorker = info.WorkerUUID
+		}
+	}
+	if bestScore == math.MaxInt32 {
+		err = ErrNoMatchingWorker
+		return
+	}
+
+	err = wl.setState(bestWorker, RUN)
+	return
+}
+
+// PrepareWorker brings worker into IDLE state and prepares it to be ready for
+// running a job. In some of the situations if a worker has been matched for a job,
+// but has not been used, there is no need for regeneration of the key. Caller of
+// this method can decide (with 2nd parameter) if key generation is required for
+// preparing worker.
+//
+// As key creation can take some time, the method is asynchronous and the worker's
+// state might not be changed when it returns.
+// It is a part of WorkersManager interface implementation by WorkerList.
+func (wl *WorkerList) PrepareWorker(worker WorkerUUID, withKeyGeneration bool) error {
+	if !withKeyGeneration {
+		wl.mutex.Lock()
+		defer wl.mutex.Unlock()
+		return wl.setState(worker, IDLE)
+	}
+
+	go wl.prepareKeyAndSetState(worker)
+
+	return nil
+}
+
+// prepareKeyAndSetState prepares private RSA key for the worker and sets worker
+// into IDLE state in case of success. In case of failure of key preparation,
+// worker is put into FAIL state instead.
+func (wl *WorkerList) prepareKeyAndSetState(worker WorkerUUID) {
+	err := wl.prepareKey(worker)
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
+	if err != nil {
+		// TODO log error.
+		wl.setState(worker, FAIL)
+		return
+	}
+	wl.setState(worker, IDLE)
+}
+
+// setState changes state of worker. It does not contain any verification if change
+// is feasible. It should be used only for internal boruta purposes. It must be
+// called inside WorkerList critical section guarded by WorkerList.mutex.
+func (wl *WorkerList) setState(worker WorkerUUID, state WorkerState) error {
+	w, ok := wl.workers[worker]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	w.State = state
+	return nil
+}
+
+// prepareKey delegates key generation to Dryad and sets up generated key in the
+// worker. In case of any failure it returns an error.
+func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
+	ip, err := wl.GetWorkerIP(worker)
+	if err != nil {
+		return err
+	}
+	client := wl.newDryadClient()
+	err = client.Create(ip, conf.DefaultRPCPort)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	key, err := client.Prepare()
+	if err != nil {
+		return err
+	}
+	err = wl.SetWorkerKey(worker, key)
+	return err
+}
+
+// SetChangeListener sets change listener object in WorkerList. Listener should be
+// notified in case of changes of workers' states, when worker becomes IDLE
+// or must break its job because of fail or maintenance.
+// It is a part of WorkersManager interface implementation by WorkerList.
+func (wl *WorkerList) SetChangeListener(listener WorkerChange) {
+	wl.changeListener = listener
 }

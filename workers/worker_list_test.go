@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,10 +19,15 @@ package workers
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
+	"fmt"
 	"net"
 
 	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/dryad/conf"
+	"git.tizen.org/tools/boruta/rpc/dryad"
 
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
@@ -32,6 +37,12 @@ var _ = Describe("WorkerList", func() {
 	var wl *WorkerList
 	BeforeEach(func() {
 		wl = NewWorkerList()
+	})
+
+	It("should return non-nil new DryadClient every time called", func() {
+		for i := 0; i < 3; i++ {
+			Expect(wl.newDryadClient()).NotTo(BeNil(), "i = %d", i)
+		}
 	})
 
 	Describe("Register", func() {
@@ -518,6 +529,200 @@ var _ = Describe("WorkerList", func() {
 					get(wl, worker, set(wl, worker, nil), nil)
 				}
 			})
+		})
+		Describe("PrepareWorker", func() {
+			var ctrl *gomock.Controller
+			var dcm *MockDryadClientManager
+			ip := net.IPv4(2, 4, 6, 8)
+			key := &rsa.PrivateKey{}
+			testerr := errors.New("Test Error")
+			noWorker := WorkerUUID("There's no such worker")
+
+			eventuallyKey := func(info *mapWorker, key *rsa.PrivateKey) {
+				EventuallyWithOffset(1, func() *rsa.PrivateKey {
+					wl.mutex.Lock()
+					defer wl.mutex.Unlock()
+					return info.key
+				}).Should(Equal(key))
+			}
+			eventuallyState := func(info *mapWorker, state WorkerState) {
+				EventuallyWithOffset(1, func() WorkerState {
+					wl.mutex.Lock()
+					defer wl.mutex.Unlock()
+					return info.State
+				}).Should(Equal(state))
+			}
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				dcm = NewMockDryadClientManager(ctrl)
+				wl.newDryadClient = func() dryad.ClientManager {
+					return dcm
+				}
+			})
+			AfterEach(func() {
+				ctrl.Finish()
+			})
+
+			It("should set worker into IDLE in without-key preparation", func() {
+				err := wl.PrepareWorker(worker, false)
+				Expect(err).NotTo(HaveOccurred())
+				info, ok := wl.workers[worker]
+				Expect(ok).To(BeTrue())
+				Expect(info.State).To(Equal(IDLE))
+			})
+			It("should fail to prepare not existing worker in without-key preparation", func() {
+				uuid := randomUUID()
+				err := wl.PrepareWorker(uuid, false)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+			It("should ignore to prepare worker for non-existing worker", func() {
+				err := wl.PrepareWorker(noWorker, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			Describe("with worker's IP set", func() {
+				var info *mapWorker
+				BeforeEach(func() {
+					var ok bool
+					info, ok = wl.workers[worker]
+					Expect(ok).To(BeTrue())
+					Expect(info.key).To(BeNil())
+					info.ip = ip
+				})
+				It("should set worker into IDLE state and prepare a key", func() {
+					gomock.InOrder(
+						dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+						dcm.EXPECT().Prepare().Return(key, nil),
+						dcm.EXPECT().Close(),
+					)
+
+					err := wl.PrepareWorker(worker, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					eventuallyState(info, IDLE)
+					eventuallyKey(info, key)
+				})
+				It("should fail to prepare worker if dryadClientManager fails to prepare client", func() {
+					gomock.InOrder(
+						dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+						dcm.EXPECT().Prepare().Return(nil, testerr),
+						dcm.EXPECT().Close(),
+					)
+
+					err := wl.PrepareWorker(worker, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					eventuallyState(info, FAIL)
+					Expect(info.key).To(BeNil())
+				})
+				It("should fail to prepare worker if dryadClientManager fails to create client", func() {
+					dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+
+					err := wl.PrepareWorker(worker, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					eventuallyState(info, FAIL)
+					Expect(info.key).To(BeNil())
+				})
+			})
+		})
+	})
+	Describe("TakeBestMatchingWorker", func() {
+		addWorker := func(groups Groups, caps Capabilities) *mapWorker {
+			capsUUID := uuid.NewV4().String()
+			workerUUID := WorkerUUID(capsUUID)
+
+			caps[UUID] = capsUUID
+			wl.Register(caps)
+			w, ok := wl.workers[workerUUID]
+			Expect(ok).To(BeTrue())
+			Expect(w.State).To(Equal(MAINTENANCE))
+
+			err := wl.SetGroups(workerUUID, groups)
+			Expect(err).NotTo(HaveOccurred())
+
+			return w
+		}
+		addIdleWorker := func(groups Groups, caps Capabilities) *mapWorker {
+			w := addWorker(groups, caps)
+
+			err := wl.PrepareWorker(w.WorkerUUID, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(w.State).To(Equal(IDLE))
+
+			return w
+		}
+		generateGroups := func(count int) Groups {
+			var groups Groups
+			for i := 0; i < count; i++ {
+				groups = append(groups, Group(fmt.Sprintf("testGroup_%d", i)))
+			}
+			return groups
+		}
+		generateCaps := func(count int) Capabilities {
+			caps := make(Capabilities)
+			for i := 0; i < count; i++ {
+				k := fmt.Sprintf("testCapKey_%d", i)
+				v := fmt.Sprintf("testCapValue_%d", i)
+				caps[k] = v
+			}
+			return caps
+		}
+		It("should fail to find matching worker when there are no workers", func() {
+			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			Expect(err).To(Equal(ErrNoMatchingWorker))
+			Expect(ret).To(BeZero())
+		})
+		It("should match fitting worker and set it into RUN state", func() {
+			w := addIdleWorker(Groups{}, Capabilities{})
+
+			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ret).To(Equal(w.WorkerUUID))
+			Expect(w.State).To(Equal(RUN))
+		})
+		It("should not match not IDLE workers", func() {
+			addWorker(Groups{}, Capabilities{})
+
+			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			Expect(err).To(Equal(ErrNoMatchingWorker))
+			Expect(ret).To(BeZero())
+		})
+		It("should choose least capable worker", func() {
+			// Create matching workers.
+			w5g5c := addIdleWorker(generateGroups(5), generateCaps(5))
+			w1g7c := addIdleWorker(generateGroups(1), generateCaps(7))
+			w5g1c := addIdleWorker(generateGroups(5), generateCaps(1))
+			// Create non-matching workers.
+			w2g0c := addIdleWorker(generateGroups(2), generateCaps(0))
+			w0g2c := addIdleWorker(generateGroups(0), generateCaps(2))
+
+			expectedWorkers := []*mapWorker{w5g1c, w1g7c, w5g5c}
+			for _, w := range expectedWorkers {
+				ret, err := wl.TakeBestMatchingWorker(generateGroups(1), generateCaps(1))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ret).To(Equal(w.WorkerUUID))
+				Expect(w.State).To(Equal(RUN))
+			}
+			ret, err := wl.TakeBestMatchingWorker(generateGroups(1), generateCaps(1))
+			Expect(err).To(Equal(ErrNoMatchingWorker))
+			Expect(ret).To(BeZero())
+
+			leftWorkers := []*mapWorker{w2g0c, w0g2c}
+			for _, w := range leftWorkers {
+				Expect(w.State).To(Equal(IDLE))
+			}
+		})
+	})
+	Describe("SetChangeListener", func() {
+		It("should set WorkerChange", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			defer ctrl.Finish()
+			wc := NewMockWorkerChange(ctrl)
+
+			Expect(wl.changeListener).To(BeNil())
+			wl.SetChangeListener(wc)
+			Expect(wl.changeListener).To(Equal(wc))
 		})
 	})
 })
