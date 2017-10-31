@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License
  */
-package workers
+package tunnels
 
 import (
 	"io"
@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Tunnel", func() {
+var _ = Describe("Tunnels", func() {
 	invalidIP := net.IPv4(255, 8, 8, 8)
 
 	listen := func(done chan struct{}, in, out string) *net.TCPAddr {
@@ -52,10 +52,17 @@ var _ = Describe("Tunnel", func() {
 		return ln.Addr().(*net.TCPAddr)
 	}
 
+	var t *Tunnel
+
+	BeforeEach(func() {
+		t = new(Tunnel)
+		Expect(t).NotTo(BeNil())
+	})
+
 	It("should make a connection", func() {
 		done := make(chan struct{})
 		lAddr := listen(done, "", "")
-		t, err := newTunnel(nil, nil, lAddr.Port)
+		err := t.create(nil, nil, lAddr.Port)
 		Expect(err).ToNot(HaveOccurred())
 
 		conn, err := net.DialTCP("tcp", nil, lAddr)
@@ -71,7 +78,7 @@ var _ = Describe("Tunnel", func() {
 		testIn := "input test string"
 		testOut := "output test string"
 		lAddr := listen(done, testIn, testOut)
-		t, err := newTunnel(nil, nil, lAddr.Port)
+		err := t.create(nil, nil, lAddr.Port)
 		Expect(err).ToNot(HaveOccurred())
 		conn, err := net.DialTCP("tcp", nil, t.Addr().(*net.TCPAddr))
 		Expect(err).ToNot(HaveOccurred())
@@ -89,12 +96,12 @@ var _ = Describe("Tunnel", func() {
 	})
 
 	It("should fail to listen on invalid address", func() {
-		_, err := NewTunnel(invalidIP, nil)
+		err := t.Create(invalidIP, nil)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should fail to connect to invalid address", func() {
-		t, err := newTunnel(nil, nil, 0)
+		err := t.create(nil, nil, 0)
 		Expect(err).ToNot(HaveOccurred())
 
 		conn, err := net.DialTCP("tcp", nil, t.Addr().(*net.TCPAddr))
