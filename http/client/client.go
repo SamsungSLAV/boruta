@@ -22,6 +22,13 @@
 package client
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"reflect"
 	"time"
 
 	"git.tizen.org/tools/boruta"
@@ -35,9 +42,13 @@ type BorutaClient struct {
 	boruta.Workers
 }
 
-// apiPrefix is part of URL that is common in all uses and contains API
-// version.
-const apiPrefix = "/api/v1/"
+const (
+	// contentType denotes format in which we talk with Boruta server.
+	contentType = "application/json"
+	// apiPrefix is part of URL that is common in all uses and contains API
+	// version.
+	apiPrefix = "/api/v1/"
+)
 
 // NewBorutaClient provides BorutaClient ready to communicate with specified
 // Boruta server.
@@ -49,12 +60,112 @@ func NewBorutaClient(url string) *BorutaClient {
 	}
 }
 
+// readBody is simple wrapper function that reads body of http request into byte
+// slice and closes the body.
+func readBody(body io.ReadCloser) ([]byte, error) {
+	defer body.Close()
+	content, err := ioutil.ReadAll(body)
+	if err != nil {
+		err = errors.New("unable to read server response: " + err.Error())
+	}
+	return content, err
+}
+
+// bodyJSONUnmarshal is a wrapper that unmarshals server response into an
+// appropriate structure.
+func bodyJSONUnmarshal(body io.ReadCloser, val interface{}) error {
+	content, err := readBody(body)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(content, val)
+	if err != nil {
+		return errors.New("unmarshalling JSON response failed: " + err.Error())
+	}
+	return nil
+}
+
+// getServerError parses Boruta server response that contains serverError and
+// returns an error.
+func getServerError(resp *http.Response) error {
+	if resp.StatusCode < http.StatusBadRequest {
+		return nil
+	}
+	srvErr := new(util.ServerError)
+	switch resp.Header.Get("Content-Type") {
+	case contentType:
+		if err := bodyJSONUnmarshal(resp.Body, srvErr); err != nil {
+			return err
+		}
+	default:
+		msg, err := readBody(resp.Body)
+		if err != nil {
+			return err
+		}
+		srvErr.Err = string(msg)
+	}
+	srvErr.Status = resp.StatusCode
+	return srvErr
+}
+
+// processResponse is helper function that parses Boruta server response and sets
+// returned value or returns serverError. val must be a pointer. In case the body
+// was empty (or server returned an error) it will be zeroed - if the val is a
+// pointer to ReqInfo then ReqInfo members will be zeroed; to nil a pointer pass
+// pointer to pointer to ReqInfo. Function may panic when passed value isn't a pointer.
+func processResponse(resp *http.Response, val interface{}) error {
+	var v reflect.Value
+
+	if val != nil {
+		if reflect.TypeOf(val).Kind() != reflect.Ptr {
+			panic("can't set val, please pass appropriate pointer")
+		}
+
+		v = reflect.ValueOf(val).Elem()
+	}
+
+	setNil := func() {
+		if val != nil && !reflect.ValueOf(val).IsNil() {
+			v.Set(reflect.Zero(v.Type()))
+		}
+	}
+
+	switch {
+	case resp.StatusCode == http.StatusNoContent:
+		setNil()
+		return nil
+	case resp.StatusCode >= http.StatusBadRequest:
+		setNil()
+		return getServerError(resp)
+	default:
+		return bodyJSONUnmarshal(resp.Body, val)
+	}
+}
+
 // NewRequest creates new Boruta request.
 func (client *BorutaClient) NewRequest(caps boruta.Capabilities,
 	priority boruta.Priority, owner boruta.UserInfo, validAfter time.Time,
 	deadline time.Time) (boruta.ReqID, error) {
+	req, err := json.Marshal(&boruta.ReqInfo{
+		Priority:   priority,
+		Owner:      owner,
+		Deadline:   deadline,
+		ValidAfter: validAfter,
+		Caps:       caps,
+	})
+	if err != nil {
+		return 0, err
+	}
 
-	return boruta.ReqID(0), util.ErrNotImplemented
+	resp, err := http.Post(client.url+"reqs/", contentType, bytes.NewReader(req))
+	if err != nil {
+		return 0, err
+	}
+	var reqID util.ReqIDPack
+	if err = processResponse(resp, &reqID); err != nil {
+		return 0, err
+	}
+	return reqID.ReqID, nil
 }
 
 // CloseRequest closes or cancels Boruta request.
