@@ -27,6 +27,7 @@ import (
 	"time"
 
 	. "git.tizen.org/tools/boruta"
+	util "git.tizen.org/tools/boruta/http"
 	"git.tizen.org/tools/boruta/requests"
 )
 
@@ -242,18 +243,18 @@ func TestListRequestsHandler(t *testing.T) {
 	filterPath := "/api/v1/reqs/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := NewRequestFilter("WAIT", "")
+	validFilter := util.NewRequestFilter("WAIT", "")
 	m.rq.EXPECT().ListRequests(validFilter).Return(reqs[:2], nil)
 
-	emptyFilter := NewRequestFilter("", "")
+	emptyFilter := util.NewRequestFilter("", "")
 	m.rq.EXPECT().ListRequests(emptyFilter).Return(reqs, nil).Times(2)
 	m.rq.EXPECT().ListRequests(nil).Return(reqs, nil).Times(3)
 
-	missingFilter := NewRequestFilter("INVALID", "")
+	missingFilter := util.NewRequestFilter("INVALID", "")
 	m.rq.EXPECT().ListRequests(missingFilter).Return([]ReqInfo{}, nil)
 
 	// Currently ListRequests doesn't return any error hence the meaningless values.
-	badFilter := NewRequestFilter("FAIL", "-1")
+	badFilter := util.NewRequestFilter("FAIL", "-1")
 	m.rq.EXPECT().ListRequests(badFilter).Return([]ReqInfo{}, errors.New("foo bar: pizza failed"))
 
 	tests := []requestTest{
@@ -419,7 +420,7 @@ func TestListWorkersHandler(t *testing.T) {
 	filterPath := "/api/v1/workers/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := WorkersFilter{
+	validFilter := util.WorkersFilter{
 		Groups:       Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
@@ -429,13 +430,13 @@ func TestListWorkersHandler(t *testing.T) {
 	m.wm.EXPECT().ListWorkers(Groups{}, nil).Return(workers, nil)
 	m.wm.EXPECT().ListWorkers(nil, make(Capabilities)).Return(workers, nil)
 
-	missingFilter := WorkersFilter{
+	missingFilter := util.WorkersFilter{
 		Groups: Groups{"Fern Flower"},
 	}
 	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities).Return([]WorkerInfo{}, nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
-	badFilter := WorkersFilter{
+	badFilter := util.WorkersFilter{
 		Groups: Groups{"Oops"},
 	}
 	m.wm.EXPECT().ListWorkers(badFilter.Groups, badFilter.Capabilities).Return([]WorkerInfo{}, errors.New("foo bar: pizza failed"))
@@ -473,7 +474,7 @@ func TestListWorkersHandler(t *testing.T) {
 			name:        prefix + "empty-filter",
 			path:        filterPath,
 			methods:     methods,
-			json:        string(jsonMustMarshal(WorkersFilter{nil, nil})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{nil, nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 		},
@@ -482,7 +483,7 @@ func TestListWorkersHandler(t *testing.T) {
 			name:        prefix + "empty2-filter",
 			path:        filterPath,
 			methods:     methods,
-			json:        string(jsonMustMarshal(WorkersFilter{nil, make(Capabilities)})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{nil, make(Capabilities)})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 		},
@@ -491,7 +492,7 @@ func TestListWorkersHandler(t *testing.T) {
 			name:        prefix + "empty3-filter",
 			path:        filterPath,
 			methods:     methods,
-			json:        string(jsonMustMarshal(WorkersFilter{Groups{}, nil})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{Groups{}, nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 		},
@@ -565,7 +566,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 	methods := []string{http.MethodPost}
 
 	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(path, missingUUID), methods...)
-	notFoundTest.json = string(jsonMustMarshal(workerStatePack{IDLE}))
+	notFoundTest.json = string(jsonMustMarshal(util.WorkerStatePack{IDLE}))
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, fmt.Sprintf(path, validUUID), methods...)
 	missingErr := NotFoundError("Worker")
 
@@ -577,7 +578,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 			name:        prefix + "valid",
 			path:        fmt.Sprintf(path, validUUID),
 			methods:     methods,
-			json:        string(jsonMustMarshal(workerStatePack{IDLE})),
+			json:        string(jsonMustMarshal(util.WorkerStatePack{IDLE})),
 			contentType: contentTypeJSON,
 			status:      http.StatusNoContent,
 		},
@@ -585,7 +586,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 			name:        prefix + "bad-uuid",
 			path:        fmt.Sprintf(path, invalidID),
 			methods:     methods,
-			json:        string(jsonMustMarshal(workerStatePack{IDLE})),
+			json:        string(jsonMustMarshal(util.WorkerStatePack{IDLE})),
 			contentType: contentTypeJSON,
 			status:      http.StatusBadRequest,
 		},

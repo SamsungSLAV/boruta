@@ -14,9 +14,9 @@
  *  limitations under the License
  */
 
-// File server/api/v1/filter_test.go contains additional tests for RequestFilter.
+// File http/filter_test.go contains tests for RequestFilter.
 
-package v1
+package http
 
 import (
 	"strconv"

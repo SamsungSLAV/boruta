@@ -22,41 +22,18 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"regexp"
 	"strconv"
 
 	. "git.tizen.org/tools/boruta"
+	util "git.tizen.org/tools/boruta/http"
 	"github.com/dimfeld/httptreemux"
 )
 
 // responseData type denotes data returned by HTTP request handler functions.
 // Returned values are directly converted to JSON responses.
 type responseData interface{}
-
-// reqIDPack is used as input for JSON (un)marshaller.
-type reqIDPack struct {
-	ReqID
-}
-
-// AccessInfo2 structure is used by HTTP instead of AccessInfo when acquiring
-// worker. The only difference is that key field is in PEM format instead of
-// rsa.PrivateKey. It is temporary solution - session private keys will be
-// replaces with users' public keys when proper user support is added.
-type AccessInfo2 struct {
-	// Addr is necessary information to connect to a tunnel to Dryad.
-	Addr net.Addr
-	// Key is private RSA key in PEM format.
-	Key string
-	// Username is a login name for the job session.
-	Username string
-}
-
-// workerStatePack is used as input for JSON (un)marshaller.
-type workerStatePack struct {
-	WorkerState
-}
 
 // reqHandler denotes function that parses HTTP request and returns responseData.
 type reqHandler func(*http.Request, map[string]string) responseData
@@ -77,7 +54,7 @@ func jsonMustMarshal(data responseData) []byte {
 	res, err := json.Marshal(data)
 	if err != nil {
 		msg := "unable to marshal JSON:" + err.Error()
-		panic(newServerError(ErrInternalServerError, msg))
+		panic(util.NewServerError(util.ErrInternalServerError, msg))
 	}
 	return res
 }
@@ -88,7 +65,7 @@ func panicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
 	var reason interface{}
 	var status = http.StatusInternalServerError
 	switch srvErr := err.(type) {
-	case *serverError:
+	case *util.ServerError:
 		reason = srvErr.Err
 		status = srvErr.Status
 	default:
@@ -111,7 +88,7 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 			ps map[string]string) {
 			status := status
 			rdata := handle(r, ps)
-			if data, isErr := rdata.(*serverError); isErr &&
+			if data, isErr := rdata.(*util.ServerError); isErr &&
 				data != nil {
 				status = data.Status
 			}

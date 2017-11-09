@@ -14,7 +14,7 @@
  *  limitations under the License
  */
 
-// File server/api/v1/handlers.go contains all handlers that are used in v1 API.
+// File http/server/api/v1/handlers.go contain all handlers that are used in v1 API.
 
 package v1
 
@@ -26,6 +26,7 @@ import (
 	"net/http"
 
 	. "git.tizen.org/tools/boruta"
+	util "git.tizen.org/tools/boruta/http"
 )
 
 // newRequestHandler parses HTTP request for creating new Boruta request and
@@ -35,17 +36,17 @@ func (api *API) newRequestHandler(r *http.Request, ps map[string]string) respons
 	defer r.Body.Close()
 
 	if err := json.NewDecoder(r.Body).Decode(&newReq); err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
 	//FIXME: currently UserInfo is ignored. Change when user support is added.
 	rid, err := api.reqs.NewRequest(newReq.Caps, newReq.Priority, UserInfo{},
 		newReq.ValidAfter.UTC(), newReq.Deadline.UTC())
 	if err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
-	return reqIDPack{rid}
+	return util.ReqIDPack{rid}
 }
 
 // closeRequestHandler parses HTTP request for closing existing Boruta request
@@ -55,10 +56,10 @@ func (api *API) closeRequestHandler(r *http.Request, ps map[string]string) respo
 
 	reqid, err := parseReqID(ps["id"])
 	if err != nil {
-		return newServerError(ErrBadID)
+		return util.NewServerError(util.ErrBadID)
 	}
 
-	return newServerError(api.reqs.CloseRequest(reqid))
+	return util.NewServerError(api.reqs.CloseRequest(reqid))
 }
 
 // updateRequestHandler parses HTTP request for modification of existing Boruta
@@ -69,22 +70,22 @@ func (api *API) updateRequestHandler(r *http.Request, ps map[string]string) resp
 
 	reqid, err := parseReqID(ps["id"])
 	if err != nil {
-		return newServerError(ErrBadID)
+		return util.NewServerError(util.ErrBadID)
 	}
 
 	var req ReqInfo
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
 	if req.ID != 0 && req.ID != reqid {
-		return newServerError(ErrIDMismatch)
+		return util.NewServerError(util.ErrIDMismatch)
 	}
 	// When ID wasn't set in JSON (or was set to 0) then it should be set to
 	// the value from URL.
 	req.ID = reqid
 
-	return newServerError(api.reqs.UpdateRequest(&req))
+	return util.NewServerError(api.reqs.UpdateRequest(&req))
 }
 
 // getRequestInfoHandler parses HTTP request for getting information about Boruta
@@ -94,12 +95,12 @@ func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) res
 
 	reqid, err := parseReqID(ps["id"])
 	if err != nil {
-		return newServerError(ErrBadID)
+		return util.NewServerError(util.ErrBadID)
 	}
 
 	reqinfo, err := api.reqs.GetRequestInfo(reqid)
 	if err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
 	return reqinfo
@@ -108,14 +109,14 @@ func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) res
 // listRequestsHandler parses HTTP request for listing Boruta requests and calls
 // ListRequests().
 func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) responseData {
-	var filter *RequestFilter
+	var filter *util.RequestFilter
 	defer r.Body.Close()
 
 	if r.Method == http.MethodPost {
-		filter = new(RequestFilter)
+		filter = new(util.RequestFilter)
 		if err := json.NewDecoder(r.Body).Decode(filter); err != nil {
 			if err != io.EOF {
-				return newServerError(err)
+				return util.NewServerError(err)
 			}
 			filter = nil
 		}
@@ -123,7 +124,7 @@ func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) respo
 
 	reqs, err := api.reqs.ListRequests(filter)
 	if err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
 	return reqs
@@ -136,18 +137,18 @@ func (api *API) acquireWorkerHandler(r *http.Request, ps map[string]string) resp
 
 	reqid, err := parseReqID(ps["id"])
 	if err != nil {
-		return newServerError(ErrBadID)
+		return util.NewServerError(util.ErrBadID)
 	}
 
 	accessInfo, err := api.reqs.AcquireWorker(reqid)
 	if err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 	key := string(pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(&accessInfo.Key),
 	}))
-	return AccessInfo2{
+	return util.AccessInfo2{
 		Addr:     accessInfo.Addr,
 		Key:      key,
 		Username: accessInfo.Username,
@@ -161,27 +162,27 @@ func (api *API) prolongAccessHandler(r *http.Request, ps map[string]string) resp
 
 	reqid, err := parseReqID(ps["id"])
 	if err != nil {
-		return newServerError(ErrBadID)
+		return util.NewServerError(util.ErrBadID)
 	}
 
-	return newServerError(api.reqs.ProlongAccess(reqid))
+	return util.NewServerError(api.reqs.ProlongAccess(reqid))
 }
 
 // listWorkersHandler parses HTTP request for listing workers and calls ListWorkers().
 func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) responseData {
-	var filter WorkersFilter
+	var filter util.WorkersFilter
 	defer r.Body.Close()
 
 	if r.Method == http.MethodPost {
 		err := json.NewDecoder(r.Body).Decode(&filter)
 		if err != nil && err != io.EOF {
-			return newServerError(err)
+			return util.NewServerError(err)
 		}
 	}
 
 	workers, err := api.workers.ListWorkers(filter.Groups, filter.Capabilities)
 	if err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
 	return workers
@@ -193,12 +194,12 @@ func (api *API) getWorkerInfoHandler(r *http.Request, ps map[string]string) resp
 	defer r.Body.Close()
 
 	if !isValidUUID(ps["id"]) {
-		return newServerError(ErrBadUUID)
+		return util.NewServerError(util.ErrBadUUID)
 	}
 
 	workerinfo, err := api.workers.GetWorkerInfo(WorkerUUID(ps["id"]))
 	if err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
 	return workerinfo
@@ -207,18 +208,18 @@ func (api *API) getWorkerInfoHandler(r *http.Request, ps map[string]string) resp
 // setWorkerStateHandler parses HTTP workers for setting worker state and calls
 // workers.SetState().
 func (api *API) setWorkerStateHandler(r *http.Request, ps map[string]string) responseData {
-	var state workerStatePack
+	var state util.WorkerStatePack
 	defer r.Body.Close()
 
 	if !isValidUUID(ps["id"]) {
-		return newServerError(ErrBadUUID)
+		return util.NewServerError(util.ErrBadUUID)
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&state); err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
 
-	return newServerError(api.workers.SetState(WorkerUUID(ps["id"]),
+	return util.NewServerError(api.workers.SetState(WorkerUUID(ps["id"]),
 		state.WorkerState))
 }
 
@@ -229,13 +230,13 @@ func (api *API) setWorkerGroupsHandler(r *http.Request, ps map[string]string) re
 	defer r.Body.Close()
 
 	if !isValidUUID(ps["id"]) {
-		return newServerError(ErrBadUUID)
+		return util.NewServerError(util.ErrBadUUID)
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&groups); err != nil {
-		return newServerError(err)
+		return util.NewServerError(err)
 	}
-	return newServerError(api.workers.SetGroups(WorkerUUID(ps["id"]), groups))
+	return util.NewServerError(api.workers.SetGroups(WorkerUUID(ps["id"]), groups))
 }
 
 // workerDeregister parses HTTP workers for deregistering worker state and calls
@@ -244,8 +245,8 @@ func (api *API) workerDeregister(r *http.Request, ps map[string]string) response
 	defer r.Body.Close()
 
 	if !isValidUUID(ps["id"]) {
-		return newServerError(ErrBadUUID)
+		return util.NewServerError(util.ErrBadUUID)
 	}
 
-	return newServerError(api.workers.Deregister(WorkerUUID(ps["id"])))
+	return util.NewServerError(api.workers.Deregister(WorkerUUID(ps["id"])))
 }

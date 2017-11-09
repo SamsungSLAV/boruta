@@ -14,10 +14,10 @@
  *  limitations under the License
  */
 
-// File server/api/v1/errors.go provides errors that may occur when interacting
-// with Boruta HTTP API.
+// File http/errors.go provides errors that may occur when interacting with
+// Boruta HTTP API.
 
-package v1
+package http
 
 import (
 	"errors"
@@ -27,8 +27,8 @@ import (
 	. "git.tizen.org/tools/boruta"
 )
 
-// serverError represents error that occured while creating response.
-type serverError struct {
+// ServerError represents error that occured while creating response.
+type ServerError struct {
 	// Err contains general error string.
 	Err string `json:"error"`
 	// Status contains HTTP error code that should be returned with the error.
@@ -60,13 +60,13 @@ func isNotFoundError(err error) bool {
 	return ok
 }
 
-// newServerError provides pointer to initialized serverError.
-func newServerError(err error, details ...string) (ret *serverError) {
+// NewServerError provides pointer to initialized ServerError.
+func NewServerError(err error, details ...string) (ret *ServerError) {
 	if err == nil {
 		return nil
 	}
 
-	ret = new(serverError)
+	ret = new(ServerError)
 
 	ret.Err = err.Error()
 	if len(details) > 0 {

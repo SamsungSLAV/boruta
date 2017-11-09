@@ -17,9 +17,7 @@
 package v1
 
 import (
-	"errors"
 	"flag"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +27,7 @@ import (
 	"testing"
 
 	. "git.tizen.org/tools/boruta"
+	util "git.tizen.org/tools/boruta/http"
 	"git.tizen.org/tools/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
@@ -227,42 +226,6 @@ func TestNewAPI(t *testing.T) {
 	m.finish()
 }
 
-func TestNewServerError(t *testing.T) {
-	assert := assert.New(t)
-	badRequest := &serverError{
-		Err:    "invalid request: foo",
-		Status: http.StatusBadRequest,
-	}
-	nobody := "no body provided in HTTP request"
-	missingBody := &serverError{
-		Err:    nobody,
-		Status: http.StatusBadRequest,
-	}
-	notImplemented := &serverError{
-		Err:    ErrNotImplemented.Error(),
-		Status: http.StatusNotImplemented,
-	}
-	internalErr := &serverError{
-		Err:    ErrInternalServerError.Error(),
-		Status: http.StatusInternalServerError,
-	}
-	customErr := &serverError{
-		Err:    "invalid request: more details",
-		Status: http.StatusBadRequest,
-	}
-	notFound := &serverError{
-		Err:    NotFoundError("Fern Flower").Error(),
-		Status: http.StatusNotFound,
-	}
-	assert.Equal(badRequest, newServerError(errors.New("foo")))
-	assert.Equal(missingBody, newServerError(io.EOF))
-	assert.Equal(notImplemented, newServerError(ErrNotImplemented))
-	assert.Equal(internalErr, newServerError(ErrInternalServerError))
-	assert.Equal(customErr, newServerError(ErrBadRequest, "more details"))
-	assert.Equal(notFound, newServerError(NotFoundError("Fern Flower")))
-	assert.Nil(newServerError(nil))
-}
-
 func TestJsonMustMarshal(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() { jsonMustMarshal(make(chan bool)) })
@@ -281,7 +244,7 @@ func TestPanicHandler(t *testing.T) {
 		{
 			name: "panic-server-error",
 			path: "/priv/api/panic/srvErr/",
-			err: &serverError{
+			err: &util.ServerError{
 				Err:    msg,
 				Status: http.StatusInternalServerError,
 			},

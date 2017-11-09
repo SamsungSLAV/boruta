@@ -14,9 +14,9 @@
  *  limitations under the License
  */
 
-// File server/api/v1/filter.go provides implementation of ListFilter interface.
+// File http/filter.go provides implementation of ListFilter interface.
 
-package v1
+package http
 
 import (
 	"strconv"
