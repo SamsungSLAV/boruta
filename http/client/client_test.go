@@ -63,9 +63,12 @@ const (
 	dateLayout  = "2006-01-02T15:04:05Z07:00"
 )
 
-// req is valid request that may be used in tests directly or as a template.
-var req ReqInfo
-var errRead = errors.New("unable to read server response: read failed")
+var (
+	// req is valid request that may be used in tests directly or as a template.
+	req            ReqInfo
+	errRead        = errors.New("unable to read server response: read failed")
+	errReqNotFound = util.NewServerError(NotFoundError("Request"))
+)
 
 func init() {
 	deadline, err := time.Parse(dateLayout, "2200-12-31T01:02:03Z")
@@ -254,8 +257,7 @@ func TestGetServerError(t *testing.T) {
 	resp.Body = ioutil.NopCloser(strings.NewReader(missing))
 	resp.StatusCode = http.StatusNotFound
 	resp.Header.Set("Content-Type", contentJSON)
-	notfound := util.NewServerError(NotFoundError("Request"))
-	assert.Equal(notfound, getServerError(&resp))
+	assert.Equal(errReqNotFound, getServerError(&resp))
 
 	resp.Body = ioutil.NopCloser(strings.NewReader(msg))
 	errJSON := errors.New("unmarshalling JSON response failed: invalid character 'D' looking for beginning of value")
@@ -299,11 +301,10 @@ func TestProcessResponse(t *testing.T) {
 	assert.Nil(processResponse(&resp, &reqinfo))
 	assert.Equal(&req, reqinfo)
 
-	notfound := util.NewServerError(NotFoundError("Request"))
 	resp.StatusCode = http.StatusNotFound
 	resp.Body = ioutil.NopCloser(strings.NewReader(missing))
 	srvErr = processResponse(&resp, &reqinfo).(*util.ServerError)
-	assert.Equal(notfound, srvErr)
+	assert.Equal(errReqNotFound, srvErr)
 
 	badType := "can't set val, please pass appropriate pointer"
 	var foo int
@@ -361,11 +362,37 @@ func TestNewRequest(t *testing.T) {
 }
 
 func TestCloseRequest(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "close-req-"
+	path := "/api/v1/reqs/"
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:   prefix + "valid",
+			path:   path + "1" + "/close",
+			status: http.StatusNoContent,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "missing",
+			path:        path + "2" + "/close",
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+	}
 
-	err := client.CloseRequest(ReqID(0))
-	assert.Equal(util.ErrNotImplemented, err)
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid request
+	assert.Nil(client.CloseRequest(ReqID(1)))
+
+	// missing request
+	assert.Equal(errReqNotFound, client.CloseRequest(ReqID(2)))
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.CloseRequest(ReqID(1)))
 }
 
 func TestUpdateRequest(t *testing.T) {

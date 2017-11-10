@@ -29,6 +29,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"reflect"
+	"strconv"
 	"time"
 
 	"git.tizen.org/tools/boruta"
@@ -170,7 +171,12 @@ func (client *BorutaClient) NewRequest(caps boruta.Capabilities,
 
 // CloseRequest closes or cancels Boruta request.
 func (client *BorutaClient) CloseRequest(reqID boruta.ReqID) error {
-	return util.ErrNotImplemented
+	path := client.url + "reqs/" + strconv.Itoa(int(reqID)) + "/close"
+	resp, err := http.Post(path, "", nil)
+	if err != nil {
+		return err
+	}
+	return processResponse(resp, nil)
 }
 
 // UpdateRequest prepares JSON with fields that should be changed for given
