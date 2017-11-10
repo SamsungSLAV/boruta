@@ -691,11 +691,39 @@ func TestAcquireWorker(t *testing.T) {
 }
 
 func TestProlongAccess(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "prolong-access-"
+	path := "/api/v1/reqs/"
 
-	err := client.ProlongAccess(ReqID(0))
-	assert.Equal(util.ErrNotImplemented, err)
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:        prefix + "valid",
+			path:        path + "1/prolong",
+			contentType: contentJSON,
+			status:      http.StatusNoContent,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "missing",
+			path:        path + "2/prolong",
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	assert.Nil(client.ProlongAccess(ReqID(1)))
+
+	// missing
+	assert.Equal(errReqNotFound, client.ProlongAccess(ReqID(2)))
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.ProlongAccess(ReqID(1)))
 }
 
 func TestListWorkers(t *testing.T) {

@@ -269,7 +269,12 @@ func (client *BorutaClient) AcquireWorker(reqID boruta.ReqID) (boruta.AccessInfo
 // If not called, Boruta server will terminate the tunnel when ReqInfo.Job.Timeout
 // passes, and change state of request to CLOSED.
 func (client *BorutaClient) ProlongAccess(reqID boruta.ReqID) error {
-	return util.ErrNotImplemented
+	path := client.url + "reqs/" + strconv.Itoa(int(reqID)) + "/prolong"
+	resp, err := http.Post(path, "", nil)
+	if err != nil {
+		return err
+	}
+	return processResponse(resp, nil)
 }
 
 // ListWorkers queries Boruta server for list of workers that are in given groups
