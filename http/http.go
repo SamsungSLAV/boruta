@@ -39,7 +39,7 @@ type WorkerStatePack struct {
 // replaces with users' public keys when proper user support is added.
 type AccessInfo2 struct {
 	// Addr is necessary information to connect to a tunnel to Dryad.
-	Addr net.Addr
+	Addr *net.TCPAddr
 	// Key is private RSA key in PEM format.
 	Key string
 	// Username is a login name for the job session.

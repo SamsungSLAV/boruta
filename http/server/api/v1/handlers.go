@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"io"
+	"net"
 	"net/http"
 
 	. "git.tizen.org/tools/boruta"
@@ -149,7 +150,7 @@ func (api *API) acquireWorkerHandler(r *http.Request, ps map[string]string) resp
 		Bytes: x509.MarshalPKCS1PrivateKey(&accessInfo.Key),
 	}))
 	return util.AccessInfo2{
-		Addr:     accessInfo.Addr,
+		Addr:     accessInfo.Addr.(*net.TCPAddr),
 		Key:      key,
 		Username: accessInfo.Username,
 	}

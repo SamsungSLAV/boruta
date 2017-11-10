@@ -23,7 +23,9 @@ package client
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -237,9 +239,29 @@ func (client *BorutaClient) ListRequests(filter boruta.ListFilter) ([]boruta.Req
 // AcquireWorker queries Boruta server for information required to access
 // assigned Dryad. Access information may not be available when the call
 // is issued because requests need to have assigned worker.
-func (client *BorutaClient) AcquireWorker(reqID boruta.ReqID) (
-	*boruta.AccessInfo, error) {
-	return nil, util.ErrNotImplemented
+func (client *BorutaClient) AcquireWorker(reqID boruta.ReqID) (boruta.AccessInfo, error) {
+	var accInfo boruta.AccessInfo
+	path := client.url + "reqs/" + strconv.Itoa(int(reqID)) + "/acquire_worker"
+	resp, err := http.Post(path, "", nil)
+	if err != nil {
+		return accInfo, err
+	}
+	accInfo2 := new(util.AccessInfo2)
+	if err = processResponse(resp, &accInfo2); err != nil {
+		return accInfo, err
+	}
+	block, _ := pem.Decode([]byte(accInfo2.Key))
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return accInfo, errors.New("wrong key: " + accInfo2.Key)
+	}
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return accInfo, err
+	}
+	accInfo.Addr = accInfo2.Addr
+	accInfo.Username = accInfo2.Username
+	accInfo.Key = *key
+	return accInfo, nil
 }
 
 // ProlongAccess requests Boruta server to extend running time of job. User may

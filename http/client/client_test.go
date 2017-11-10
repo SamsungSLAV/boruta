@@ -17,9 +17,12 @@
 package client
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,6 +46,8 @@ type testCase struct {
 	contentType string
 	// expected status
 	status int
+	// response that should be returned (read from server testdata if empty)
+	resp string
 	// expected headers
 	header http.Header
 }
@@ -178,9 +183,14 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 			default:
 				fpath += ".txt"
 			}
-			data, err = ioutil.ReadFile(fpath)
-			if err != nil {
-				panic(err)
+			// Or use reply provided in testcase instead.
+			if test.resp == "" {
+				data, err = ioutil.ReadFile(fpath)
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				data = []byte(test.resp)
 			}
 			w.Header().Set("Content-Type", test.contentType)
 		}
@@ -602,12 +612,82 @@ func TestListRequests(t *testing.T) {
 }
 
 func TestAcquireWorker(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "acquire-worker-"
+	path := "/api/v1/reqs/"
 
-	accessInfo, err := client.AcquireWorker(ReqID(0))
-	assert.Nil(accessInfo)
-	assert.Equal(util.ErrNotImplemented, err)
+	badkeyAI := util.AccessInfo2{
+		Addr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 22,
+		},
+		Key:      "bad key :(",
+		Username: "lelpolel",
+	}
+
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:        prefix + "valid",
+			path:        path + "1/acquire_worker",
+			contentType: contentJSON,
+			status:      http.StatusOK,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "missing",
+			path:        path + "2/acquire_worker",
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+		&testCase{
+			// bad key request
+			name:        prefix + "badkey",
+			path:        path + "3/acquire_worker",
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			resp:        string(jsonMustMarshal(badkeyAI)),
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// from server/api/v1 AcquireWorker tests
+	keyPem := "-----BEGIN RSA PRIVATE KEY-----\nMIICXgIBAAKBgQCyBgKbrwKh75BDoigwltbazFGDLdlxf9YLpFj5v+4ieKgsaN+W\n+kRvamSuB5CC2tqFql5x7kPt1U+vVMwkzVRewF/HHzRYxgLHlge6d1ZALpCWywaz\nslt5pNCmF7NoZ//WTSrafufDI4IRoNgkHtEKvnWdBaPPnY4Cf+PCbZOYNQIDAQAB\nAoGBAJvoz5fxKekQmdPhzDjhocF1d13fZbQVNSx0/seb476k1QQvxMHA5PZ+wzX2\nwgUYDpFJp/U3qp48VtFC/pasjNoG7zLPLLUJcg15eOoh4Ld7I1e4lRkLl3CwnqMk\nbc6UoKQRLli4O3cmaMxVHXal0o72s3o0qnHlRlZXLekwi6aBAkEA69j3bnbAybsF\n/NHelRYDH8bou+LCX2d/p6ReUR0bJ4yCAWRi/9Ld0ng482xinxGSpfovbIplBMFx\nH2eT2Cw0OQJBAME8LLz/3zb/vLG/t8Lfsequ1ZhVca/LlVR4yJLlyaVcywT9SJlO\nmKCy13SpKl8TY7czyufYrY4lobZjYaIsm90CQQCKhkRGWG/BzRymMyp2DJjHKFB4\nUqbx3FuJPqy7HcpeP1P4t1rCgbsSLNTefRGr9mlZHYqPSPYuheQImxCmTshZAkEA\nwAp5u+vfft1yPoT2r+l4/G99P8PLFJcTdbwEOlm8qWcrLW47dIE0FqEml3536b1v\nYGdMxFYHRjoIGSdzpKUI0QJAAqPdDp+y7kWaeIbKkp3Z3bLrj5wii2QAy2YlBDKe\npXrvruWJvL75OCYcxRju3DpVaoYqEmso+UEiQEDRB42YYg==\n-----END RSA PRIVATE KEY-----\n"
+	block, _ := pem.Decode([]byte(keyPem))
+	assert.NotNil(block)
+	key, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
+
+	access := AccessInfo{
+		Addr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 22,
+		},
+		Key:      *key,
+		Username: "wołchw",
+	}
+
+	// valid
+	accessInfo, err := client.AcquireWorker(ReqID(1))
+	assert.Equal(access, accessInfo)
+	assert.Nil(err)
+
+	// missing
+	accessInfo, err = client.AcquireWorker(ReqID(2))
+	assert.Zero(accessInfo)
+	assert.Equal(errReqNotFound, err)
+
+	// bad key
+	accessInfo, err = client.AcquireWorker(ReqID(3))
+	assert.Zero(accessInfo)
+	assert.Equal(errors.New("wrong key: "+badkeyAI.Key), err)
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	accessInfo, err = client.AcquireWorker(ReqID(1))
+	assert.Zero(accessInfo)
+	assert.NotNil(err)
 }
 
 func TestProlongAccess(t *testing.T) {
