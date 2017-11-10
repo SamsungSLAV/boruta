@@ -219,9 +219,19 @@ func (client *BorutaClient) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, 
 
 // ListRequests queries Boruta server for list of requests that match given
 // filter. Filter may be empty or nil to get list of all requests.
-func (client *BorutaClient) ListRequests(filter boruta.ListFilter) (
-	[]boruta.ReqInfo, error) {
-	return nil, util.ErrNotImplemented
+func (client *BorutaClient) ListRequests(filter boruta.ListFilter) ([]boruta.ReqInfo, error) {
+	req, err := json.Marshal(filter)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.Post(client.url+"reqs/list", contentType,
+		bytes.NewReader(req))
+	if err != nil {
+		return nil, err
+	}
+	list := new([]boruta.ReqInfo)
+	err = processResponse(resp, list)
+	return *list, err
 }
 
 // AcquireWorker queries Boruta server for information required to access

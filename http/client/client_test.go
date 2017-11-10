@@ -47,6 +47,13 @@ type testCase struct {
 	header http.Header
 }
 
+// chanFilter is used to mock failure of JSON marshalling in ListRequests.
+type chanFilter chan bool
+
+func (f chanFilter) Match(_ *ReqInfo) bool {
+	return false
+}
+
 type dummyReadCloser int
 
 func (r dummyReadCloser) Close() error {
@@ -505,12 +512,93 @@ func TestGetRequestInfo(t *testing.T) {
 }
 
 func TestListRequests(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "filter-reqs-"
+	path := "/api/v1/reqs/list"
 
-	reqInfo, err := client.ListRequests(nil)
-	assert.Nil(reqInfo)
-	assert.Equal(util.ErrNotImplemented, err)
+	// from api/v1 TestListRequestsHandler
+	deadline, _ := time.Parse(dateLayout, "2222-12-31T00:00:00Z")
+	validAfter, _ := time.Parse(dateLayout, "1683-09-12T00:00:00Z")
+	reqs := []ReqInfo{
+		{ID: 1, Priority: (HiPrio + LoPrio) / 2, State: WAIT,
+			Deadline: deadline, ValidAfter: validAfter},
+		{ID: 2, Priority: (HiPrio+LoPrio)/2 + 1, State: WAIT,
+			Deadline: deadline, ValidAfter: validAfter},
+		{ID: 3, Priority: (HiPrio + LoPrio) / 2, State: CANCEL,
+			Deadline: deadline, ValidAfter: validAfter},
+		{ID: 4, Priority: (HiPrio+LoPrio)/2 + 1, State: CANCEL,
+			Deadline: deadline, ValidAfter: validAfter},
+	}
+
+	missingFilter := util.NewRequestFilter("INPROGRESS", "2")
+	missingHeader := make(http.Header)
+	missingHeader.Set("Boruta-Request-Count", "0")
+	validFilter := util.NewRequestFilter("WAIT", "")
+	validHeader := make(http.Header)
+	validHeader.Set("Boruta-Request-Count", "2")
+	nilHeader := make(http.Header)
+	nilHeader.Set("Boruta-Request-Count", "4")
+
+	tests := []*testCase{
+		&testCase{
+			// valid filter
+			name:        prefix + "valid-filter",
+			path:        path,
+			json:        string(jsonMustMarshal(validFilter)),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      validHeader,
+		},
+		&testCase{
+			// nil filter - list all
+			name:        prefix + "nil",
+			path:        path,
+			json:        string(jsonMustMarshal(nil)),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      nilHeader,
+		},
+		&testCase{
+			// no requests matched
+			name:        prefix + "nomatch-all",
+			path:        path,
+			json:        string(jsonMustMarshal(missingFilter)),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      missingHeader,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// nil filter
+	list, err := client.ListRequests(nil)
+	assert.Nil(err)
+	assert.Equal(reqs, list)
+
+	// valid filter
+	list, err = client.ListRequests(validFilter)
+	assert.Nil(err)
+	assert.Equal(reqs[:2], list)
+
+	// no requests matched
+	list, err = client.ListRequests(missingFilter)
+	assert.Nil(err)
+	assert.Equal([]ReqInfo{}, list)
+
+	// json.Marshal failure
+	var typeError *json.UnsupportedTypeError
+	list, err = client.ListRequests(make(chanFilter))
+	assert.Empty(list)
+	assert.IsType(typeError, err)
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	list, err = client.ListRequests(nil)
+	assert.Zero(list)
+	assert.NotNil(err)
+
 }
 
 func TestAcquireWorker(t *testing.T) {
