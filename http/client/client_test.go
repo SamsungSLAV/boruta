@@ -460,12 +460,48 @@ func TestUpdateRequest(t *testing.T) {
 }
 
 func TestGetRequestInfo(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "req-info"
+	path := "/api/v1/reqs/"
 
-	reqInfo, err := client.GetRequestInfo(ReqID(0))
-	assert.Nil(reqInfo)
-	assert.Equal(util.ErrNotImplemented, err)
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:        prefix,
+			path:        path + "1",
+			contentType: contentJSON,
+			status:      http.StatusOK,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "-missing",
+			path:        path + "2",
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+	}
+
+	srv := prepareServer(http.MethodGet, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	req := req
+	req.ID = ReqID(1)
+	req.State = WAIT
+	reqInfo, err := client.GetRequestInfo(ReqID(1))
+	assert.Nil(err)
+	assert.Equal(req, reqInfo)
+
+	// missing
+	reqInfo, err = client.GetRequestInfo(ReqID(2))
+	assert.Zero(reqInfo)
+	assert.Equal(errReqNotFound, err)
+
+	// http.Get failure
+	client.url = "http://nosuchaddress.fail"
+	reqInfo, err = client.GetRequestInfo(ReqID(1))
+	assert.Zero(reqInfo)
+	assert.NotNil(err)
 }
 
 func TestListRequests(t *testing.T) {

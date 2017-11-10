@@ -206,9 +206,15 @@ func (client *BorutaClient) UpdateRequest(reqInfo *boruta.ReqInfo) error {
 }
 
 // GetRequestInfo queries Boruta server for details about given request ID.
-func (client *BorutaClient) GetRequestInfo(reqID boruta.ReqID) (*boruta.ReqInfo,
-	error) {
-	return nil, util.ErrNotImplemented
+func (client *BorutaClient) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, error) {
+	var reqInfo boruta.ReqInfo
+	path := client.url + "reqs/" + strconv.Itoa(int(reqID))
+	resp, err := http.Get(path)
+	if err != nil {
+		return reqInfo, err
+	}
+	err = processResponse(resp, &reqInfo)
+	return reqInfo, err
 }
 
 // ListRequests queries Boruta server for list of requests that match given
