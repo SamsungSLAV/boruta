@@ -182,7 +182,27 @@ func (client *BorutaClient) CloseRequest(reqID boruta.ReqID) error {
 // UpdateRequest prepares JSON with fields that should be changed for given
 // request ID.
 func (client *BorutaClient) UpdateRequest(reqInfo *boruta.ReqInfo) error {
-	return util.ErrNotImplemented
+	if reqInfo == nil {
+		return errors.New("nil reqInfo passed")
+	}
+	req, err := json.Marshal(&struct {
+		boruta.Priority
+		Deadline   time.Time
+		ValidAfter time.Time
+	}{
+		Priority:   reqInfo.Priority,
+		Deadline:   reqInfo.Deadline,
+		ValidAfter: reqInfo.ValidAfter,
+	})
+	if err != nil {
+		return err
+	}
+	path := client.url + "reqs/" + strconv.Itoa(int(reqInfo.ID))
+	resp, err := http.Post(path, contentType, bytes.NewReader(req))
+	if err != nil {
+		return err
+	}
+	return processResponse(resp, nil)
 }
 
 // GetRequestInfo queries Boruta server for details about given request ID.

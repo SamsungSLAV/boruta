@@ -396,11 +396,67 @@ func TestCloseRequest(t *testing.T) {
 }
 
 func TestUpdateRequest(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "update-req-"
+	path := "/api/v1/reqs/"
 
+	validAfter := time.Now()
+	deadline := validAfter.AddDate(0, 0, 2)
+	priority := Priority(4)
+
+	reqJSON := string(jsonMustMarshal(&struct {
+		Priority
+		Deadline   time.Time
+		ValidAfter time.Time
+	}{
+		Priority:   priority,
+		Deadline:   deadline,
+		ValidAfter: validAfter,
+	}))
+
+	reqinfo := req
+
+	reqinfo.Priority = priority
+	reqinfo.Deadline = deadline
+	reqinfo.ValidAfter = validAfter
+
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:        prefix + "valid",
+			path:        path + "1",
+			json:        reqJSON,
+			contentType: contentJSON,
+			status:      http.StatusNoContent,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "missing",
+			path:        path + "2",
+			json:        reqJSON,
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	reqinfo.ID = ReqID(1)
+	assert.Nil(client.UpdateRequest(&reqinfo))
+
+	// missing
+	reqinfo.ID = ReqID(2)
+	assert.Equal(errReqNotFound, client.UpdateRequest(&reqinfo))
+
+	// bad arguments
 	err := client.UpdateRequest(nil)
-	assert.Equal(util.ErrNotImplemented, err)
+	assert.Equal(errors.New("nil reqInfo passed"), err)
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.UpdateRequest(&reqinfo))
 }
 
 func TestGetRequestInfo(t *testing.T) {
