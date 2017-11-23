@@ -21,7 +21,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -38,9 +37,12 @@ type responseData interface{}
 // reqHandler denotes function that parses HTTP request and returns responseData.
 type reqHandler func(*http.Request, map[string]string) responseData
 
+// Version contains version string of the API.
+const Version = "v1"
+
 // API provides HTTP API handlers.
 type API struct {
-	r       *httptreemux.TreeMux
+	r       *httptreemux.Group
 	reqs    Requests
 	workers Workers
 }
@@ -57,24 +59,6 @@ func jsonMustMarshal(data responseData) []byte {
 		panic(util.NewServerError(util.ErrInternalServerError, msg))
 	}
 	return res
-}
-
-// panicHandler is intended as a httptreemux PanicHandler function. It sends
-// InternalServerError with details to client whose request caused panic.
-func panicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
-	var reason interface{}
-	var status = http.StatusInternalServerError
-	switch srvErr := err.(type) {
-	case *util.ServerError:
-		reason = srvErr.Err
-		status = srvErr.Status
-	default:
-		reason = srvErr
-	}
-	// Because marshalling JSON may fail, data is sent in plaintext.
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(status)
-	w.Write([]byte(fmt.Sprintf("Internal Server Error:\n%s", reason)))
 }
 
 // routerSetHandler wraps fn by adding HTTP headers, handling error and
@@ -106,9 +90,9 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 	}
 }
 
-// NewAPI takes router and registers HTTP API in it. httptreemux.PanicHandler
+// NewAPI takes router and registers HTTP API in it. htttreemux.PanicHandler
 // function is set. Also other setting of the router may be modified.
-func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests,
+func NewAPI(router *httptreemux.Group, requestsAPI Requests,
 	workersAPI Workers) (api *API) {
 	api = new(API)
 
@@ -116,11 +100,9 @@ func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests,
 	api.workers = workersAPI
 
 	api.r = router
-	api.r.PanicHandler = panicHandler
 
-	root := api.r.NewGroup("/api/v1")
-	reqs := root.NewGroup("/reqs")
-	workers := root.NewGroup("/workers")
+	reqs := api.r.NewGroup("/reqs")
+	workers := api.r.NewGroup("/workers")
 
 	// Requests API
 	routerSetHandler(reqs, "/", api.listRequestsHandler, http.StatusOK,

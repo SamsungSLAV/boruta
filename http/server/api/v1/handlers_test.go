@@ -32,7 +32,7 @@ import (
 )
 
 func TestNewRequestHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	prefix := "new-req-"
@@ -72,11 +72,11 @@ func TestNewRequestHandler(t *testing.T) {
 		malformedJSONTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestCloseRequestHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	methods := []string{http.MethodPost}
@@ -104,11 +104,11 @@ func TestCloseRequestHandler(t *testing.T) {
 		notFoundTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestUpdateRequestHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	methods := []string{http.MethodPost}
@@ -180,11 +180,11 @@ func TestUpdateRequestHandler(t *testing.T) {
 		notFoundTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestGetRequestInfoHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	methods := []string{http.MethodGet, http.MethodHead}
@@ -216,11 +216,11 @@ func TestGetRequestInfoHandler(t *testing.T) {
 		invalidIDTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestListRequestsHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	deadline, err := time.Parse(dateLayout, future)
@@ -324,11 +324,11 @@ func TestListRequestsHandler(t *testing.T) {
 		malformedJSONTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestAcquireWorkerHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	methods := []string{http.MethodPost}
@@ -367,11 +367,11 @@ func TestAcquireWorkerHandler(t *testing.T) {
 		invalidIDTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestProlongAccessHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	methods := []string{http.MethodPost}
@@ -396,11 +396,11 @@ func TestProlongAccessHandler(t *testing.T) {
 		invalidIDTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestListWorkersHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	armCaps := make(Capabilities)
@@ -517,11 +517,11 @@ func TestListWorkersHandler(t *testing.T) {
 		malformedJSONTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestGetWorkerInfoHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	prefix := "worker-info-"
@@ -554,11 +554,11 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 		notFoundTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestSetWorkerStateHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	prefix := "worker-set-state-"
@@ -594,11 +594,11 @@ func TestSetWorkerStateHandler(t *testing.T) {
 		malformedJSONTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestSetWorkerGroupsHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	path := "/api/v1/workers/%s/setgroups"
@@ -636,11 +636,11 @@ func TestSetWorkerGroupsHandler(t *testing.T) {
 		malformedJSONTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }
 
 func TestDeregisterWorkerHandler(t *testing.T) {
-	assert, m, api := initTest(t)
+	assert, m, r := initTest(t)
 	defer m.finish()
 
 	prefix := "worker-deregister-"
@@ -672,5 +672,5 @@ func TestDeregisterWorkerHandler(t *testing.T) {
 		notFoundTest,
 	}
 
-	runTests(assert, api, tests)
+	runTests(assert, r, tests)
 }

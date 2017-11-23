@@ -27,7 +27,6 @@ import (
 	"testing"
 
 	. "git.tizen.org/tools/boruta"
-	util "git.tizen.org/tools/boruta/http"
 	"git.tizen.org/tools/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
@@ -120,14 +119,16 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func initTest(t *testing.T) (*assert.Assertions, *allMocks, *API) {
+func initTest(t *testing.T) (*assert.Assertions, *allMocks, *httptreemux.TreeMux) {
+	r := httptreemux.New()
 	ctrl := gomock.NewController(t)
 	m := &allMocks{
 		ctrl: ctrl,
 		rq:   mocks.NewMockRequests(ctrl),
 		wm:   mocks.NewMockWorkers(ctrl),
 	}
-	return assert.New(t), m, NewAPI(httptreemux.New(), m.rq, m.wm)
+	_ = NewAPI(r.NewGroup("/api/"+Version), m.rq, m.wm)
+	return assert.New(t), m, r
 }
 
 func (m *allMocks) finish() {
@@ -161,8 +162,8 @@ func newWorker(uuid string, state WorkerState, groups Groups, caps Capabilities)
 	return
 }
 
-func runTests(assert *assert.Assertions, api *API, tests []requestTest) {
-	srv := httptest.NewServer(api.r)
+func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []requestTest) {
+	srv := httptest.NewServer(r)
 	defer srv.Close()
 	var req *http.Request
 	var err error
@@ -229,63 +230,6 @@ func TestNewAPI(t *testing.T) {
 func TestJsonMustMarshal(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() { jsonMustMarshal(make(chan bool)) })
-}
-
-func TestPanicHandler(t *testing.T) {
-	assert, m, api := initTest(t)
-	defer m.finish()
-	msg := "Test PanicHandler: server panic"
-	otherErr := "some error"
-	tests := [...]struct {
-		name string
-		path string
-		err  interface{}
-	}{
-		{
-			name: "panic-server-error",
-			path: "/priv/api/panic/srvErr/",
-			err: &util.ServerError{
-				Err:    msg,
-				Status: http.StatusInternalServerError,
-			},
-		},
-		{
-			name: "panic-other-error",
-			path: "/priv/api/panic/otherErr/",
-			err:  otherErr,
-		},
-	}
-	contentType := "text/plain; charset=utf-8"
-
-	newHandler := func(err interface{}) reqHandler {
-		return func(r *http.Request, ps map[string]string) responseData {
-			panic(err)
-		}
-	}
-	for _, test := range tests {
-		routerSetHandler(api.r.NewGroup("/"), test.path, newHandler(test.err),
-			http.StatusOK, http.MethodGet)
-	}
-	var tcaseErrStr string
-	srv := httptest.NewServer(api.r)
-	assert.NotNil(srv)
-	defer srv.Close()
-	for _, test := range tests {
-		tcaseErrStr = test.name + ": FAILED"
-		resp, err := http.Get(srv.URL + test.path)
-		assert.Nil(err)
-		tdata := filepath.Join("testdata", test.name+".txt")
-		body, err := ioutil.ReadAll(resp.Body)
-		assert.Nil(err)
-		if update {
-			ioutil.WriteFile(tdata, body, 0644)
-		}
-		expected, err := ioutil.ReadFile(tdata)
-		assert.Nil(err)
-		assert.Equal(http.StatusInternalServerError, resp.StatusCode, tcaseErrStr)
-		assert.Equal(contentType, resp.Header.Get("Content-Type"), tcaseErrStr)
-		assert.Equal(expected, body, tcaseErrStr)
-	}
 }
 
 func TestParseReqID(t *testing.T) {
