@@ -194,6 +194,8 @@ func TestGetRequestInfoHandler(t *testing.T) {
 	var req ReqInfo
 	err := json.Unmarshal([]byte(validReqJSON), &req)
 	assert.Nil(err)
+	header := make(http.Header)
+	header.Set("Boruta-Request-State", "WAITING")
 
 	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+"2", methods...)
 	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, path+invalidID, methods...)
@@ -209,6 +211,7 @@ func TestGetRequestInfoHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      header,
 		},
 		// Try to get request information of request that doesn't exist.
 		notFoundTest,
@@ -245,13 +248,19 @@ func TestListRequestsHandler(t *testing.T) {
 
 	validFilter := util.NewRequestFilter("WAIT", "")
 	m.rq.EXPECT().ListRequests(validFilter).Return(reqs[:2], nil)
+	validHeader := make(http.Header)
+	validHeader.Set("Boruta-Request-Count", "2")
 
 	emptyFilter := util.NewRequestFilter("", "")
 	m.rq.EXPECT().ListRequests(emptyFilter).Return(reqs, nil).Times(2)
 	m.rq.EXPECT().ListRequests(nil).Return(reqs, nil).Times(3)
+	allHeader := make(http.Header)
+	allHeader.Set("Boruta-Request-Count", "4")
 
 	missingFilter := util.NewRequestFilter("INVALID", "")
 	m.rq.EXPECT().ListRequests(missingFilter).Return([]ReqInfo{}, nil)
+	missingHeader := make(http.Header)
+	missingHeader.Set("Boruta-Request-Count", "0")
 
 	// Currently ListRequests doesn't return any error hence the meaningless values.
 	badFilter := util.NewRequestFilter("FAIL", "-1")
@@ -266,6 +275,7 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(validFilter)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      validHeader,
 		},
 		// List all requests.
 		{
@@ -275,6 +285,7 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Empty body - list all requests.
 		{
@@ -284,6 +295,7 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        "",
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Nil filter - list all requests (same as emptyFilter).
 		{
@@ -293,6 +305,7 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(nil)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Empty filter - list all requests.
 		{
@@ -302,6 +315,7 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(emptyFilter)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// No matches
 		{
@@ -311,6 +325,7 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(missingFilter)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      missingHeader,
 		},
 		// Error
 		{
@@ -425,14 +440,20 @@ func TestListWorkersHandler(t *testing.T) {
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
 	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities).Return(workers[:2], nil)
+	validHeader := make(http.Header)
+	validHeader.Set("Boruta-Worker-Count", "2")
 
 	m.wm.EXPECT().ListWorkers(nil, nil).Return(workers, nil).MinTimes(1)
 	m.wm.EXPECT().ListWorkers(Groups{}, nil).Return(workers, nil)
 	m.wm.EXPECT().ListWorkers(nil, make(Capabilities)).Return(workers, nil)
+	allHeader := make(http.Header)
+	allHeader.Set("Boruta-Worker-Count", "4")
 
 	missingFilter := util.WorkersFilter{
 		Groups: Groups{"Fern Flower"},
 	}
+	missingHeader := make(http.Header)
+	missingHeader.Set("Boruta-Worker-Count", "0")
 	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities).Return([]WorkerInfo{}, nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
@@ -450,6 +471,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(validFilter)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      validHeader,
 		},
 		// List all requests.
 		{
@@ -459,6 +481,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Empty body - list all requests.
 		{
@@ -468,6 +491,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Empty filter (all nil) - list all requests.
 		{
@@ -477,6 +501,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(util.WorkersFilter{nil, nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Empty filter (nil groups) - list all requests.
 		{
@@ -486,6 +511,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(util.WorkersFilter{nil, make(Capabilities)})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// Empty filter (nil caps) - list all requests.
 		{
@@ -495,6 +521,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(util.WorkersFilter{Groups{}, nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      allHeader,
 		},
 		// No matches.
 		{
@@ -504,6 +531,7 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(missingFilter)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      missingHeader,
 		},
 		// Error.
 		{
@@ -533,6 +561,8 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 	missingErr := NotFoundError("Worker")
 	m.wm.EXPECT().GetWorkerInfo(WorkerUUID(validUUID)).Return(worker, nil).Times(2)
 	m.wm.EXPECT().GetWorkerInfo(WorkerUUID(missingUUID)).Return(WorkerInfo{}, missingErr).Times(2)
+	header := make(http.Header)
+	header.Set("Boruta-Worker-State", "IDLE")
 
 	tests := []requestTest{
 		{
@@ -542,6 +572,7 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
+			header:      header,
 		},
 		{
 			name:        prefix + "bad-uuid",

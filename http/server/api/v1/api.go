@@ -71,17 +71,27 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 		return func(w http.ResponseWriter, r *http.Request,
 			ps map[string]string) {
 			status := status
-			rdata := handle(r, ps)
-			if data, isErr := rdata.(*util.ServerError); isErr &&
-				data != nil {
-				status = data.Status
+			data := handle(r, ps)
+			switch data := data.(type) {
+			case *util.ServerError:
+				if data != nil {
+					status = data.Status
+				}
+			case ReqInfo:
+				w.Header().Add("Boruta-Request-State", string(data.State))
+			case []ReqInfo:
+				w.Header().Add("Boruta-Request-Count", strconv.Itoa(len(data)))
+			case WorkerInfo:
+				w.Header().Add("Boruta-Worker-State", string(data.State))
+			case []WorkerInfo:
+				w.Header().Add("Boruta-Worker-Count", strconv.Itoa(len(data)))
 			}
 			if status != http.StatusNoContent {
 				w.Header().Set("Content-Type", "application/json")
 			}
 			w.WriteHeader(status)
 			if status != http.StatusNoContent {
-				w.Write(jsonMustMarshal(rdata))
+				w.Write(jsonMustMarshal(data))
 			}
 		}
 	}

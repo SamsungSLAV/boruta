@@ -65,6 +65,7 @@ type requestTest struct {
 	json        string
 	contentType string
 	status      int
+	header      http.Header
 }
 
 type allMocks struct {
@@ -213,10 +214,17 @@ func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []request
 			if update {
 				continue
 			}
+			// check Boruta HTTP headers
+			if test.header != nil && len(test.header) > 0 {
+				for k, v := range test.header {
+					assert.Contains(resp.Header, k, tcaseErrStr+" (header)")
+					assert.Equal(v, resp.Header[k], tcaseErrStr+" (header)")
+				}
+			}
 			// check result JSON
 			expected, err := ioutil.ReadFile(tdata)
 			assert.Nil(err, tcaseErrStr)
-			assert.JSONEq(string(expected), string(body), tcaseErrStr)
+			assert.JSONEq(string(expected), string(body), tcaseErrStr+" (JSON)")
 		}
 	}
 }
