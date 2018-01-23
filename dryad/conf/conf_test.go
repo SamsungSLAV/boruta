@@ -31,6 +31,7 @@ var _ = Describe("Conf", func() {
 	marshaled := `listen_address = ":7175"
 boruta_address = ""
 sdcard = "/dev/sdX"
+stm_path = "/run/stm.socket"
 
 [caps]
 
@@ -45,7 +46,8 @@ sdcard = "/dev/sdX"
 			Name:   "boruta-user",
 			Groups: []string{},
 		},
-		SDcard: "/dev/sdX",
+		SDcard:    "/dev/sdX",
+		STMsocket: "/run/stm.socket",
 	}
 	var g *General
 

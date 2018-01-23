@@ -40,7 +40,8 @@ func NewConf() *General {
 			Name:   "boruta-user",
 			Groups: []string{},
 		},
-		SDcard: "/dev/sdX",
+		SDcard:    "/dev/sdX",
+		STMsocket: "/run/stm.socket",
 	}
 }
 
@@ -68,6 +69,8 @@ type General struct {
 	User *User `toml:"user"`
 	// SDcard is a base path to block device of sdcard.
 	SDcard string `toml:"sdcard"`
+	// STMsocket is a path to the socket on which Go RPC service of stm.Interface is available.
+	STMsocket string `toml:"stm_path"`
 }
 
 // Marshal writes TOML representation of g to w.

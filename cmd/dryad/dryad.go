@@ -28,6 +28,7 @@ import (
 	"git.tizen.org/tools/boruta/dryad/conf"
 	dryad_rpc "git.tizen.org/tools/boruta/rpc/dryad"
 	superviser_rpc "git.tizen.org/tools/boruta/rpc/superviser"
+	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
 )
 
 var (
@@ -75,7 +76,20 @@ func main() {
 	}
 	readConfFile()
 
-	rusalka := dryad.NewRusalka(configuration.User.Name, configuration.User.Groups)
+	var dev stm.InterfaceCloser
+	if configuration.STMsocket != "" {
+		cl, err := rpc.Dial("unix", configuration.STMsocket)
+		exitOnErr("failed to connect to RPC service:", err)
+
+		dev = stm.NewInterfaceClient(cl)
+	} else {
+		var err error
+		dev, err = stm.GetDefaultSTM()
+		exitOnErr("failed to connect to STM:", err)
+	}
+	defer dev.Close()
+
+	rusalka := dryad.NewRusalka(dev, configuration.User.Name, configuration.User.Groups)
 
 	l, err := net.Listen("tcp", configuration.Address)
 	exitOnErr("can't listen on port:", err)
