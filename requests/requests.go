@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,8 +82,8 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 
 	// TODO(mwereski): Check if capabilities can be satisfied.
 
-	reqs.queue.pushRequest(req)
 	reqs.mutex.Lock()
+	reqs.queue.pushRequest(req)
 	reqs.requests[req.ID] = req
 	reqs.mutex.Unlock()
 
