@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -191,12 +191,12 @@ type Workers interface {
 type Dryad interface {
 	// PutInMaintenance prepares MuxPi for administrative action.
 	// It blinks LEDs, prints msg on the OLED display, etc.
-	PutInMaintenance(msg string) error
+	PutInMaintenance(msg string) (err error)
 	// Prepare creates appropriate user, generates RSA key, installs public key
 	// so that it can be used for SSH authentication and returns private key.
 	// It removes current instance of the user, etc.
-	Prepare() (*rsa.PrivateKey, error)
+	Prepare() (key *rsa.PrivateKey, err error)
 	// Healthcheck tests Dryad for system state, STM functions and state on MuxPi.
 	// It may cause Dryad to call SetFail of Worker interface if the problem detected is critical.
-	Healthcheck() error
+	Healthcheck() (err error)
 }
