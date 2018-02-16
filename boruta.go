@@ -161,10 +161,10 @@ type Requests interface {
 type Superviser interface {
 	// Register adds a new Worker to the system in the MAINTENANCE state.
 	// Capabilities are set on the Worker and can be changed by subsequent Register calls.
-	Register(caps Capabilities) error
+	Register(caps Capabilities) (err error)
 	// SetFail notifies the Server about the Failure of the Worker.
 	// It can additionally contain non-empty reason of the failure.
-	SetFail(uuid WorkerUUID, reason string) error
+	SetFail(uuid WorkerUUID, reason string) (err error)
 }
 
 // Workers defines all actions that can be done by users and admins on workers.
