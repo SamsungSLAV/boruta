@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -63,6 +63,13 @@ const (
 // Capabilities describe the features provided by the Worker and required by the Request.
 // They are also known as caps.
 type Capabilities map[string]string
+
+// GetWorkerUUID returns WorkerUUID stored in caps.
+//
+// It assumes that "UUID" key is present and should be used only when this fact was verified.
+func (caps Capabilities) GetWorkerUUID() WorkerUUID {
+	return WorkerUUID(caps["UUID"])
+}
 
 // ReqID refers to the Request created by the User.
 type ReqID uint64
@@ -161,10 +168,10 @@ type Requests interface {
 type Superviser interface {
 	// Register adds a new Worker to the system in the MAINTENANCE state.
 	// Capabilities are set on the Worker and can be changed by subsequent Register calls.
-	Register(caps Capabilities) error
+	Register(caps Capabilities) (err error)
 	// SetFail notifies the Server about the Failure of the Worker.
 	// It can additionally contain non-empty reason of the failure.
-	SetFail(uuid WorkerUUID, reason string) error
+	SetFail(uuid WorkerUUID, reason string) (err error)
 }
 
 // Workers defines all actions that can be done by users and admins on workers.
@@ -191,12 +198,12 @@ type Workers interface {
 type Dryad interface {
 	// PutInMaintenance prepares MuxPi for administrative action.
 	// It blinks LEDs, prints msg on the OLED display, etc.
-	PutInMaintenance(msg string) error
+	PutInMaintenance(msg string) (err error)
 	// Prepare creates appropriate user, generates RSA key, installs public key
 	// so that it can be used for SSH authentication and returns private key.
 	// It removes current instance of the user, etc.
-	Prepare() (*rsa.PrivateKey, error)
+	Prepare() (key *rsa.PrivateKey, err error)
 	// Healthcheck tests Dryad for system state, STM functions and state on MuxPi.
 	// It may cause Dryad to call SetFail of Worker interface if the problem detected is critical.
-	Healthcheck() error
+	Healthcheck() (err error)
 }
