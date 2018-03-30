@@ -55,8 +55,7 @@ var _ = Describe("Tunnel", func() {
 	It("should make a connection", func() {
 		done := make(chan struct{})
 		lAddr := listen(done, "", "")
-		portSSH = lAddr.Port
-		t, err := NewTunnel(nil, nil)
+		t, err := newTunnel(nil, nil, lAddr.Port)
 		Expect(err).ToNot(HaveOccurred())
 
 		conn, err := net.DialTCP("tcp", nil, lAddr)
@@ -72,8 +71,7 @@ var _ = Describe("Tunnel", func() {
 		testIn := "input test string"
 		testOut := "output test string"
 		lAddr := listen(done, testIn, testOut)
-		portSSH = lAddr.Port
-		t, err := NewTunnel(nil, nil)
+		t, err := newTunnel(nil, nil, lAddr.Port)
 		Expect(err).ToNot(HaveOccurred())
 		conn, err := net.DialTCP("tcp", nil, t.Addr().(*net.TCPAddr))
 		Expect(err).ToNot(HaveOccurred())
@@ -96,8 +94,7 @@ var _ = Describe("Tunnel", func() {
 	})
 
 	It("should fail to connect to invalid address", func() {
-		portSSH = 0
-		t, err := NewTunnel(nil, nil)
+		t, err := newTunnel(nil, nil, 0)
 		Expect(err).ToNot(HaveOccurred())
 
 		conn, err := net.DialTCP("tcp", nil, t.Addr().(*net.TCPAddr))

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ import (
 	"net"
 )
 
-// portSSH is a default port used for connection to dest by Tunnel.
-// It is a variable, not a constant, so that tests could adjust this value.
-var portSSH = 22
+// defaultSSHPort is a default port used for connection to dest by Tunnel.
+const defaultSSHPort = 22
 
 // Tunnel forwards data between source and destination addresses.
 type Tunnel struct {
@@ -33,22 +32,27 @@ type Tunnel struct {
 }
 
 // NewTunnel sets up data forwarding tunnel between src and dest IP addresses.
-// It will listen on random port on src and forward to PortSSH (default: 22) port of dest.
+// It will listen on random port on src and forward data to port 22 of dest.
 //
 // When connection to src is made a corresponding one is created to dest
 // and data is copied between them.
 //
 // Close should be called to clean up this function and terminate connections.
 func NewTunnel(src, dest net.IP) (t *Tunnel, err error) {
-	t = &Tunnel{
-		dest: &net.TCPAddr{IP: dest, Port: portSSH},
-		done: make(chan struct{}),
-	}
-	// It will listen on a random port.
-	t.listener, err = net.ListenTCP("tcp", &net.TCPAddr{IP: src})
+	return newTunnel(src, dest, defaultSSHPort)
+}
+
+func newTunnel(src, dest net.IP, port int) (t *Tunnel, err error) {
+	listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: src})
 	if err != nil {
 		return nil, err
 	}
+	t = &Tunnel{
+		listener: listener,
+		dest:     &net.TCPAddr{IP: dest, Port: port},
+		done:     make(chan struct{}),
+	}
+	// It will listen on a random port.
 	go t.listenAndForward()
 	return t, nil
 }
@@ -71,7 +75,6 @@ func (t *Tunnel) listenAndForward() {
 			// Stop listening if the tunnel is no longer active.
 			return
 		default:
-			break
 		}
 		srcConn, err := t.listener.Accept()
 		if err != nil {

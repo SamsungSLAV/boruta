@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -129,28 +129,29 @@ func (wl *WorkerList) Deregister(uuid WorkerUUID) error {
 	return nil
 }
 
-// convertToSlice converts given map to slice.
-// It is a helper function of ListWorkers.
-func convertToSlice(workers map[WorkerUUID]*mapWorker) []WorkerInfo {
-	all := make([]WorkerInfo, 0, len(workers))
-	for _, worker := range workers {
-		all = append(all, worker.WorkerInfo)
-	}
-	return all
-}
-
-// isCapsMatching returns true if all capabilities in src are satisfied by capabilities in dest
-// and false in any other case.
+// isCapsMatching returns true if a worker has Capabilities satisfying caps.
+// The worker satisfies caps if and only if one of the following statements is true:
+//
+// * set of required capabilities is empty,
+//
+// * every key present in set of required capabilities is present in set of worker's capabilities,
+//
+// * value of every required capability matches the value of the capability in worker.
 //
 // TODO Caps matching is a complex problem and it should be changed to satisfy usecases below:
 // * matching any of the values and at least one:
 //   "SERIAL": "57600,115200" should be satisfied by "SERIAL": "9600, 38400, 57600"
 // * match value in range:
 //   "VOLTAGE": "2.9-3.6" should satisfy "VOLTAGE": "3.3"
-func isCapsMatching(src, dest Capabilities) bool {
-	for srcKey, srcValue := range src {
-		destValue, ok := dest[srcKey]
-		if !ok {
+//
+// It is a helper function of ListWorkers.
+func isCapsMatching(worker WorkerInfo, caps Capabilities) bool {
+	if len(caps) == 0 {
+		return true
+	}
+	for srcKey, srcValue := range caps {
+		destValue, found := worker.Caps[srcKey]
+		if !found {
 			// Key is not present in the worker's caps
 			return false
 		}
@@ -162,61 +163,20 @@ func isCapsMatching(src, dest Capabilities) bool {
 	return true
 }
 
-// removeFromSlice replaces i-th element with the last one and returns slice shorter by one.
-func removeFromSlice(workers []WorkerInfo, i int) []WorkerInfo {
-	l := len(workers) - 1 // Index of last element of the slice.
-	if i != l {
-		workers[i] = workers[l]
-	}
-	return workers[:l]
-}
-
-// filterCaps returns all workers matching given capabilities.
+// isGroupsMatching returns true if a worker belongs to any of groups in groupsMatcher.
+// Empty groupsMatcher is satisfied by every Worker.
 // It is a helper function of ListWorkers.
-func filterCaps(workers []WorkerInfo, caps Capabilities) []WorkerInfo {
-	if caps == nil || len(caps) == 0 {
-		return workers
+func isGroupsMatching(worker WorkerInfo, groupsMatcher map[Group]interface{}) bool {
+	if len(groupsMatcher) == 0 {
+		return true
 	}
-	// range is not used here as workers reference and parameter i
-	// are modified within the loop.
-	for i := 0; i < len(workers); i++ {
-		worker := &workers[i]
-		if !isCapsMatching(caps, worker.Caps) {
-			workers = removeFromSlice(workers, i)
-			i-- // Ensure that no worker will be skipped.
+	for _, workerGroup := range worker.Groups {
+		_, ok := groupsMatcher[workerGroup]
+		if ok {
+			return true
 		}
 	}
-	return workers
-}
-
-// filterGroups returns all workers matching given groups.
-// It is a helper function of ListWorkers.
-func filterGroups(workers []WorkerInfo, groups Groups) []WorkerInfo {
-	if groups == nil || len(groups) == 0 {
-		return workers
-	}
-	groupsMatcher := make(map[Group]interface{})
-	for _, group := range groups {
-		groupsMatcher[group] = nil
-	}
-	// range is not used here as workers reference and parameter i
-	// are modified within the loop.
-	for i := 0; i < len(workers); i++ {
-		worker := &workers[i]
-		accept := false
-		for _, workerGroup := range worker.Groups {
-			_, ok := groupsMatcher[workerGroup]
-			if ok {
-				accept = true
-				break
-			}
-		}
-		if !accept {
-			workers = removeFromSlice(workers, i)
-			i-- // Ensure that no worker will be skipped.
-		}
-	}
-	return workers
+	return false
 }
 
 // ListWorkers is an implementation of ListWorkers from Workers interface.
@@ -224,7 +184,20 @@ func filterGroups(workers []WorkerInfo, groups Groups) []WorkerInfo {
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
 func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error) {
-	return filterGroups(filterCaps(convertToSlice(wl.workers), caps), groups), nil
+	matching := make([]WorkerInfo, 0, len(wl.workers))
+
+	groupsMatcher := make(map[Group]interface{})
+	for _, group := range groups {
+		groupsMatcher[group] = nil
+	}
+
+	for _, worker := range wl.workers {
+		if isGroupsMatching(worker.WorkerInfo, groupsMatcher) &&
+			isCapsMatching(worker.WorkerInfo, caps) {
+			matching = append(matching, worker.WorkerInfo)
+		}
+	}
+	return matching, nil
 }
 
 // GetWorkerInfo is an implementation of GetWorkerInfo from Workers interface.
