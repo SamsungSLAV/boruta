@@ -14,23 +14,18 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
-
-package boruta
+// Package matcher provides interface and implementation for taking actions related
+// to assigning requests to workers and reacting to requests time events.
+package matcher
 
 import (
-	"errors"
-	"fmt"
+	. "git.tizen.org/tools/boruta"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// Matcher defines interface for objects that can be notified about events.
+type Matcher interface {
+	// Notify triggers action in the matcher. The ReqID slice contain set
+	// of requests' IDs related to the event. The slice can be empty if the event
+	// requires generic actions on all requests.
+	Notify([]ReqID)
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

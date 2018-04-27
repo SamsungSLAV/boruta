@@ -14,7 +14,9 @@
  *  limitations under the License
  */
 
-package workers
+// Package tunnels allows creation of simple forwarding tunnels
+// between IP addresses pairs.
+package tunnels
 
 import (
 	"io"
@@ -26,35 +28,35 @@ const defaultSSHPort = 22
 
 // Tunnel forwards data between source and destination addresses.
 type Tunnel struct {
+	Tunneler
 	listener *net.TCPListener
 	dest     *net.TCPAddr
 	done     chan struct{}
 }
 
-// NewTunnel sets up data forwarding tunnel between src and dest IP addresses.
-// It will listen on random port on src and forward data to port 22 of dest.
+// Create sets up data forwarding tunnel between src and dest IP addresses.
+// It will listen on random port on src and forward to SSH port (22) of dest.
 //
 // When connection to src is made a corresponding one is created to dest
 // and data is copied between them.
 //
 // Close should be called to clean up this function and terminate connections.
-func NewTunnel(src, dest net.IP) (t *Tunnel, err error) {
-	return newTunnel(src, dest, defaultSSHPort)
+func (t *Tunnel) Create(src, dest net.IP) (err error) {
+	return t.create(src, dest, defaultSSHPort)
 }
 
-func newTunnel(src, dest net.IP, port int) (t *Tunnel, err error) {
-	listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: src})
-	if err != nil {
-		return nil, err
-	}
-	t = &Tunnel{
-		listener: listener,
-		dest:     &net.TCPAddr{IP: dest, Port: port},
-		done:     make(chan struct{}),
-	}
+// create is a helper function for Create method, which allows to setup any
+// port for testing purposes.
+func (t *Tunnel) create(src, dest net.IP, portSSH int) (err error) {
+	t.dest = &net.TCPAddr{IP: dest, Port: portSSH}
+	t.done = make(chan struct{})
 	// It will listen on a random port.
+	t.listener, err = net.ListenTCP("tcp", &net.TCPAddr{IP: src})
+	if err != nil {
+		return err
+	}
 	go t.listenAndForward()
-	return t, nil
+	return nil
 }
 
 // Close stops listening on the port for new connections and terminates exisiting ones.

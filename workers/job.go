@@ -14,23 +14,20 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
-
-package boruta
+package workers
 
 import (
-	"errors"
-	"fmt"
+	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/tunnels"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// Job describes worker job.
+type Job struct {
+	// Access describes details of the connection to Dryad. It is returned to the request
+	// owner when a job for request is run and acquired by the user.
+	Access AccessInfo
+	// Tunnel is a connection to Dryad for the user.
+	Tunnel tunnels.Tunneler
+	// Req is ID of the worked request.
+	Req ReqID
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

@@ -14,23 +14,16 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
-
-package boruta
+package matcher
 
 import (
-	"errors"
-	"fmt"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	"testing"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+func TestMatcher(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Matcher Suite")
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

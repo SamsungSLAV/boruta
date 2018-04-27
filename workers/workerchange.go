@@ -14,23 +14,21 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
+// File workers/workerchange.go defines WorkerChange interface with API
+// for notification about changes in workers' states.
 
-package boruta
+package workers
 
 import (
-	"errors"
-	"fmt"
+	. "git.tizen.org/tools/boruta"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// WorkerChange defines API for implementation to be informed about
+// changes in workers.
+type WorkerChange interface {
+	// OnWorkerIdle notifies about available idle worker.
+	OnWorkerIdle(WorkerUUID)
+	// OnWorkerFail notifies about breaking execution of job by a running worker and
+	// putting it into FAIL or MAINTENANCE state.
+	OnWorkerFail(WorkerUUID)
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

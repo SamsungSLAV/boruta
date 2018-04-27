@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,23 +14,24 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
+// File rpc/dryad/tcpdial.go contains implementation of creating an RPC
+// client inside DryadClient using TCP dial.
 
-package boruta
+package dryad
 
 import (
-	"errors"
-	"fmt"
+	"net"
+	"net/rpc"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// Create sets up new TCP dialled RPC client in DryadClient structure.
+// The Create function implements ClientManager interface.
+func (_c *DryadClient) Create(ip net.IP, port int) error {
+	addr := &net.TCPAddr{IP: ip, Port: port}
+	conn, err := net.DialTCP("tcp", nil, addr)
+	if err != nil {
+		return err
+	}
+	_c.client = rpc.NewClient(conn)
+	return nil
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,11 +19,17 @@ package workers
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
+	"fmt"
 	"net"
 
 	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/dryad/conf"
+	"git.tizen.org/tools/boruta/rpc/dryad"
 
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
@@ -34,6 +40,12 @@ var _ = Describe("WorkerList", func() {
 		wl = NewWorkerList()
 	})
 
+	It("should return non-nil new DryadClient every time called", func() {
+		for i := 0; i < 3; i++ {
+			Expect(wl.newDryadClient()).NotTo(BeNil(), "i = %d", i)
+		}
+	})
+
 	Describe("Register", func() {
 		var registeredWorkers []string
 
@@ -42,6 +54,8 @@ var _ = Describe("WorkerList", func() {
 		})
 
 		compareLists := func() {
+			wl.mutex.RLock()
+			defer wl.mutex.RUnlock()
 			// Check if all registeredWorkers are present
 			for _, uuid := range registeredWorkers {
 				_, ok := wl.workers[WorkerUUID(uuid)]
@@ -76,13 +90,17 @@ var _ = Describe("WorkerList", func() {
 			err := wl.Register(caps)
 			Expect(err).ToNot(HaveOccurred())
 			uuid := WorkerUUID(caps[UUID])
+			wl.mutex.RLock()
+			defer wl.mutex.RUnlock()
 			Expect(wl.workers).To(HaveKey(uuid))
 			Expect(wl.workers[uuid].State).To(Equal(MAINTENANCE))
 		})
 
 		It("should update the caps when called twice for the same worker", func() {
 			var err error
+			wl.mutex.RLock()
 			Expect(wl.workers).To(BeEmpty())
+			wl.mutex.RUnlock()
 			caps := getRandomCaps()
 
 			By("registering worker")
@@ -95,13 +113,17 @@ var _ = Describe("WorkerList", func() {
 			caps["test-key"] = "test-value"
 			err = wl.Register(caps)
 			Expect(err).ToNot(HaveOccurred())
+			wl.mutex.RLock()
 			Expect(wl.workers[WorkerUUID(caps[UUID])].Caps).To(Equal(caps))
+			wl.mutex.RUnlock()
 			compareLists()
 		})
 
 		It("should work when called once", func() {
 			var err error
+			wl.mutex.RLock()
 			Expect(wl.workers).To(BeEmpty())
+			wl.mutex.RUnlock()
 			caps := getRandomCaps()
 
 			By("registering first worker")
@@ -113,7 +135,9 @@ var _ = Describe("WorkerList", func() {
 
 		It("should work when called twice with different caps", func() {
 			var err error
+			wl.mutex.RLock()
 			Expect(wl.workers).To(BeEmpty())
+			wl.mutex.RUnlock()
 			caps1 := getRandomCaps()
 			caps2 := getRandomCaps()
 
@@ -145,12 +169,16 @@ var _ = Describe("WorkerList", func() {
 			capsUUID := uuid.NewV4().String()
 			err := wl.Register(Capabilities{UUID: capsUUID})
 			Expect(err).ToNot(HaveOccurred())
+			wl.mutex.RLock()
 			Expect(wl.workers).ToNot(BeEmpty())
+			wl.mutex.RUnlock()
 			return WorkerUUID(capsUUID)
 		}
 
 		BeforeEach(func() {
+			wl.mutex.RLock()
 			Expect(wl.workers).To(BeEmpty())
+			wl.mutex.RUnlock()
 			worker = registerWorker()
 		})
 
@@ -163,18 +191,26 @@ var _ = Describe("WorkerList", func() {
 
 			It("should work to SetFail", func() {
 				for _, state := range []WorkerState{IDLE, RUN} {
+					wl.mutex.Lock()
 					wl.workers[worker].State = state
+					wl.mutex.Unlock()
 					err := wl.SetFail(worker, "")
 					Expect(err).ToNot(HaveOccurred())
+					wl.mutex.RLock()
 					Expect(wl.workers[worker].State).To(Equal(FAIL))
+					wl.mutex.RUnlock()
 				}
 			})
 
 			It("Should fail to SetFail in MAINTENANCE state", func() {
+				wl.mutex.Lock()
 				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
+				wl.mutex.Unlock()
 				err := wl.SetFail(worker, "")
 				Expect(err).To(Equal(ErrInMaintenance))
+				wl.mutex.RLock()
 				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
+				wl.mutex.RUnlock()
 			})
 		})
 
@@ -188,13 +224,17 @@ var _ = Describe("WorkerList", func() {
 			It("should work to deregister", func() {
 				err := wl.Deregister(worker)
 				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
 				Expect(wl.workers).ToNot(HaveKey(worker))
+				wl.mutex.RUnlock()
 			})
 
 			It("should fail to deregister same worker twice", func() {
 				err := wl.Deregister(worker)
 				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
 				Expect(wl.workers).ToNot(HaveKey(worker))
+				wl.mutex.RUnlock()
 
 				err = wl.Deregister(worker)
 				Expect(err).To(Equal(ErrWorkerNotFound))
@@ -202,10 +242,14 @@ var _ = Describe("WorkerList", func() {
 
 			It("should fail to deregister worker not in MAINTENANCE state", func() {
 				for _, state := range []WorkerState{IDLE, RUN, FAIL} {
+					wl.mutex.Lock()
 					wl.workers[worker].State = state
+					wl.mutex.Unlock()
 					err := wl.Deregister(worker)
 					Expect(err).To(Equal(ErrNotInMaintenance))
+					wl.mutex.RLock()
 					Expect(wl.workers).To(HaveKey(worker))
+					wl.mutex.RUnlock()
 				}
 			})
 		})
@@ -217,22 +261,6 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).To(Equal(ErrWorkerNotFound))
 			})
 
-			It("should work to SetState for valid transitions", func() {
-				validTransitions := [][]WorkerState{
-					{MAINTENANCE, IDLE},
-					{IDLE, MAINTENANCE},
-					{RUN, MAINTENANCE},
-					{FAIL, MAINTENANCE},
-				}
-				for _, transition := range validTransitions {
-					fromState, toState := transition[0], transition[1]
-					wl.workers[worker].State = fromState
-					err := wl.SetState(worker, toState)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(wl.workers[worker].State).To(Equal(toState))
-				}
-			})
-
 			It("should fail to SetState for invalid transitions", func() {
 				invalidTransitions := [][]WorkerState{
 					{RUN, IDLE},
@@ -240,10 +268,14 @@ var _ = Describe("WorkerList", func() {
 				}
 				for _, transition := range invalidTransitions {
 					fromState, toState := transition[0], transition[1]
+					wl.mutex.Lock()
 					wl.workers[worker].State = fromState
+					wl.mutex.Unlock()
 					err := wl.SetState(worker, toState)
 					Expect(err).To(Equal(ErrForbiddenStateChange))
+					wl.mutex.RLock()
 					Expect(wl.workers[worker].State).To(Equal(fromState))
+					wl.mutex.RUnlock()
 				}
 			})
 
@@ -258,11 +290,201 @@ var _ = Describe("WorkerList", func() {
 				}
 				for _, transition := range invalidArgument {
 					fromState, toState := transition[0], transition[1]
+					wl.mutex.Lock()
 					wl.workers[worker].State = fromState
+					wl.mutex.Unlock()
 					err := wl.SetState(worker, toState)
 					Expect(err).To(Equal(ErrWrongStateArgument))
+					wl.mutex.RLock()
 					Expect(wl.workers[worker].State).To(Equal(fromState))
+					wl.mutex.RUnlock()
 				}
+			})
+			Describe("with dryadClientManager mockup", func() {
+				var ctrl *gomock.Controller
+				var dcm *MockDryadClientManager
+				ip := net.IPv4(2, 4, 6, 8)
+				key := &rsa.PrivateKey{}
+				testerr := errors.New("Test Error")
+				var info *mapWorker
+				noWorker := WorkerUUID("There's no such worker")
+				putStr := "maintenance"
+
+				eventuallyState := func(info *mapWorker, state WorkerState) {
+					EventuallyWithOffset(1, func() WorkerState {
+						wl.mutex.RLock()
+						defer wl.mutex.RUnlock()
+						return info.State
+					}).Should(Equal(state))
+				}
+				eventuallyKey := func(info *mapWorker, key *rsa.PrivateKey) {
+					EventuallyWithOffset(1, func() *rsa.PrivateKey {
+						wl.mutex.RLock()
+						defer wl.mutex.RUnlock()
+						return info.key
+					}).Should(Equal(key))
+				}
+
+				BeforeEach(func() {
+					ctrl = gomock.NewController(GinkgoT())
+					dcm = NewMockDryadClientManager(ctrl)
+					wl.newDryadClient = func() dryad.ClientManager {
+						return dcm
+					}
+
+					var ok bool
+					wl.mutex.Lock()
+					info, ok = wl.workers[worker]
+					Expect(ok).To(BeTrue())
+					Expect(info.key).To(BeNil())
+					info.ip = ip
+					wl.mutex.Unlock()
+				})
+				AfterEach(func() {
+					ctrl.Finish()
+				})
+
+				Describe("from MAINTENANCE to IDLE", func() {
+					BeforeEach(func() {
+						wl.mutex.Lock()
+						info.State = MAINTENANCE
+						wl.mutex.Unlock()
+					})
+
+					It("should work to SetState", func() {
+						gomock.InOrder(
+							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().Prepare().Return(key, nil),
+							dcm.EXPECT().Close(),
+						)
+
+						err := wl.SetState(worker, IDLE)
+						Expect(err).ToNot(HaveOccurred())
+						eventuallyState(info, IDLE)
+						eventuallyKey(info, key)
+					})
+
+					It("should fail to SetState if dryadClientManager fails to prepare client", func() {
+						gomock.InOrder(
+							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().Prepare().Return(nil, testerr),
+							dcm.EXPECT().Close(),
+						)
+
+						err := wl.SetState(worker, IDLE)
+						Expect(err).ToNot(HaveOccurred())
+						eventuallyState(info, FAIL)
+						Expect(info.key).To(BeNil())
+					})
+
+					It("should fail to SetState if dryadClientManager fails to create client", func() {
+						dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+
+						err := wl.SetState(worker, IDLE)
+						Expect(err).ToNot(HaveOccurred())
+						eventuallyState(info, FAIL)
+						Expect(info.key).To(BeNil())
+					})
+				})
+
+				trigger := make(chan int, 1)
+
+				setTrigger := func(val int) {
+					trigger <- val
+				}
+				eventuallyTrigger := func(val int) {
+					EventuallyWithOffset(1, trigger).Should(Receive(Equal(val)))
+				}
+
+				fromStates := []WorkerState{IDLE, RUN, FAIL}
+				for _, from := range fromStates {
+					Describe("from "+string(from)+" to MAINTENANCE", func() {
+						BeforeEach(func() {
+							wl.mutex.Lock()
+							info.State = from
+							wl.mutex.Unlock()
+						})
+
+						It("should work to SetState", func() {
+							gomock.InOrder(
+								dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+								dcm.EXPECT().PutInMaintenance(putStr),
+								dcm.EXPECT().Close(),
+							)
+
+							err := wl.SetState(worker, MAINTENANCE)
+							Expect(err).ToNot(HaveOccurred())
+							eventuallyState(info, MAINTENANCE)
+						})
+
+						It("should fail to SetState if dryadClientManager fails to put dryad in maintenance state", func() {
+							gomock.InOrder(
+								dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+								dcm.EXPECT().PutInMaintenance(putStr).Return(testerr),
+								dcm.EXPECT().Close().Do(func() {
+									wl.mutex.Lock()
+									info.State = WorkerState("TEST")
+									wl.mutex.Unlock()
+									setTrigger(1)
+								}),
+							)
+
+							err := wl.SetState(worker, MAINTENANCE)
+							Expect(err).ToNot(HaveOccurred())
+							eventuallyTrigger(1)
+							eventuallyState(info, FAIL)
+						})
+
+						It("should fail to SetState if dryadClientManager fails to create client", func() {
+							dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr).Do(func(net.IP, int) {
+								wl.mutex.Lock()
+								info.State = WorkerState("TEST")
+								wl.mutex.Unlock()
+								setTrigger(2)
+							})
+
+							err := wl.SetState(worker, MAINTENANCE)
+							Expect(err).ToNot(HaveOccurred())
+							eventuallyTrigger(2)
+							eventuallyState(info, FAIL)
+						})
+					})
+				}
+				Describe("putInMaintenance", func() {
+					It("should work", func() {
+						gomock.InOrder(
+							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().PutInMaintenance(putStr),
+							dcm.EXPECT().Close(),
+						)
+
+						err := wl.putInMaintenance(worker)
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					It("should fail if dryadClientManager fails to put dryad in maintenance state", func() {
+						gomock.InOrder(
+							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().PutInMaintenance(putStr).Return(testerr),
+							dcm.EXPECT().Close(),
+						)
+
+						err := wl.putInMaintenance(worker)
+						Expect(err).To(Equal(testerr))
+					})
+
+					It("should fail if dryadClientManager fails to create client", func() {
+						dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+
+						err := wl.putInMaintenance(worker)
+						Expect(err).To(Equal(testerr))
+					})
+
+					It("should fail if worker is not registered", func() {
+						err := wl.putInMaintenance(noWorker)
+						Expect(err).To(Equal(ErrWorkerNotFound))
+					})
+				})
 			})
 		})
 
@@ -281,12 +503,16 @@ var _ = Describe("WorkerList", func() {
 				By("setting it")
 				err := wl.SetGroups(worker, group)
 				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
 				Expect(wl.workers[worker].Groups).To(Equal(group))
+				wl.mutex.RUnlock()
 
 				By("setting it to nil")
 				err = wl.SetGroups(worker, nil)
 				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
 				Expect(wl.workers[worker].Groups).To(BeNil())
+				wl.mutex.RUnlock()
 			})
 		})
 
@@ -303,13 +529,19 @@ var _ = Describe("WorkerList", func() {
 				err = wl.SetGroups(workerID, groups)
 				Expect(err).ToNot(HaveOccurred())
 
-				return wl.workers[workerID].WorkerInfo
+				wl.mutex.RLock()
+				info := wl.workers[workerID].WorkerInfo
+				wl.mutex.RUnlock()
+
+				return info
 			}
 
 			BeforeEach(func() {
 				refWorkerList = make([]WorkerInfo, 1)
 				// Add worker with minimal caps and empty groups.
+				wl.mutex.RLock()
 				refWorkerList[0] = wl.workers[worker].WorkerInfo
+				wl.mutex.RUnlock()
 				// Add worker with both groups and caps declared.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
 					Groups{"all", "small_1", "small_2"},
@@ -447,7 +679,9 @@ var _ = Describe("WorkerList", func() {
 			It("should work to GetWorkerInfo", func() {
 				workerInfo, err := wl.GetWorkerInfo(worker)
 				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
 				Expect(workerInfo).To(Equal(wl.workers[worker].WorkerInfo))
+				wl.mutex.RUnlock()
 			})
 		})
 
@@ -518,6 +752,270 @@ var _ = Describe("WorkerList", func() {
 					get(wl, worker, set(wl, worker, nil), nil)
 				}
 			})
+		})
+		Describe("PrepareWorker", func() {
+			var ctrl *gomock.Controller
+			var dcm *MockDryadClientManager
+			ip := net.IPv4(2, 4, 6, 8)
+			key := &rsa.PrivateKey{}
+			testerr := errors.New("Test Error")
+			noWorker := WorkerUUID("There's no such worker")
+
+			eventuallyKey := func(info *mapWorker, key *rsa.PrivateKey) {
+				EventuallyWithOffset(1, func() *rsa.PrivateKey {
+					wl.mutex.RLock()
+					defer wl.mutex.RUnlock()
+					return info.key
+				}).Should(Equal(key))
+			}
+			eventuallyState := func(info *mapWorker, state WorkerState) {
+				EventuallyWithOffset(1, func() WorkerState {
+					wl.mutex.RLock()
+					defer wl.mutex.RUnlock()
+					return info.State
+				}).Should(Equal(state))
+			}
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				dcm = NewMockDryadClientManager(ctrl)
+				wl.newDryadClient = func() dryad.ClientManager {
+					return dcm
+				}
+			})
+			AfterEach(func() {
+				ctrl.Finish()
+			})
+
+			It("should set worker into IDLE in without-key preparation", func() {
+				err := wl.PrepareWorker(worker, false)
+				Expect(err).NotTo(HaveOccurred())
+				wl.mutex.RLock()
+				info, ok := wl.workers[worker]
+				wl.mutex.RUnlock()
+				Expect(ok).To(BeTrue())
+				Expect(info.State).To(Equal(IDLE))
+			})
+			It("should fail to prepare not existing worker in without-key preparation", func() {
+				uuid := randomUUID()
+				err := wl.PrepareWorker(uuid, false)
+				Expect(err).To(Equal(ErrWorkerNotFound))
+			})
+			It("should ignore to prepare worker for non-existing worker", func() {
+				err := wl.PrepareWorker(noWorker, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			Describe("with worker's IP set", func() {
+				var info *mapWorker
+				BeforeEach(func() {
+					var ok bool
+					info, ok = wl.workers[worker]
+					Expect(ok).To(BeTrue())
+					Expect(info.key).To(BeNil())
+					info.ip = ip
+				})
+				It("should set worker into IDLE state and prepare a key", func() {
+					gomock.InOrder(
+						dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+						dcm.EXPECT().Prepare().Return(key, nil),
+						dcm.EXPECT().Close(),
+					)
+
+					err := wl.PrepareWorker(worker, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					eventuallyState(info, IDLE)
+					eventuallyKey(info, key)
+				})
+				It("should fail to prepare worker if dryadClientManager fails to prepare client", func() {
+					gomock.InOrder(
+						dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+						dcm.EXPECT().Prepare().Return(nil, testerr),
+						dcm.EXPECT().Close(),
+					)
+
+					err := wl.PrepareWorker(worker, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					eventuallyState(info, FAIL)
+					Expect(info.key).To(BeNil())
+				})
+				It("should fail to prepare worker if dryadClientManager fails to create client", func() {
+					dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+
+					err := wl.PrepareWorker(worker, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					eventuallyState(info, FAIL)
+					Expect(info.key).To(BeNil())
+				})
+			})
+		})
+		Describe("setState with changeListener", func() {
+			var ctrl *gomock.Controller
+			var wc *MockWorkerChange
+
+			set := func(state WorkerState) {
+				wl.mutex.Lock()
+				wl.workers[worker].State = state
+				wl.mutex.Unlock()
+			}
+			check := func(state WorkerState) {
+				wl.mutex.RLock()
+				Expect(wl.workers[worker].State).To(Equal(state))
+				wl.mutex.RUnlock()
+			}
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				wc = NewMockWorkerChange(ctrl)
+				wl.SetChangeListener(wc)
+				Expect(wl.changeListener).To(Equal(wc))
+			})
+			AfterEach(func() {
+				ctrl.Finish()
+			})
+			DescribeTable("Should change state without calling changeListener",
+				func(from, to WorkerState) {
+					set(from)
+					err := wl.setState(worker, to)
+					Expect(err).NotTo(HaveOccurred())
+					check(to)
+				},
+				Entry("MAINTENANCE->MAINTENANCE", MAINTENANCE, MAINTENANCE),
+				Entry("MAINTENANCE->RUN", MAINTENANCE, RUN),
+				Entry("MAINTENANCE->FAIL", MAINTENANCE, FAIL),
+				Entry("IDLE->MAINTENANCE", IDLE, MAINTENANCE),
+				Entry("IDLE->RUN", IDLE, RUN),
+				Entry("IDLE->FAIL", IDLE, FAIL),
+				Entry("FAIL->MAINTENANCE", FAIL, MAINTENANCE),
+				Entry("FAIL->RUN", FAIL, RUN),
+				Entry("FAIL->FAIL", FAIL, FAIL),
+			)
+			DescribeTable("Should change state and call OnWorkerIdle",
+				func(from, to WorkerState) {
+					set(from)
+					wc.EXPECT().OnWorkerIdle(worker)
+					err := wl.setState(worker, to)
+					Expect(err).NotTo(HaveOccurred())
+					check(to)
+				},
+				Entry("MAINTENANCE->IDLE", MAINTENANCE, IDLE),
+				Entry("IDLE->IDLE", IDLE, IDLE),
+				Entry("RUN->IDLE", RUN, IDLE),
+				Entry("FAIL->IDLE", FAIL, IDLE),
+			)
+			DescribeTable("Should change state and call OnWorkerFail",
+				func(from, to WorkerState) {
+					set(from)
+					wc.EXPECT().OnWorkerFail(worker)
+					err := wl.setState(worker, to)
+					Expect(err).NotTo(HaveOccurred())
+					check(to)
+				},
+				Entry("RUN->MAINTENANCE", RUN, MAINTENANCE),
+				Entry("RUN->RUN", RUN, RUN),
+				Entry("RUN->FAIL", RUN, FAIL),
+			)
+		})
+	})
+	Describe("TakeBestMatchingWorker", func() {
+		addWorker := func(groups Groups, caps Capabilities) *mapWorker {
+			capsUUID := uuid.NewV4().String()
+			workerUUID := WorkerUUID(capsUUID)
+
+			caps[UUID] = capsUUID
+			wl.Register(caps)
+			wl.mutex.RLock()
+			w, ok := wl.workers[workerUUID]
+			wl.mutex.RUnlock()
+			Expect(ok).To(BeTrue())
+			Expect(w.State).To(Equal(MAINTENANCE))
+
+			err := wl.SetGroups(workerUUID, groups)
+			Expect(err).NotTo(HaveOccurred())
+
+			return w
+		}
+		addIdleWorker := func(groups Groups, caps Capabilities) *mapWorker {
+			w := addWorker(groups, caps)
+
+			err := wl.PrepareWorker(w.WorkerUUID, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(w.State).To(Equal(IDLE))
+
+			return w
+		}
+		generateGroups := func(count int) Groups {
+			var groups Groups
+			for i := 0; i < count; i++ {
+				groups = append(groups, Group(fmt.Sprintf("testGroup_%d", i)))
+			}
+			return groups
+		}
+		generateCaps := func(count int) Capabilities {
+			caps := make(Capabilities)
+			for i := 0; i < count; i++ {
+				k := fmt.Sprintf("testCapKey_%d", i)
+				v := fmt.Sprintf("testCapValue_%d", i)
+				caps[k] = v
+			}
+			return caps
+		}
+		It("should fail to find matching worker when there are no workers", func() {
+			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			Expect(err).To(Equal(ErrNoMatchingWorker))
+			Expect(ret).To(BeZero())
+		})
+		It("should match fitting worker and set it into RUN state", func() {
+			w := addIdleWorker(Groups{}, Capabilities{})
+
+			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ret).To(Equal(w.WorkerUUID))
+			Expect(w.State).To(Equal(RUN))
+		})
+		It("should not match not IDLE workers", func() {
+			addWorker(Groups{}, Capabilities{})
+
+			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			Expect(err).To(Equal(ErrNoMatchingWorker))
+			Expect(ret).To(BeZero())
+		})
+		It("should choose least capable worker", func() {
+			// Create matching workers.
+			w5g5c := addIdleWorker(generateGroups(5), generateCaps(5))
+			w1g7c := addIdleWorker(generateGroups(1), generateCaps(7))
+			w5g1c := addIdleWorker(generateGroups(5), generateCaps(1))
+			// Create non-matching workers.
+			w2g0c := addIdleWorker(generateGroups(2), generateCaps(0))
+			w0g2c := addIdleWorker(generateGroups(0), generateCaps(2))
+
+			expectedWorkers := []*mapWorker{w5g1c, w1g7c, w5g5c}
+			for _, w := range expectedWorkers {
+				ret, err := wl.TakeBestMatchingWorker(generateGroups(1), generateCaps(1))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ret).To(Equal(w.WorkerUUID))
+				Expect(w.State).To(Equal(RUN))
+			}
+			ret, err := wl.TakeBestMatchingWorker(generateGroups(1), generateCaps(1))
+			Expect(err).To(Equal(ErrNoMatchingWorker))
+			Expect(ret).To(BeZero())
+
+			leftWorkers := []*mapWorker{w2g0c, w0g2c}
+			for _, w := range leftWorkers {
+				Expect(w.State).To(Equal(IDLE))
+			}
+		})
+	})
+	Describe("SetChangeListener", func() {
+		It("should set WorkerChange", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			defer ctrl.Finish()
+			wc := NewMockWorkerChange(ctrl)
+
+			Expect(wl.changeListener).To(BeNil())
+			wl.SetChangeListener(wc)
+			Expect(wl.changeListener).To(Equal(wc))
 		})
 	})
 })

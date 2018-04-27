@@ -14,23 +14,22 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
+// File tunnels/tunneler.go defines Tunneler interface with API
+// for basic operations on tunnels.
 
-package boruta
+package tunnels
 
 import (
-	"errors"
-	"fmt"
+	"net"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// Tunneler defines API for basic operations on tunnels.
+type Tunneler interface {
+	// Create sets up a new tunnel.
+	Create(net.IP, net.IP) error
+	// Close shuts down tunnel.
+	Close() error
+	// Addr returns the address of the tunnel to be used by a user
+	// for a connection to Dryad.
+	Addr() net.Addr
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

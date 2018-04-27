@@ -14,23 +14,16 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
+// File matcher/error.go provides matcher package related errors definitions.
 
-package boruta
+package matcher
 
 import (
 	"errors"
-	"fmt"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
-}
-
 var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
+	// ErrJobAlreadyExists is returned during job creation if previous job
+	// run by the worker was not released properly.
+	ErrJobAlreadyExists = errors.New("job already exists")
 )

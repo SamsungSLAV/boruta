@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,23 +22,59 @@ import (
 	"time"
 
 	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/matcher"
 )
 
 // ReqsCollection contains information (also historical) about handled requests.
-// It implements Requests interface.
+// It implements Requests, RequestsManager and WorkerChange interfaces.
 type ReqsCollection struct {
-	requests map[ReqID]*ReqInfo
-	queue    *prioQueue
-	mutex    *sync.RWMutex
+	requests          map[ReqID]*ReqInfo
+	queue             *prioQueue
+	mutex             *sync.RWMutex
+	iterating         bool
+	workers           matcher.WorkersManager
+	jobs              matcher.JobsManager
+	validAfterTimes   *requestTimes
+	deadlineTimes     *requestTimes
+	timeoutTimes      *requestTimes
+	validAfterMatcher matcher.Matcher
+	deadlineMatcher   matcher.Matcher
+	timeoutMatcher    matcher.Matcher
 }
 
 // NewRequestQueue provides initialized priority queue for requests.
-func NewRequestQueue() *ReqsCollection {
-	return &ReqsCollection{
-		requests: make(map[ReqID]*ReqInfo),
-		queue:    newPrioQueue(),
-		mutex:    new(sync.RWMutex),
+func NewRequestQueue(w matcher.WorkersManager, j matcher.JobsManager) *ReqsCollection {
+	r := &ReqsCollection{
+		requests:        make(map[ReqID]*ReqInfo),
+		queue:           newPrioQueue(),
+		mutex:           new(sync.RWMutex),
+		workers:         w,
+		jobs:            j,
+		validAfterTimes: newRequestTimes(),
+		deadlineTimes:   newRequestTimes(),
+		timeoutTimes:    newRequestTimes(),
 	}
+
+	r.validAfterMatcher = matcher.NewValidMatcher(r, w, j)
+	r.deadlineMatcher = matcher.NewDeadlineMatcher(r)
+	r.timeoutMatcher = matcher.NewTimeoutMatcher(r)
+
+	r.validAfterTimes.setMatcher(r.validAfterMatcher)
+	r.deadlineTimes.setMatcher(r.deadlineMatcher)
+	r.timeoutTimes.setMatcher(r.timeoutMatcher)
+
+	if w != nil {
+		w.SetChangeListener(r)
+	}
+
+	return r
+}
+
+// Finish releases requestTimes queues and stops started goroutines.
+func (reqs *ReqsCollection) Finish() {
+	reqs.validAfterTimes.finish()
+	reqs.deadlineTimes.finish()
+	reqs.timeoutTimes.finish()
 }
 
 // NewRequest is part of implementation of Requests interface. It validates
@@ -82,19 +118,32 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 
 	// TODO(mwereski): Check if capabilities can be satisfied.
 
-	reqs.queue.pushRequest(req)
 	reqs.mutex.Lock()
+	reqs.queue.pushRequest(req)
 	reqs.requests[req.ID] = req
 	reqs.mutex.Unlock()
+
+	reqs.validAfterTimes.insert(requestTime{time: req.ValidAfter, req: req.ID})
+	reqs.deadlineTimes.insert(requestTime{time: req.Deadline, req: req.ID})
 
 	return req.ID, nil
 }
 
-// CloseRequest is part of implementation of Requests interface. It checks that
-// request is in WAIT state and changes it to CANCEL or in INPROGRESS state and
-// changes it to DONE. NotFoundError may be returned if request with given reqID
-// doesn't exist in the queue or ErrModificationForbidden if request is in state
-// which can't be closed.
+// closeRequest is an internal ReqsCollection method for closing running request.
+// It is used by both Close and CloseRequest methods after verification that
+// all required conditions to close request are met.
+// The method must be called in reqs.mutex critical section.
+func (reqs *ReqsCollection) closeRequest(req *ReqInfo) {
+	worker := req.Job.WorkerUUID
+	reqs.jobs.Finish(worker)
+	req.State = DONE
+}
+
+// CloseRequest is part of implementation of Requests interface.
+// It checks that request is in WAIT state and changes it to CANCEL or
+// in INPROGRESS state and changes it to DONE. NotFoundError may be returned
+// if request with given reqID doesn't exist in the queue
+// or ErrModificationForbidden if request is in state which can't be closed.
 func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
@@ -107,8 +156,7 @@ func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
 		req.State = CANCEL
 		reqs.queue.removeRequest(req)
 	case INPROGRESS:
-		req.State = DONE
-		// TODO(mwereski): release worker
+		reqs.closeRequest(req)
 	default:
 		return ErrModificationForbidden
 	}
@@ -132,36 +180,56 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 		src.Deadline.IsZero()) {
 		return nil
 	}
+	validAfterTime, deadlineTime, err := reqs.updateRequest(src)
+	if err != nil {
+		return err
+	}
+	if validAfterTime != nil {
+		reqs.validAfterTimes.insert(*validAfterTime)
+	}
+	if deadlineTime != nil {
+		reqs.deadlineTimes.insert(*deadlineTime)
+	}
+	return nil
+}
+
+// updateRequest is a part of UpdateRequest implementation run in critical section.
+func (reqs *ReqsCollection) updateRequest(src *ReqInfo) (validAfterTime, deadlineTime *requestTime, err error) {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 
 	dst, ok := reqs.requests[src.ID]
 	if !ok {
-		return NotFoundError("Request")
+		err = NotFoundError("Request")
+		return
 	}
 	if !modificationPossible(dst.State) {
-		return ErrModificationForbidden
+		err = ErrModificationForbidden
+		return
 	}
 	if src.Priority == dst.Priority &&
 		src.ValidAfter.Equal(dst.ValidAfter) &&
 		src.Deadline.Equal(dst.Deadline) {
-		return nil
+		return
 	}
 	// TODO(mwereski): Check if user has rights to set given priority.
 	if src.Priority != Priority(0) && (src.Priority < HiPrio ||
 		src.Priority > LoPrio) {
-		return ErrPriority
+		err = ErrPriority
+		return
 	}
 	deadline := dst.Deadline
 	if !src.Deadline.IsZero() {
 		if src.Deadline.Before(time.Now().UTC()) {
-			return ErrDeadlineInThePast
+			err = ErrDeadlineInThePast
+			return
 		}
 		deadline = src.Deadline
 	}
 	if (!src.ValidAfter.IsZero()) && !deadline.IsZero() &&
 		src.ValidAfter.After(deadline) {
-		return ErrInvalidTimeRange
+		err = ErrInvalidTimeRange
+		return
 	}
 
 	if src.Priority != Priority(0) {
@@ -170,10 +238,13 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 	}
 	if !src.ValidAfter.IsZero() {
 		dst.ValidAfter = src.ValidAfter
+		validAfterTime = &requestTime{time: src.ValidAfter, req: src.ID}
 	}
-	dst.Deadline = deadline
-	// TODO(mwereski): check if request is ready to go.
-	return nil
+	if !dst.Deadline.Equal(deadline) {
+		dst.Deadline = deadline
+		deadlineTime = &requestTime{time: deadline, req: src.ID}
+	}
+	return
 }
 
 // GetRequestInfo is part of implementation of Requests interface. It returns
@@ -182,11 +253,7 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
 	reqs.mutex.RLock()
 	defer reqs.mutex.RUnlock()
-	req, ok := reqs.requests[reqID]
-	if !ok {
-		return ReqInfo{}, NotFoundError("Request")
-	}
-	return *req, nil
+	return reqs.Get(reqID)
 }
 
 // ListRequests is part of implementation of Requests interface. It returns slice
@@ -216,8 +283,12 @@ func (reqs *ReqsCollection) AcquireWorker(reqID ReqID) (AccessInfo, error) {
 	if req.State != INPROGRESS || req.Job == nil {
 		return AccessInfo{}, ErrWorkerNotAssigned
 	}
-	// TODO(mwereski): create job and get access info
-	return AccessInfo{}, nil
+
+	job, err := reqs.jobs.Get(req.Job.WorkerUUID)
+	if err != nil {
+		return AccessInfo{}, err
+	}
+	return job.Access, nil
 }
 
 // ProlongAccess is part of implementation of Requests interface. When owner of
@@ -233,6 +304,163 @@ func (reqs *ReqsCollection) ProlongAccess(reqID ReqID) error {
 	if req.State != INPROGRESS || req.Job == nil {
 		return ErrWorkerNotAssigned
 	}
-	// TODO(mwereski): prolong access
+
+	// TODO(mwereski) Get timeout period  from default config / user capabilities.
+	timeoutPeriod := time.Hour
+
+	// TODO(mwereski) Check if user has reached maximum prolong count for the
+	// request, store the counter somewhere and update it here.
+	req.Job.Timeout = time.Now().Add(timeoutPeriod)
+	reqs.timeoutTimes.insert(requestTime{time: req.Job.Timeout, req: reqID})
 	return nil
+}
+
+// InitIteration initializes queue iterator and sets global lock for requests
+// structures. It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) InitIteration() error {
+	reqs.mutex.Lock()
+	if reqs.iterating {
+		reqs.mutex.Unlock()
+		return ErrInternalLogicError
+	}
+	reqs.queue.initIterator()
+	reqs.iterating = true
+	return nil
+}
+
+// TerminateIteration releases queue iterator if iterations are in progress
+// and release global lock for requests structures.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) TerminateIteration() {
+	if reqs.iterating {
+		reqs.queue.releaseIterator()
+		reqs.iterating = false
+	}
+	reqs.mutex.Unlock()
+}
+
+// Next gets next ID from request queue. Method returns {ID, true} if there is
+// pending request or {ReqID(0), false} if queue's end has been reached.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Next() (ReqID, bool) {
+	if reqs.iterating {
+		return reqs.queue.next()
+	}
+	panic("Should never call Next(), when not iterating")
+}
+
+// VerifyIfReady checks if the request is ready to be run on worker.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) VerifyIfReady(rid ReqID, now time.Time) bool {
+	req, ok := reqs.requests[rid]
+	return ok && req.State == WAIT && req.Deadline.After(now) && !req.ValidAfter.After(now)
+}
+
+// Get retrieves request's information structure for request with given ID.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Get(rid ReqID) (ReqInfo, error) {
+	req, ok := reqs.requests[rid]
+	if !ok {
+		return ReqInfo{}, NotFoundError("Request")
+	}
+	return *req, nil
+}
+
+// Timeout sets request to TIMEOUT state after Deadline time is exceeded.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Timeout(rid ReqID) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
+	req, ok := reqs.requests[rid]
+	if !ok {
+		return NotFoundError("Request")
+	}
+	if req.State != WAIT || req.Deadline.After(time.Now()) {
+		return ErrModificationForbidden
+	}
+	req.State = TIMEOUT
+	reqs.queue.removeRequest(req)
+	return nil
+}
+
+// Close verifies if request time has been exceeded and if so closes it.
+// If request is still valid to continue it's job an error is returned.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Close(reqID ReqID) error {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
+	req, ok := reqs.requests[reqID]
+	if !ok {
+		return NotFoundError("Request")
+	}
+	if req.State != INPROGRESS {
+		return ErrModificationForbidden
+	}
+	if req.Job == nil {
+		// TODO log a critical logic error. Job should be assigned to the request
+		// in INPROGRESS state.
+		return ErrInternalLogicError
+	}
+	if req.Job.Timeout.After(time.Now()) {
+		// Request prolonged not yet ready to be closed because of timeout.
+		return ErrModificationForbidden
+	}
+
+	reqs.closeRequest(req)
+
+	return nil
+}
+
+// Run starts job performing the request on the worker.
+// It is part of implementation of RequestsManager interface.
+func (reqs *ReqsCollection) Run(rid ReqID, worker WorkerUUID) error {
+	req, ok := reqs.requests[rid]
+	if !ok {
+		return NotFoundError("Request")
+	}
+
+	if req.State != WAIT {
+		return ErrModificationForbidden
+	}
+	req.State = INPROGRESS
+
+	req.Job = &JobInfo{WorkerUUID: worker}
+
+	if reqs.iterating {
+		reqs.queue.releaseIterator()
+		reqs.iterating = false
+	}
+	reqs.queue.removeRequest(req)
+
+	// TODO(mwereski) Get timeout period from default config / user capabilities.
+	timeoutPeriod := time.Hour
+
+	req.Job.Timeout = time.Now().Add(timeoutPeriod)
+	reqs.timeoutTimes.insert(requestTime{time: req.Job.Timeout, req: rid})
+
+	return nil
+}
+
+// OnWorkerIdle triggers ValidMatcher to rematch requests with idle worker.
+func (reqs *ReqsCollection) OnWorkerIdle(worker WorkerUUID) {
+	reqs.validAfterTimes.insert(requestTime{time: time.Now()})
+}
+
+// OnWorkerFail sets request being processed by failed worker into FAILED state.
+func (reqs *ReqsCollection) OnWorkerFail(worker WorkerUUID) {
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
+
+	job, err := reqs.jobs.Get(worker)
+	if err != nil {
+		panic("no job related to running worker")
+	}
+
+	reqID := job.Req
+	req, ok := reqs.requests[reqID]
+	if !ok {
+		panic("request related to job not found")
+	}
+	reqs.jobs.Finish(worker)
+	req.State = FAILED
 }

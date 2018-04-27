@@ -14,23 +14,23 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
+// File matcher/jobsmanager.go defines JobsManager interface with API
+// for managing jobs.
 
-package boruta
+package matcher
 
 import (
-	"errors"
-	"fmt"
+	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta/workers"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// JobsManager defines API for internal boruta management of jobs.
+type JobsManager interface {
+	// Create prepares a new job for the worker.
+	Create(ReqID, WorkerUUID) error
+	// Get returns pointer to a Job from JobsManager or error if no job for
+	// the worker is found.
+	Get(WorkerUUID) (*workers.Job, error)
+	// Finish cleans up after job is done.
+	Finish(WorkerUUID) error
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)

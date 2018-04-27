@@ -14,23 +14,22 @@
  *  limitations under the License
  */
 
-// File errors.go provides error types that may occur in more than one component.
+// File rpc/dryad/clientmanager.go defines ClientManager interface with API
+// for managing client RPC calls to Dryad.
 
-package boruta
+package dryad
 
 import (
-	"errors"
-	"fmt"
+	"net"
+
+	. "git.tizen.org/tools/boruta"
 )
 
-// NotFoundError is used whenever searched element is missing.
-type NotFoundError string
-
-func (err NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", string(err))
+// ClientManager defines API for managing client RPC calls to Dryad.
+type ClientManager interface {
+	Dryad
+	// Create creates a new RPC client.
+	Create(net.IP, int) error
+	// Close shuts down RPC client connection.
+	Close() error
 }
-
-var (
-	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
-	ErrInternalLogicError = errors.New("Boruta's internal logic error")
-)
