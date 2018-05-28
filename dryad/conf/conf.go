@@ -31,11 +31,15 @@ import (
 // for Dryad's RPC client and server.
 const DefaultRPCPort = 7175
 
+// DefaultSSHPort is a default port off SSH daemon.
+const DefaultSSHPort = 22
+
 // NewConf returns a new instance of General configuration with default values set.
 func NewConf() *General {
 	return &General{
-		Address: fmt.Sprintf(":%d", DefaultRPCPort),
-		Caps:    Capabilities(map[string]string{}),
+		Address:   fmt.Sprintf(":%d", DefaultRPCPort),
+		SSHAdress: fmt.Sprintf(":%d", DefaultSSHPort),
+		Caps:      Capabilities(map[string]string{}),
 		User: &User{
 			Name:   "boruta-user",
 			Groups: []string{},
@@ -60,6 +64,8 @@ type General struct {
 	Address string `toml:"listen_address"`
 	// BorutaAddress is used to connect to Boruta server.
 	BorutaAddress string `toml:"boruta_address"`
+	// SSHAdress is a ssh daemon listen address.
+	SSHAdress string `toml:"ssh_address"`
 	// Caps are necessary information to register in Boruta.
 	//
 	// TODO(amistewicz): This field should be removed when

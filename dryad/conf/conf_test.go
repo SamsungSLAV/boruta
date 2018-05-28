@@ -30,6 +30,7 @@ import (
 var _ = Describe("Conf", func() {
 	marshaled := `listen_address = ":7175"
 boruta_address = ""
+ssh_address = ":22"
 sdcard = "/dev/sdX"
 stm_path = "/run/stm.socket"
 
@@ -40,8 +41,9 @@ stm_path = "/run/stm.socket"
   groups = []
 `
 	unmarshaled := &General{
-		Address: ":7175",
-		Caps:    boruta.Capabilities(map[string]string{}),
+		Address:   ":7175",
+		SSHAdress: ":22",
+		Caps:      boruta.Capabilities(map[string]string{}),
 		User: &User{
 			Name:   "boruta-user",
 			Groups: []string{},
