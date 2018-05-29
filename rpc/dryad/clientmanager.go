@@ -19,6 +19,8 @@
 
 package dryad
 
+//go:generate go-rpcgen --source=../../boruta.go --type=Dryad --target=dryad.go --package dryad --imports net/rpc,.=git.tizen.org/tools/boruta
+
 import (
 	"net"
 

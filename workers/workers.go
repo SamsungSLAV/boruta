@@ -19,6 +19,7 @@ package workers
 
 import (
 	"crypto/rsa"
+	"errors"
 	"math"
 	"net"
 	"sync"
@@ -35,8 +36,9 @@ const UUID string = "UUID"
 // (public and private) structures representing Worker.
 type mapWorker struct {
 	WorkerInfo
-	ip  net.IP
-	key *rsa.PrivateKey
+	dryad *net.TCPAddr
+	sshd  *net.TCPAddr
+	key   *rsa.PrivateKey
 }
 
 // WorkerList implements Superviser and Workers interfaces.
@@ -74,26 +76,51 @@ func NewWorkerList() *WorkerList {
 }
 
 // Register is an implementation of Register from Superviser interface.
-// UUID, which identifies Worker, must be present in caps.
-func (wl *WorkerList) Register(caps Capabilities) error {
+// UUID, which identifies Worker, must be present in caps. Both dryadAddress and
+// sshAddress must resolve and parse to net.TCPAddr. Neither IP address nor port number
+// can not be ommited.
+func (wl *WorkerList) Register(caps Capabilities, dryadAddress string, sshAddress string) error {
 	capsUUID, present := caps[UUID]
 	if !present {
 		return ErrMissingUUID
 	}
 	uuid := WorkerUUID(capsUUID)
+
+	dryad, err := net.ResolveTCPAddr("tcp", dryadAddress)
+	if err != nil {
+		return err
+	}
+	// dryad.IP is empty if dryadAddress provided port number only.
+	if dryad.IP == nil {
+		return errors.New("missing IP in dryad address")
+	}
+	sshd, err := net.ResolveTCPAddr("tcp", sshAddress)
+	if err != nil {
+		return err
+	}
+	// same as with dryad.IP
+	if sshd.IP == nil {
+		return errors.New("missing IP in ssh address")
+	}
+
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, registered := wl.workers[uuid]
 	if registered {
-		// Subsequent Register calls update the caps.
+		// Subsequent Register calls update the caps and addresses.
 		worker.Caps = caps
+		worker.dryad = dryad
+		worker.sshd = sshd
 	} else {
 		wl.workers[uuid] = &mapWorker{
 			WorkerInfo: WorkerInfo{
 				WorkerUUID: uuid,
 				State:      MAINTENANCE,
 				Caps:       caps,
-			}}
+			},
+			dryad: dryad,
+			sshd:  sshd,
+		}
 	}
 	return nil
 }
@@ -266,7 +293,8 @@ func (wl *WorkerList) SetWorkerIP(uuid WorkerUUID, ip net.IP) error {
 	if !ok {
 		return ErrWorkerNotFound
 	}
-	worker.ip = ip
+	// FIXME
+	worker.dryad.IP = ip
 	return nil
 }
 
@@ -278,7 +306,7 @@ func (wl *WorkerList) GetWorkerIP(uuid WorkerUUID) (net.IP, error) {
 	if !ok {
 		return nil, ErrWorkerNotFound
 	}
-	return worker.ip, nil
+	return worker.dryad.IP, nil
 }
 
 // SetWorkerKey stores private key in the worker structure referenced by uuid.

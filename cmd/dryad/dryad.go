@@ -116,7 +116,7 @@ func main() {
 	exitOnErr("failed to initialize connection to boruta:", err)
 	defer boruta.Close()
 
-	err = boruta.Register(configuration.Caps)
+	err = boruta.Register(configuration.Caps, configuration.Address, configuration.SSHAdress)
 	exitOnErr("failed to register to boruta:", err)
 
 	// Wait for interrupt.

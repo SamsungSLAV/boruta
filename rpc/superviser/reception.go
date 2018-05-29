@@ -20,7 +20,10 @@
 // address of the client and call SetWorkerIP.
 package superviser
 
+//go:generate go-rpcgen --source=../../boruta.go --type=Superviser --target=superviser.go --package=superviser --imports net/rpc,.=git.tizen.org/tools/boruta
+
 import (
+	"errors"
 	"net"
 	"net/rpc"
 
@@ -91,13 +94,31 @@ func (sr *superviserReception) serve(conn net.Conn) {
 	srv.ServeConn(conn)
 }
 
-// Register calls Register and SetWorkerIP of WorkerList if the former call was successful.
-func (ab *addressBook) Register(caps boruta.Capabilities) (err error) {
-	err = ab.wl.Register(caps)
-	if err != nil {
-		return
+func (ab *addressBook) getTCPAddr(str, ctx string) (*net.TCPAddr, error) {
+	if str == "" {
+		return nil, errors.New(ctx + " can't be empty")
 	}
-	return ab.wl.SetWorkerIP(caps.GetWorkerUUID(), ab.ip)
+	return net.ResolveTCPAddr("tcp", str)
+}
+
+// Register calls Register of WorkerList. It additionally fills dryadAddress
+// and sshAddress with IP address if one is missing from parameters.
+func (ab *addressBook) Register(caps boruta.Capabilities, dryadAddress string, sshAddress string) (err error) {
+	dryad, err := ab.getTCPAddr(dryadAddress, "dryadAddress")
+	if err != nil {
+		return err
+	}
+	if dryad.IP == nil {
+		dryad.IP = ab.ip
+	}
+	sshd, err := ab.getTCPAddr(sshAddress, "sshAddress")
+	if err != nil {
+		return err
+	}
+	if sshd.IP == nil {
+		sshd.IP = ab.ip
+	}
+	return ab.wl.Register(caps, dryad.String(), sshd.String())
 }
 
 // SetFail calls SetFail of WorkerList.

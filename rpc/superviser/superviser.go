@@ -24,7 +24,9 @@ func RegisterSuperviserService(server *rpc.Server, impl Superviser) error {
 
 // SuperviserRegisterRequest is a helper structure for Register method.
 type SuperviserRegisterRequest struct {
-	Caps Capabilities
+	Caps         Capabilities
+	DryadAddress string
+	SshAddress   string
 }
 
 // SuperviserRegisterResponse is a helper structure for Register method.
@@ -33,7 +35,7 @@ type SuperviserRegisterResponse struct {
 
 // Register is RPC implementation of Register calling it.
 func (s *SuperviserService) Register(request *SuperviserRegisterRequest, response *SuperviserRegisterResponse) (err error) {
-	err = s.impl.Register(request.Caps)
+	err = s.impl.Register(request.Caps, request.DryadAddress, request.SshAddress)
 	return
 }
 
@@ -75,8 +77,8 @@ func (_c *SuperviserClient) Close() error {
 }
 
 // Register is part of implementation of Superviser calling corresponding method on RPC server.
-func (_c *SuperviserClient) Register(caps Capabilities) (err error) {
-	_request := &SuperviserRegisterRequest{caps}
+func (_c *SuperviserClient) Register(caps Capabilities, dryadAddress string, sshAddress string) (err error) {
+	_request := &SuperviserRegisterRequest{caps, dryadAddress, sshAddress}
 	_response := &SuperviserRegisterResponse{}
 	err = _c.client.Call("Superviser.Register", _request, _response)
 	return err

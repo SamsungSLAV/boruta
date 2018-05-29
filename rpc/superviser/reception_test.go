@@ -18,6 +18,7 @@ package superviser
 
 import (
 	"net"
+	"net/rpc"
 
 	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/workers"
@@ -30,6 +31,11 @@ var _ = Describe("superviserReception", func() {
 	var i *superviserReception
 	var wl *workers.WorkerList
 	var addr net.Addr
+	uuidStr := "test-uuid"
+	refAddr := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 7175,
+	}
 
 	BeforeEach(func() {
 		var err error
@@ -40,16 +46,41 @@ var _ = Describe("superviserReception", func() {
 	})
 
 	It("should get IP from connection", func() {
-		uuidStr := "test-uuid"
 		uuid := boruta.WorkerUUID(uuidStr)
-		c, err := DialSuperviserClient(addr.String())
+		conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)}, addr.(*net.TCPAddr))
 		Expect(err).ToNot(HaveOccurred())
+		c := NewSuperviserClient(rpc.NewClient(conn))
 
-		err = c.Register(boruta.Capabilities{"UUID": uuidStr})
+		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, ":7175", ":22")
 		Expect(err).ToNot(HaveOccurred())
 
 		ip, err := wl.GetWorkerIP(uuid)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ip).ToNot(BeNil())
+	})
+
+	It("should get IP from argument", func() {
+		refIP := net.IPv4(127, 0, 0, 1)
+		uuid := boruta.WorkerUUID(uuidStr)
+		c, err := DialSuperviserClient(addr.String())
+		Expect(err).ToNot(HaveOccurred())
+
+		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, refIP.String()+":7175", refIP.String()+":22")
+		Expect(err).ToNot(HaveOccurred())
+
+		ip, err := wl.GetWorkerIP(uuid)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ip).To(Equal(refIP))
+	})
+
+	It("should fail to call with either address empty", func() {
+		c, err := DialSuperviserClient(addr.String())
+		Expect(err).ToNot(HaveOccurred())
+
+		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, "", refAddr.IP.String()+":22")
+		Expect(err).To(HaveOccurred())
+
+		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, refAddr.String(), "")
+		Expect(err).To(HaveOccurred())
 	})
 })

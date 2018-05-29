@@ -36,6 +36,14 @@ import (
 
 var _ = Describe("WorkerList", func() {
 	var wl *WorkerList
+	dryadAddr := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 7175,
+	}
+	sshdAddr := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 22,
+	}
 	BeforeEach(func() {
 		wl = NewWorkerList()
 	})
@@ -81,7 +89,7 @@ var _ = Describe("WorkerList", func() {
 		}
 
 		It("should fail if UUID is not present", func() {
-			err := wl.Register(nil)
+			err := wl.Register(nil, "", "")
 			Expect(err).To(Equal(ErrMissingUUID))
 		})
 
@@ -93,7 +101,7 @@ var _ = Describe("WorkerList", func() {
 
 		It("should add Worker in MAINTENANCE state", func() {
 			caps := getRandomCaps()
-			err := wl.Register(caps)
+			err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			uuid := WorkerUUID(caps[UUID])
 			wl.mutex.RLock()
@@ -110,14 +118,14 @@ var _ = Describe("WorkerList", func() {
 			caps := getRandomCaps()
 
 			By("registering worker")
-			err = wl.Register(caps)
+			err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			registeredWorkers = append(registeredWorkers, caps[UUID])
 			compareLists()
 
 			By("updating the caps")
 			caps["test-key"] = "test-value"
-			err = wl.Register(caps)
+			err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			wl.mutex.RLock()
 			Expect(wl.workers[WorkerUUID(caps[UUID])].Caps).To(Equal(caps))
@@ -133,7 +141,7 @@ var _ = Describe("WorkerList", func() {
 			caps := getRandomCaps()
 
 			By("registering first worker")
-			err = wl.Register(caps)
+			err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			registeredWorkers = append(registeredWorkers, caps[UUID])
 			compareLists()
@@ -148,13 +156,13 @@ var _ = Describe("WorkerList", func() {
 			caps2 := getRandomCaps()
 
 			By("registering first worker")
-			err = wl.Register(caps1)
+			err = wl.Register(caps1, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			registeredWorkers = append(registeredWorkers, caps1[UUID])
 			compareLists()
 
 			By("registering second worker")
-			err = wl.Register(caps2)
+			err = wl.Register(caps2, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			registeredWorkers = append(registeredWorkers, caps2[UUID])
 			compareLists()
@@ -172,13 +180,13 @@ var _ = Describe("WorkerList", func() {
 			return newUUID
 		}
 		registerWorker := func() WorkerUUID {
-			capsUUID := getUUID()
-			err := wl.Register(Capabilities{UUID: capsUUID})
+			capsUUID := randomUUID()
+			err := wl.Register(Capabilities{UUID: string(capsUUID)}, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			wl.mutex.RLock()
 			Expect(wl.workers).ToNot(BeEmpty())
 			wl.mutex.RUnlock()
-			return WorkerUUID(capsUUID)
+			return capsUUID
 		}
 
 		BeforeEach(func() {
@@ -343,7 +351,8 @@ var _ = Describe("WorkerList", func() {
 					info, ok = wl.workers[worker]
 					Expect(ok).To(BeTrue())
 					Expect(info.key).To(BeNil())
-					info.ip = ip
+					info.dryad = new(net.TCPAddr)
+					info.dryad.IP = ip
 					wl.mutex.Unlock()
 				})
 				AfterEach(func() {
@@ -528,7 +537,7 @@ var _ = Describe("WorkerList", func() {
 			registerAndSetGroups := func(groups Groups, caps Capabilities) WorkerInfo {
 				capsUUID := getUUID()
 				caps[UUID] = capsUUID
-				err := wl.Register(caps)
+				err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 				Expect(err).ToNot(HaveOccurred())
 				workerID := WorkerUUID(capsUUID)
 
@@ -818,7 +827,8 @@ var _ = Describe("WorkerList", func() {
 					info, ok = wl.workers[worker]
 					Expect(ok).To(BeTrue())
 					Expect(info.key).To(BeNil())
-					info.ip = ip
+					info.dryad = new(net.TCPAddr)
+					info.dryad.IP = ip
 				})
 				It("should set worker into IDLE state and prepare a key", func() {
 					gomock.InOrder(
@@ -930,7 +940,7 @@ var _ = Describe("WorkerList", func() {
 			workerUUID := WorkerUUID(capsUUID)
 
 			caps[UUID] = capsUUID
-			wl.Register(caps)
+			wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			wl.mutex.RLock()
 			w, ok := wl.workers[workerUUID]
 			wl.mutex.RUnlock()

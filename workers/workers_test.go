@@ -57,7 +57,7 @@ var _ = Describe("WorkerList", func() {
 		}
 		b.Time("register", func() {
 			for i := 0; i < maximumWorkers; i++ {
-				err := wl.Register(caps[i])
+				err := wl.Register(caps[i], "127.0.0.1:7175", "127.0.0.1:22")
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})

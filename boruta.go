@@ -196,7 +196,9 @@ type Requests interface {
 type Superviser interface {
 	// Register adds a new Worker to the system in the MAINTENANCE state.
 	// Capabilities are set on the Worker and can be changed by subsequent Register calls.
-	Register(caps Capabilities) (err error)
+	// dryadAddress and sshAddress inform Superviser on address it should use to connect
+	// using Go RPC and SSH respectively. They should parse to net.TCPAddr.
+	Register(caps Capabilities, dryadAddress string, sshAddress string) (err error)
 	// SetFail notifies the Server about the Failure of the Worker.
 	// It can additionally contain non-empty reason of the failure.
 	SetFail(uuid WorkerUUID, reason string) (err error)
