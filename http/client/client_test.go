@@ -365,6 +365,73 @@ func TestCheckStatus(t *testing.T) {
 	assert.Equal(err, checkStatus(http.StatusBadRequest, &resp))
 }
 
+func TestGetHeaders(t *testing.T) {
+	prefix := "boruta-headers-"
+	pathW := "/api/v1/workers/"
+	pathR := "/api/v1/reqs/"
+	date := time.Now().Format(util.DateFormat)
+
+	worker := make(http.Header)
+	worker.Set("Boruta-Worker-State", string(RUN))
+
+	request := make(http.Header)
+	request.Set("Boruta-Request-State", string(INPROGRESS))
+	request.Set("Boruta-Job-Timeout", date)
+
+	tests := []*testCase{
+		&testCase{
+			// valid worker
+			name:   prefix + "worker",
+			path:   pathW + validUUID,
+			status: http.StatusNoContent,
+			header: worker,
+		},
+		&testCase{
+			// valid request
+			name:   prefix + "request",
+			path:   pathR + "1",
+			status: http.StatusNoContent,
+			header: request,
+		},
+
+		&testCase{
+			// invalid UUID
+			name:        prefix + "bad-uuid",
+			path:        pathW + invalidID,
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
+		},
+	}
+
+	assert := assert.New(t)
+	srv := prepareServer(http.MethodHead, tests)
+	url := srv.URL
+	defer srv.Close()
+
+	// valid worker
+	headers, err := getHeaders(url + pathW + validUUID)
+	assert.Nil(err)
+	assert.Equal(worker.Get("Boruta-Worker-State"), headers.Get("Boruta-Worker-State"))
+
+	// valid request
+	headers, err = getHeaders(url + pathR + "1")
+	assert.Nil(err)
+	assert.Equal(request.Get("Boruta-Request-State"), headers.Get("Boruta-Request-State"))
+	assert.Equal(request.Get("Boruta-Job-Timeout"), headers.Get("Boruta-Job-Timeout"))
+
+	// invalid UUID
+	headers, err = getHeaders(url + pathW + invalidID)
+	assert.Nil(headers)
+	assert.Equal(errors.New("bad HTTP status: 400 Bad Request"), err)
+
+	// http.Head failure
+	url = "http://nosuchaddress.fail"
+	headers, err = getHeaders(url)
+	assert.Nil(headers)
+	assert.NotNil(err)
+
+}
+
 func TestNewRequest(t *testing.T) {
 	prefix := "new-req-"
 	path := "/api/v1/reqs/"
@@ -1043,10 +1110,6 @@ func TestGetRequestState(t *testing.T) {
 	// missing request
 	state, err = client.GetRequestState(ReqID(2))
 	assert.Equal(errors.New("bad HTTP status: 404 Not Found"), err)
-
-	// http.Head failure
-	client.url = "http://nosuchaddress.fail"
-	assert.NotNil(client.GetRequestState(ReqID(1)))
 }
 
 func TestGetWorkerState(t *testing.T) {
@@ -1085,8 +1148,76 @@ func TestGetWorkerState(t *testing.T) {
 	// invalid UUID
 	state, err = client.GetWorkerState(invalidID)
 	assert.Equal(errors.New("bad HTTP status: 400 Bad Request"), err)
+}
 
-	// http.Head failure
-	client.url = "http://nosuchaddress.fail"
-	assert.NotNil(client.GetWorkerState(validUUID))
+func TestGetJobTimeout(t *testing.T) {
+	prefix := "get-job-timeout-"
+	path := "/api/v1/reqs/"
+	date := time.Now().Round(time.Second)
+
+	header := make(http.Header)
+	header.Set("Boruta-Request-State", string(INPROGRESS))
+	header.Set("Boruta-Job-Timeout", date.Format(util.DateFormat))
+
+	wait := make(http.Header)
+	wait.Set("Boruta-Request-State", string(WAIT))
+
+	bad := make(http.Header)
+	bad.Set("Boruta-Request-State", string(INPROGRESS))
+	bad.Set("Boruta-Job-Timeout", "fail")
+
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:   prefix + "valid",
+			path:   path + "1",
+			status: http.StatusNoContent,
+			header: header,
+		},
+		&testCase{
+			// request in wrong state
+			name:   prefix + "wrong-state",
+			path:   path + "2",
+			status: http.StatusNoContent,
+			header: wait,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "missing",
+			path:        path + "3",
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+		&testCase{
+			// invalid date format
+			name:        prefix + "bad-date",
+			path:        path + "4",
+			contentType: contentJSON,
+			status:      http.StatusNoContent,
+			header:      bad,
+		},
+	}
+
+	srv := prepareServer(http.MethodHead, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	timeout, err := client.GetJobTimeout(ReqID(1))
+	assert.Nil(err)
+	assert.True(date.Equal(timeout))
+
+	// wrong state
+	_, err = client.GetJobTimeout(ReqID(2))
+	assert.Equal(errors.New(`request must be in "IN PROGRESS" state`), err)
+
+	// missing
+	_, err = client.GetJobTimeout(ReqID(3))
+	assert.Equal(errors.New("bad HTTP status: 404 Not Found"), err)
+
+	// wrong date format
+	_, err = client.GetJobTimeout(ReqID(4))
+	assert.NotNil(err)
+	var parseErr *time.ParseError
+	assert.IsType(parseErr, err)
 }

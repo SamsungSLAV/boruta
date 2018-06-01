@@ -79,6 +79,10 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 				}
 			case ReqInfo:
 				w.Header().Add("Boruta-Request-State", string(data.State))
+				if data.State == INPROGRESS {
+					w.Header().Add("Boruta-Job-Timeout",
+						data.Job.Timeout.Format(util.DateFormat))
+				}
 			case []ReqInfo:
 				w.Header().Add("Boruta-Request-Count", strconv.Itoa(len(data)))
 			case WorkerInfo:

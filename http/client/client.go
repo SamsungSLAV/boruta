@@ -154,6 +154,19 @@ func checkStatus(shouldBe int, resp *http.Response) (err error) {
 	return
 }
 
+// getHeaders is a helper function that makes HEAD HTTP request for given address,
+// checks Status and returns HTTP headers and error.
+func getHeaders(url string) (http.Header, error) {
+	resp, err := http.Head(url)
+	if err != nil {
+		return nil, err
+	}
+	if err = checkStatus(http.StatusNoContent, resp); err != nil {
+		return nil, err
+	}
+	return resp.Header, nil
+}
+
 // NewRequest creates new Boruta request.
 func (client *BorutaClient) NewRequest(caps boruta.Capabilities,
 	priority boruta.Priority, owner boruta.UserInfo, validAfter time.Time,
@@ -368,25 +381,34 @@ func (client *BorutaClient) Deregister(uuid boruta.WorkerUUID) error {
 // request state.
 func (client *BorutaClient) GetRequestState(reqID boruta.ReqID) (boruta.ReqState, error) {
 	path := client.url + "reqs/" + strconv.Itoa(int(reqID))
-	resp, err := http.Head(path)
+	headers, err := getHeaders(path)
 	if err != nil {
 		return boruta.FAILED, err
 	}
-	if err = checkStatus(http.StatusNoContent, resp); err != nil {
-		return boruta.FAILED, err
-	}
-	return boruta.ReqState(resp.Header.Get("Boruta-Request-State")), nil
+	return boruta.ReqState(headers.Get("Boruta-Request-State")), nil
 }
 
 // GetWorkerState is convenient way to check state of a worker with given UUID.
 func (client *BorutaClient) GetWorkerState(uuid boruta.WorkerUUID) (boruta.WorkerState, error) {
 	path := client.url + "workers/" + string(uuid)
-	resp, err := http.Head(path)
+	headers, err := getHeaders(path)
 	if err != nil {
 		return boruta.FAIL, err
 	}
-	if err = checkStatus(http.StatusNoContent, resp); err != nil {
-		return boruta.FAIL, err
+	return boruta.WorkerState(headers.Get("Boruta-Worker-State")), nil
+}
+
+// GetJobTimeout is convenient way to check when Job of a request with given
+// reqID will timeout. The request must be in INPROGRESS state.
+func (client *BorutaClient) GetJobTimeout(reqID boruta.ReqID) (time.Time, error) {
+	var t time.Time
+	path := client.url + "reqs/" + strconv.Itoa(int(reqID))
+	headers, err := getHeaders(path)
+	if err != nil {
+		return t, err
 	}
-	return boruta.WorkerState(resp.Header.Get("Boruta-Worker-State")), nil
+	if boruta.ReqState(headers.Get("Boruta-Request-State")) != boruta.INPROGRESS {
+		return t, errors.New(`request must be in "IN PROGRESS" state`)
+	}
+	return time.Parse(util.DateFormat, headers.Get("Boruta-Job-Timeout"))
 }

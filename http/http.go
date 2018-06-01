@@ -19,9 +19,13 @@ package http
 
 import (
 	"net"
+	"time"
 
 	. "git.tizen.org/tools/boruta"
 )
+
+// DateFormat denotes layout of timestamps used by Boruta HTTP API.
+const DateFormat = time.RFC3339
 
 // ReqIDPack is used for JSON (un)marshaller.
 type ReqIDPack struct {
