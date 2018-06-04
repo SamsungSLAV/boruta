@@ -71,7 +71,7 @@ var _ = Describe("Tunnels", func() {
 	It("should make a connection", func() {
 		done := make(chan struct{})
 		lAddr := listen(done, "", "")
-		err := t.create(localIP, localIP, lAddr.Port)
+		err := t.Create(localIP, lAddr)
 		Expect(err).ToNot(HaveOccurred())
 
 		lAddr.IP = localIP
@@ -88,7 +88,7 @@ var _ = Describe("Tunnels", func() {
 		testIn := "input test string"
 		testOut := "output test string"
 		lAddr := listen(done, testIn, testOut)
-		err := t.create(localIP, localIP, lAddr.Port)
+		err := t.Create(localIP, lAddr)
 		Expect(err).ToNot(HaveOccurred())
 		conn, err := net.DialTCP("tcp", nil, t.Addr().(*net.TCPAddr))
 		Expect(err).ToNot(HaveOccurred())
@@ -106,12 +106,12 @@ var _ = Describe("Tunnels", func() {
 	})
 
 	It("should fail to listen on invalid address", func() {
-		err := t.Create(invalidIP, nil)
+		err := t.Create(invalidIP, net.TCPAddr{})
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should fail to connect to invalid address", func() {
-		err := t.create(localIP, localIP, 0)
+		err := t.Create(localIP, net.TCPAddr{})
 		Expect(err).ToNot(HaveOccurred())
 
 		conn, err := net.DialTCP("tcp", nil, t.Addr().(*net.TCPAddr))

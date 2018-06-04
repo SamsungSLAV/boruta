@@ -46,15 +46,15 @@ func (mr *MockDryadClientManagerMockRecorder) Close() *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockDryadClientManager) Create(arg0 net.IP, arg1 int) error {
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
+func (m *MockDryadClientManager) Create(arg0 *net.TCPAddr) error {
+	ret := m.ctrl.Call(m, "Create", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Create indicates an expected call of Create
-func (mr *MockDryadClientManagerMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockDryadClientManager)(nil).Create), arg0, arg1)
+func (mr *MockDryadClientManagerMockRecorder) Create(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockDryadClientManager)(nil).Create), arg0)
 }
 
 // Healthcheck mocks base method

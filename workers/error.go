@@ -44,4 +44,10 @@ var (
 	// ErrNoMatchingWorker is returned when there is no worker matching groups nor
 	// capabilities required by request.
 	ErrNoMatchingWorker = errors.New("No matching worker")
+	// ErrMissingIP is returned when Register is called with either dryad or sshd
+	// address missing IP value.
+	ErrMissingIP = errors.New("IP address is missing from address")
+	// ErrMissingPort is returned when Register is called with either dryad or sshd
+	// address missing Port value.
+	ErrMissingPort = errors.New("Port is missing from address")
 )

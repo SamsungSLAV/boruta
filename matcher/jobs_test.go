@@ -16,6 +16,9 @@
 
 package matcher
 
+//go:generate mockgen -package matcher -destination=workersmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher WorkersManager
+//go:generate mockgen -package matcher -destination=tunneler_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/tunnels Tunneler
+
 import (
 	"crypto/rsa"
 	"errors"
@@ -55,16 +58,16 @@ var _ = Describe("Jobs", func() {
 	})
 	Describe("With prepared job data", func() {
 		var (
-			ctrl    *gomock.Controller
-			w       *MockWorkersManager
-			ttm     *MockTunneler
-			jm      JobsManager
-			ip      net.IP         = net.IPv4(5, 6, 7, 8)
-			key     rsa.PrivateKey = rsa.PrivateKey{}
-			addr    net.Addr       = &net.TCPAddr{IP: net.IPv4(10, 11, 12, 13), Port: 12345}
-			req     ReqID          = ReqID(67)
-			worker  WorkerUUID     = WorkerUUID("TestWorker")
-			testerr error          = errors.New("TestError")
+			ctrl       *gomock.Controller
+			w          *MockWorkersManager
+			ttm        *MockTunneler
+			jm         JobsManager
+			workerAddr net.TCPAddr    = net.TCPAddr{IP: net.IPv4(5, 6, 7, 8), Port: 7357}
+			key        rsa.PrivateKey = rsa.PrivateKey{}
+			addr       net.Addr       = &net.TCPAddr{IP: net.IPv4(10, 11, 12, 13), Port: 12345}
+			req        ReqID          = ReqID(67)
+			worker     WorkerUUID     = WorkerUUID("TestWorker")
+			testerr    error          = errors.New("TestError")
 		)
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
@@ -84,9 +87,9 @@ var _ = Describe("Jobs", func() {
 		Describe("Create", func() {
 			It("should create a new, properly initialized job", func() {
 				gomock.InOrder(
-					w.EXPECT().GetWorkerIP(worker).Return(ip, nil),
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
-					ttm.EXPECT().Create(nil, ip).Return(nil),
+					ttm.EXPECT().Create(nil, workerAddr).Return(nil),
 					ttm.EXPECT().Addr().Return(addr),
 				)
 
@@ -100,9 +103,9 @@ var _ = Describe("Jobs", func() {
 			})
 			It("should fail to create another job for same worker", func() {
 				gomock.InOrder(
-					w.EXPECT().GetWorkerIP(worker).Return(ip, nil),
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
-					ttm.EXPECT().Create(nil, ip).Return(nil),
+					ttm.EXPECT().Create(nil, workerAddr).Return(nil),
 					ttm.EXPECT().Addr().Return(addr),
 				)
 
@@ -114,15 +117,15 @@ var _ = Describe("Jobs", func() {
 				err = jm.Create(req, worker)
 				Expect(err).To(Equal(ErrJobAlreadyExists))
 			})
-			It("should fail when GetWorkerIP fails", func() {
-				w.EXPECT().GetWorkerIP(worker).Return(nil, testerr)
+			It("should fail when GetWorkerSSHAddr fails", func() {
+				w.EXPECT().GetWorkerSSHAddr(worker).Return(net.TCPAddr{}, testerr)
 
 				err := jm.Create(req, worker)
 				Expect(err).To(Equal(testerr))
 			})
 			It("should fail and close tunnel when GetWorkerKey fails", func() {
 				gomock.InOrder(
-					w.EXPECT().GetWorkerIP(worker).Return(ip, nil),
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(rsa.PrivateKey{}, testerr),
 				)
 
@@ -131,9 +134,9 @@ var _ = Describe("Jobs", func() {
 			})
 			It("should fail when tunnel creation fails", func() {
 				gomock.InOrder(
-					w.EXPECT().GetWorkerIP(worker).Return(ip, nil),
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
-					ttm.EXPECT().Create(nil, ip).Return(testerr),
+					ttm.EXPECT().Create(nil, workerAddr).Return(testerr),
 				)
 
 				err := jm.Create(req, worker)
@@ -143,9 +146,9 @@ var _ = Describe("Jobs", func() {
 		Describe("Get", func() {
 			It("should get existing job", func() {
 				gomock.InOrder(
-					w.EXPECT().GetWorkerIP(worker).Return(ip, nil),
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
-					ttm.EXPECT().Create(nil, ip).Return(nil),
+					ttm.EXPECT().Create(nil, workerAddr).Return(nil),
 					ttm.EXPECT().Addr().Return(addr),
 				)
 
@@ -166,9 +169,9 @@ var _ = Describe("Jobs", func() {
 		Describe("Finish", func() {
 			It("should finish existing job", func() {
 				gomock.InOrder(
-					w.EXPECT().GetWorkerIP(worker).Return(ip, nil),
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
-					ttm.EXPECT().Create(nil, ip).Return(nil),
+					ttm.EXPECT().Create(nil, workerAddr).Return(nil),
 					ttm.EXPECT().Addr().Return(addr),
 					ttm.EXPECT().Close(),
 					w.EXPECT().PrepareWorker(worker, true),

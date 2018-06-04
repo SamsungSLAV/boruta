@@ -31,7 +31,7 @@ import (
 type ClientManager interface {
 	Dryad
 	// Create creates a new RPC client.
-	Create(net.IP, int) error
+	Create(*net.TCPAddr) error
 	// Close shuts down RPC client connection.
 	Close() error
 }

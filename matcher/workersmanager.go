@@ -38,10 +38,10 @@ type WorkersManager interface {
 	// is required for preparing worker.
 	PrepareWorker(worker WorkerUUID, withKeyGeneration bool) error
 
-	// GetWorkerIP returns IP of the worker that can be used for setting up tunnel
-	// to the worker. If there is no worker with given WorkerUUID an error
-	// is returned.
-	GetWorkerIP(WorkerUUID) (net.IP, error)
+	// GetWorkerSSHAddr returns address of the ssh daemon on the worker that can
+	// be used for setting up tunnel to the worker. If there is no worker with
+	// given WorkerUUID an error is returned.
+	GetWorkerSSHAddr(WorkerUUID) (net.TCPAddr, error)
 
 	// GetWorkerKey returns private RSA key of the worker that can be used for
 	// accessing the worker. If there is no worker with given WorkerUUID an error

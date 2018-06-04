@@ -35,19 +35,6 @@ func (m *MockWorkersManager) EXPECT() *MockWorkersManagerMockRecorder {
 	return m.recorder
 }
 
-// GetWorkerIP mocks base method
-func (m *MockWorkersManager) GetWorkerIP(arg0 boruta.WorkerUUID) (net.IP, error) {
-	ret := m.ctrl.Call(m, "GetWorkerIP", arg0)
-	ret0, _ := ret[0].(net.IP)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetWorkerIP indicates an expected call of GetWorkerIP
-func (mr *MockWorkersManagerMockRecorder) GetWorkerIP(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkerIP", reflect.TypeOf((*MockWorkersManager)(nil).GetWorkerIP), arg0)
-}
-
 // GetWorkerKey mocks base method
 func (m *MockWorkersManager) GetWorkerKey(arg0 boruta.WorkerUUID) (rsa.PrivateKey, error) {
 	ret := m.ctrl.Call(m, "GetWorkerKey", arg0)
@@ -59,6 +46,19 @@ func (m *MockWorkersManager) GetWorkerKey(arg0 boruta.WorkerUUID) (rsa.PrivateKe
 // GetWorkerKey indicates an expected call of GetWorkerKey
 func (mr *MockWorkersManagerMockRecorder) GetWorkerKey(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkerKey", reflect.TypeOf((*MockWorkersManager)(nil).GetWorkerKey), arg0)
+}
+
+// GetWorkerSSHAddr mocks base method
+func (m *MockWorkersManager) GetWorkerSSHAddr(arg0 boruta.WorkerUUID) (net.TCPAddr, error) {
+	ret := m.ctrl.Call(m, "GetWorkerSSHAddr", arg0)
+	ret0, _ := ret[0].(net.TCPAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWorkerSSHAddr indicates an expected call of GetWorkerSSHAddr
+func (mr *MockWorkersManagerMockRecorder) GetWorkerSSHAddr(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkerSSHAddr", reflect.TypeOf((*MockWorkersManager)(nil).GetWorkerSSHAddr), arg0)
 }
 
 // PrepareWorker mocks base method

@@ -75,7 +75,7 @@ func (m *JobsManagerImpl) Create(req ReqID, worker WorkerUUID) error {
 		return ErrJobAlreadyExists
 	}
 
-	ip, err := m.workers.GetWorkerIP(worker)
+	addr, err := m.workers.GetWorkerSSHAddr(worker)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (m *JobsManagerImpl) Create(req ReqID, worker WorkerUUID) error {
 		return err
 	}
 	t := m.newTunnel()
-	err = t.Create(nil, ip)
+	err = t.Create(nil, addr)
 	if err != nil {
 		return err
 	}

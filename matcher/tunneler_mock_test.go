@@ -57,7 +57,7 @@ func (mr *MockTunnelerMockRecorder) Close() *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockTunneler) Create(arg0, arg1 net.IP) error {
+func (m *MockTunneler) Create(arg0 net.IP, arg1 net.TCPAddr) error {
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0

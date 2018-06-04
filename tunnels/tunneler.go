@@ -26,7 +26,7 @@ import (
 // Tunneler defines API for basic operations on tunnels.
 type Tunneler interface {
 	// Create sets up a new tunnel.
-	Create(net.IP, net.IP) error
+	Create(net.IP, net.TCPAddr) error
 	// Close shuts down tunnel.
 	Close() error
 	// Addr returns the address of the tunnel to be used by a user

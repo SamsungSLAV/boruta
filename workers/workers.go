@@ -19,13 +19,12 @@ package workers
 
 import (
 	"crypto/rsa"
-	"errors"
+	"fmt"
 	"math"
 	"net"
 	"sync"
 
 	. "git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/dryad/conf"
 	"git.tizen.org/tools/boruta/rpc/dryad"
 )
 
@@ -88,19 +87,26 @@ func (wl *WorkerList) Register(caps Capabilities, dryadAddress string, sshAddres
 
 	dryad, err := net.ResolveTCPAddr("tcp", dryadAddress)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid dryad address: %s", err)
 	}
 	// dryad.IP is empty if dryadAddress provided port number only.
 	if dryad.IP == nil {
-		return errors.New("missing IP in dryad address")
+		return ErrMissingIP
 	}
+	if dryad.Port == 0 {
+		return ErrMissingPort
+	}
+
 	sshd, err := net.ResolveTCPAddr("tcp", sshAddress)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid sshd address: %s", err)
 	}
 	// same as with dryad.IP
 	if sshd.IP == nil {
-		return errors.New("missing IP in ssh address")
+		return ErrMissingIP
+	}
+	if sshd.Port == 0 {
+		return ErrMissingPort
 	}
 
 	wl.mutex.Lock()
@@ -283,30 +289,26 @@ func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
 	return worker.WorkerInfo, nil
 }
 
-// SetWorkerIP stores ip in the worker structure referenced by uuid.
-// It should be called after Register by function which is aware of
-// the source of the connection and therefore its IP address.
-func (wl *WorkerList) SetWorkerIP(uuid WorkerUUID, ip net.IP) error {
-	wl.mutex.Lock()
-	defer wl.mutex.Unlock()
-	worker, ok := wl.workers[uuid]
-	if !ok {
-		return ErrWorkerNotFound
-	}
-	// FIXME
-	worker.dryad.IP = ip
-	return nil
-}
-
-// GetWorkerIP retrieves IP address from the internal structure.
-func (wl *WorkerList) GetWorkerIP(uuid WorkerUUID) (net.IP, error) {
+// GetWorkerAddr retrieves IP address from the internal structure.
+func (wl *WorkerList) GetWorkerAddr(uuid WorkerUUID) (net.TCPAddr, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
-		return nil, ErrWorkerNotFound
+		return net.TCPAddr{}, ErrWorkerNotFound
 	}
-	return worker.dryad.IP, nil
+	return *worker.dryad, nil
+}
+
+// GetWorkerSSHAddr retrieves address of worker's ssh daemon from the internal structure.
+func (wl *WorkerList) GetWorkerSSHAddr(uuid WorkerUUID) (net.TCPAddr, error) {
+	wl.mutex.RLock()
+	defer wl.mutex.RUnlock()
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return net.TCPAddr{}, ErrWorkerNotFound
+	}
+	return *worker.sshd, nil
 }
 
 // SetWorkerKey stores private key in the worker structure referenced by uuid.
@@ -441,12 +443,12 @@ func (wl *WorkerList) setState(worker WorkerUUID, state WorkerState) error {
 // prepareKey delegates key generation to Dryad and sets up generated key in the
 // worker. In case of any failure it returns an error.
 func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
-	ip, err := wl.GetWorkerIP(worker)
+	addr, err := wl.GetWorkerAddr(worker)
 	if err != nil {
 		return err
 	}
 	client := wl.newDryadClient()
-	err = client.Create(ip, conf.DefaultRPCPort)
+	err = client.Create(&addr)
 	if err != nil {
 		return err
 	}
@@ -461,12 +463,12 @@ func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
 
 // putInMaintenance orders Dryad to enter maintenance mode.
 func (wl *WorkerList) putInMaintenance(worker WorkerUUID) error {
-	ip, err := wl.GetWorkerIP(worker)
+	addr, err := wl.GetWorkerAddr(worker)
 	if err != nil {
 		return err
 	}
 	client := wl.newDryadClient()
-	err = client.Create(ip, conf.DefaultRPCPort)
+	err = client.Create(&addr)
 	if err != nil {
 		return err
 	}

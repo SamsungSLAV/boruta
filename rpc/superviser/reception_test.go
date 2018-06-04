@@ -54,23 +54,22 @@ var _ = Describe("superviserReception", func() {
 		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, ":7175", ":22")
 		Expect(err).ToNot(HaveOccurred())
 
-		ip, err := wl.GetWorkerIP(uuid)
+		addr, err := wl.GetWorkerAddr(uuid)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(ip).ToNot(BeNil())
+		Expect(addr).To(Equal(refAddr))
 	})
 
 	It("should get IP from argument", func() {
-		refIP := net.IPv4(127, 0, 0, 1)
 		uuid := boruta.WorkerUUID(uuidStr)
 		c, err := DialSuperviserClient(addr.String())
 		Expect(err).ToNot(HaveOccurred())
 
-		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, refIP.String()+":7175", refIP.String()+":22")
+		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, refAddr.String(), refAddr.IP.String()+":22")
 		Expect(err).ToNot(HaveOccurred())
 
-		ip, err := wl.GetWorkerIP(uuid)
+		addr, err := wl.GetWorkerAddr(uuid)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(ip).To(Equal(refIP))
+		Expect(addr).To(Equal(refAddr))
 	})
 
 	It("should fail to call with either address empty", func() {

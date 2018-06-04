@@ -16,6 +16,8 @@
 
 package requests
 
+//go:generate mockgen -package requests -destination=workersmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher WorkersManager
+
 import (
 	"errors"
 	"time"

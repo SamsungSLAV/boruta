@@ -24,25 +24,28 @@ import (
 	"net"
 
 	. "git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/dryad/conf"
 	"git.tizen.org/tools/boruta/rpc/dryad"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/satori/go.uuid"
 )
 
 var _ = Describe("WorkerList", func() {
 	var wl *WorkerList
-	dryadAddr := net.TCPAddr{
+	dryadAddr := &net.TCPAddr{
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: 7175,
 	}
-	sshdAddr := net.TCPAddr{
+	sshdAddr := &net.TCPAddr{
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: 22,
+	}
+	missingPort := &net.TCPAddr{
+		IP: dryadAddr.IP,
 	}
 	BeforeEach(func() {
 		wl = NewWorkerList()
@@ -62,6 +65,7 @@ var _ = Describe("WorkerList", func() {
 
 	Describe("Register", func() {
 		var registeredWorkers []string
+		invalidAddr := "addr.invalid"
 
 		BeforeEach(func() {
 			registeredWorkers = make([]string, 0)
@@ -98,6 +102,23 @@ var _ = Describe("WorkerList", func() {
 				UUID: getUUID(),
 			}
 		}
+
+		DescribeTable("dryad and sshd addresses",
+			func(dryadAddress, sshAddress string, errMatcher types.GomegaMatcher) {
+				caps := getRandomCaps()
+				err := wl.Register(caps, dryadAddress, sshAddress)
+				Expect(err).To(errMatcher)
+			},
+			Entry("both addresses missing", "", "", Equal(ErrMissingIP)),
+			Entry("sshd address missing", dryadAddr.String(), "", Equal(ErrMissingIP)),
+			Entry("dryad address missing", "", sshdAddr.String(), Equal(ErrMissingIP)),
+			Entry("dryad port missing", missingPort.String(), sshdAddr.String(), Equal(ErrMissingPort)),
+			Entry("sshd port missing", dryadAddr.String(), missingPort.String(), Equal(ErrMissingPort)),
+			Entry("both ports missing", missingPort.String(), missingPort.String(), Equal(ErrMissingPort)),
+			Entry("both invalid", invalidAddr, invalidAddr, HaveOccurred()),
+			Entry("dryad invalid", invalidAddr, sshdAddr.String(), HaveOccurred()),
+			Entry("sshd invalid", dryadAddr.String(), invalidAddr, HaveOccurred()),
+		)
 
 		It("should add Worker in MAINTENANCE state", func() {
 			caps := getRandomCaps()
@@ -368,7 +389,7 @@ var _ = Describe("WorkerList", func() {
 
 					It("should work to SetState", func() {
 						gomock.InOrder(
-							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().Create(info.dryad),
 							dcm.EXPECT().Prepare().Return(key, nil),
 							dcm.EXPECT().Close(),
 						)
@@ -381,7 +402,7 @@ var _ = Describe("WorkerList", func() {
 
 					It("should fail to SetState if dryadClientManager fails to prepare client", func() {
 						gomock.InOrder(
-							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().Create(info.dryad),
 							dcm.EXPECT().Prepare().Return(nil, testerr),
 							dcm.EXPECT().Close(),
 						)
@@ -393,7 +414,7 @@ var _ = Describe("WorkerList", func() {
 					})
 
 					It("should fail to SetState if dryadClientManager fails to create client", func() {
-						dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+						dcm.EXPECT().Create(info.dryad).Return(testerr)
 
 						err := wl.SetState(worker, IDLE)
 						Expect(err).ToNot(HaveOccurred())
@@ -422,7 +443,7 @@ var _ = Describe("WorkerList", func() {
 
 						It("should work to SetState", func() {
 							gomock.InOrder(
-								dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+								dcm.EXPECT().Create(info.dryad),
 								dcm.EXPECT().PutInMaintenance(putStr),
 								dcm.EXPECT().Close(),
 							)
@@ -434,7 +455,7 @@ var _ = Describe("WorkerList", func() {
 
 						It("should fail to SetState if dryadClientManager fails to put dryad in maintenance state", func() {
 							gomock.InOrder(
-								dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+								dcm.EXPECT().Create(info.dryad),
 								dcm.EXPECT().PutInMaintenance(putStr).Return(testerr),
 								dcm.EXPECT().Close().Do(func() {
 									wl.mutex.Lock()
@@ -451,7 +472,7 @@ var _ = Describe("WorkerList", func() {
 						})
 
 						It("should fail to SetState if dryadClientManager fails to create client", func() {
-							dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr).Do(func(net.IP, int) {
+							dcm.EXPECT().Create(info.dryad).Return(testerr).Do(func(*net.TCPAddr) {
 								wl.mutex.Lock()
 								info.State = WorkerState("TEST")
 								wl.mutex.Unlock()
@@ -468,7 +489,7 @@ var _ = Describe("WorkerList", func() {
 				Describe("putInMaintenance", func() {
 					It("should work", func() {
 						gomock.InOrder(
-							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().Create(info.dryad),
 							dcm.EXPECT().PutInMaintenance(putStr),
 							dcm.EXPECT().Close(),
 						)
@@ -479,7 +500,7 @@ var _ = Describe("WorkerList", func() {
 
 					It("should fail if dryadClientManager fails to put dryad in maintenance state", func() {
 						gomock.InOrder(
-							dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+							dcm.EXPECT().Create(info.dryad),
 							dcm.EXPECT().PutInMaintenance(putStr).Return(testerr),
 							dcm.EXPECT().Close(),
 						)
@@ -489,7 +510,7 @@ var _ = Describe("WorkerList", func() {
 					})
 
 					It("should fail if dryadClientManager fails to create client", func() {
-						dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+						dcm.EXPECT().Create(info.dryad).Return(testerr)
 
 						err := wl.putInMaintenance(worker)
 						Expect(err).To(Equal(testerr))
@@ -702,15 +723,25 @@ var _ = Describe("WorkerList", func() {
 
 		Describe("Setters and Getters", func() {
 			type genericGet func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error)
-			getIP := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
-				item, err := wl.GetWorkerIP(uuid)
+			getDryad := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+				item, err := wl.GetWorkerAddr(uuid)
 				if expectedErr != nil {
-					Expect(item).To(BeNil())
+					Expect(item).To(Equal(net.TCPAddr{}))
 					Expect(err).To(Equal(expectedErr))
 					return
 				}
 				Expect(err).ToNot(HaveOccurred())
-				Expect(item).To(Equal(expectedItem.(net.IP)))
+				Expect(item).To(Equal(expectedItem.(net.TCPAddr)))
+			})
+			getSSH := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+				item, err := wl.GetWorkerSSHAddr(uuid)
+				if expectedErr != nil {
+					Expect(item).To(Equal(net.TCPAddr{}))
+					Expect(err).To(Equal(expectedErr))
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(item).To(Equal(expectedItem.(net.TCPAddr)))
 			})
 			getKey := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
 				item, err := wl.GetWorkerKey(uuid)
@@ -721,19 +752,9 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(&item).To(Equal(expectedItem.(*rsa.PrivateKey)))
 			})
-			getters := []genericGet{getIP, getKey}
+			getters := []genericGet{getKey, getDryad, getSSH}
 
 			type genericSet func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{}
-			setIP := genericSet(func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{} {
-				ip := net.IP{255, 255, 255, 255}
-				err := wl.SetWorkerIP(uuid, ip)
-				if expectedErr != nil {
-					Expect(err).To(Equal(expectedErr))
-					return nil
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return ip
-			})
 			setKey := genericSet(func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{} {
 				key, err := rsa.GenerateKey(rand.Reader, 128)
 				Expect(err).ToNot(HaveOccurred())
@@ -745,7 +766,7 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return key
 			})
-			setters := []genericSet{setIP, setKey}
+			setters := []genericSet{setKey}
 
 			It("should fail to get information of nonexistent worker", func() {
 				uuid := randomUUID()
@@ -832,7 +853,7 @@ var _ = Describe("WorkerList", func() {
 				})
 				It("should set worker into IDLE state and prepare a key", func() {
 					gomock.InOrder(
-						dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+						dcm.EXPECT().Create(info.dryad),
 						dcm.EXPECT().Prepare().Return(key, nil),
 						dcm.EXPECT().Close(),
 					)
@@ -845,7 +866,7 @@ var _ = Describe("WorkerList", func() {
 				})
 				It("should fail to prepare worker if dryadClientManager fails to prepare client", func() {
 					gomock.InOrder(
-						dcm.EXPECT().Create(ip, conf.DefaultRPCPort),
+						dcm.EXPECT().Create(info.dryad),
 						dcm.EXPECT().Prepare().Return(nil, testerr),
 						dcm.EXPECT().Close(),
 					)
@@ -857,7 +878,7 @@ var _ = Describe("WorkerList", func() {
 					Expect(info.key).To(BeNil())
 				})
 				It("should fail to prepare worker if dryadClientManager fails to create client", func() {
-					dcm.EXPECT().Create(ip, conf.DefaultRPCPort).Return(testerr)
+					dcm.EXPECT().Create(info.dryad).Return(testerr)
 
 					err := wl.PrepareWorker(worker, true)
 					Expect(err).NotTo(HaveOccurred())

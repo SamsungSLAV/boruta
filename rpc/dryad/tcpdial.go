@@ -26,8 +26,7 @@ import (
 
 // Create sets up new TCP dialled RPC client in DryadClient structure.
 // The Create function implements ClientManager interface.
-func (_c *DryadClient) Create(ip net.IP, port int) error {
-	addr := &net.TCPAddr{IP: ip, Port: port}
+func (_c *DryadClient) Create(addr *net.TCPAddr) error {
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		return err

@@ -15,16 +15,13 @@
  */
 
 // Package tunnels allows creation of simple forwarding tunnels
-// between IP addresses pairs.
+// between address pairs.
 package tunnels
 
 import (
 	"io"
 	"net"
 )
-
-// defaultSSHPort is a default port used for connection to dest by Tunnel.
-const defaultSSHPort = 22
 
 // Tunnel forwards data between source and destination addresses.
 type Tunnel struct {
@@ -34,21 +31,15 @@ type Tunnel struct {
 	done     chan struct{}
 }
 
-// Create sets up data forwarding tunnel between src and dest IP addresses.
-// It will listen on random port on src and forward to SSH port (22) of dest.
+// Create sets up data forwarding tunnel between src and dest addresses.
+// It will listen on random port on src and forward to dest.
 //
 // When connection to src is made a corresponding one is created to dest
 // and data is copied between them.
 //
 // Close should be called to clean up this function and terminate connections.
-func (t *Tunnel) Create(src, dest net.IP) (err error) {
-	return t.create(src, dest, defaultSSHPort)
-}
-
-// create is a helper function for Create method, which allows to setup any
-// port for testing purposes.
-func (t *Tunnel) create(src, dest net.IP, portSSH int) (err error) {
-	t.dest = &net.TCPAddr{IP: dest, Port: portSSH}
+func (t *Tunnel) Create(src net.IP, dest net.TCPAddr) (err error) {
+	t.dest = &dest
 	t.done = make(chan struct{})
 	// It will listen on a random port.
 	t.listener, err = net.ListenTCP("tcp", &net.TCPAddr{IP: src})
