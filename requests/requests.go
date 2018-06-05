@@ -18,6 +18,8 @@
 package requests
 
 import (
+	"reflect"
+	"sort"
 	"sync"
 	"time"
 
@@ -257,16 +259,20 @@ func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
 }
 
 // ListRequests is part of implementation of Requests interface. It returns slice
-// of ReqInfo that matches ListFilter.
+// of ReqInfo that matches ListFilter. Returned slice is sorted by request ids.
 func (reqs *ReqsCollection) ListRequests(filter ListFilter) ([]ReqInfo, error) {
 	reqs.mutex.RLock()
-	defer reqs.mutex.RUnlock()
 	res := make([]ReqInfo, 0, len(reqs.requests))
 	for _, req := range reqs.requests {
-		if filter == nil || filter.Match(req) {
+		if filter == nil || reflect.ValueOf(filter).IsNil() ||
+			filter.Match(req) {
 			res = append(res, *req)
 		}
 	}
+	reqs.mutex.RUnlock()
+	// TODO(mwereski): HTTP backend needs this to be sorted. This isn't best
+	// place to do it, rethink that when DB backend is implemented.
+	sort.Slice(res, func(i, j int) bool { return res[i].ID < res[j].ID })
 	return res, nil
 }
 

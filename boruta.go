@@ -21,6 +21,9 @@
 // Worker - MuxPi with a target device, which executes the Jobs from the Server.
 package boruta
 
+//go:generate mockgen -destination=mocks/mock_requests.go -package=mocks git.tizen.org/tools/boruta Requests
+//go:generate mockgen -destination=mocks/mock_workers.go -package=mocks git.tizen.org/tools/boruta Workers,Superviser
+
 import (
 	"crypto/rsa"
 	"net"
