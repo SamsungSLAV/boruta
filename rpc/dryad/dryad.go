@@ -40,16 +40,16 @@ func (s *DryadService) PutInMaintenance(request *DryadPutInMaintenanceRequest, r
 
 // DryadPrepareRequest is a helper structure for Prepare method.
 type DryadPrepareRequest struct {
+	Key *rsa.PublicKey
 }
 
 // DryadPrepareResponse is a helper structure for Prepare method.
 type DryadPrepareResponse struct {
-	Key *rsa.PrivateKey
 }
 
 // Prepare is RPC implementation of Prepare calling it.
 func (s *DryadService) Prepare(request *DryadPrepareRequest, response *DryadPrepareResponse) (err error) {
-	response.Key, err = s.impl.Prepare()
+	err = s.impl.Prepare(request.Key)
 	return
 }
 
@@ -97,11 +97,11 @@ func (_c *DryadClient) PutInMaintenance(msg string) (err error) {
 }
 
 // Prepare is part of implementation of Dryad calling corresponding method on RPC server.
-func (_c *DryadClient) Prepare() (key *rsa.PrivateKey, err error) {
-	_request := &DryadPrepareRequest{}
+func (_c *DryadClient) Prepare(key *rsa.PublicKey) (err error) {
+	_request := &DryadPrepareRequest{key}
 	_response := &DryadPrepareResponse{}
 	err = _c.client.Call("Dryad.Prepare", _request, _response)
-	return _response.Key, err
+	return err
 }
 
 // Healthcheck is part of implementation of Dryad calling corresponding method on RPC server.

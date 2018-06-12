@@ -26,6 +26,7 @@ import (
 
 	. "git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	"golang.org/x/crypto/ssh"
 )
 
 // Rusalka implements Dryad interface. It is intended to be used on NanoPi connected to MuxPi.
@@ -61,7 +62,7 @@ func (r *Rusalka) PutInMaintenance(msg string) error {
 }
 
 // Prepare is part of implementation of Dryad interface. Call to Prepare stops LED blinking.
-func (r *Rusalka) Prepare() (key *rsa.PrivateKey, err error) {
+func (r *Rusalka) Prepare(key *rsa.PublicKey) (err error) {
 	// Stop maintenance.
 	if r.cancelMaintenance != nil {
 		r.cancelMaintenance()
@@ -70,19 +71,21 @@ func (r *Rusalka) Prepare() (key *rsa.PrivateKey, err error) {
 	// Remove/Add user.
 	err = r.dryadUser.delete()
 	if err != nil {
-		return nil, fmt.Errorf("user removal failed: %s", err)
+		return fmt.Errorf("user removal failed: %s", err)
 	}
 	err = r.dryadUser.add()
 	if err != nil {
-		return nil, fmt.Errorf("user creation failed: %s", err)
+		return fmt.Errorf("user creation failed: %s", err)
 	}
 	// Verify user's existance.
 	err = r.dryadUser.update()
 	if err != nil {
-		return nil, fmt.Errorf("user information update failed: %s", err)
+		return fmt.Errorf("user information update failed: %s", err)
 	}
-	// Prepare SSH access.
-	return r.dryadUser.generateAndInstallKey()
+	// Prepare SSH access (it can't fail as key is of type rsa.PublicKey).
+	sshPubKey, _ := ssh.NewPublicKey(key)
+	// TODO: use ssh.PublicKey instead.
+	return r.dryadUser.generateAndInstallKey(sshPubKey)
 }
 
 // Healthcheck is part of implementation of Dryad interface.

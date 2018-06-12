@@ -19,6 +19,8 @@ package dryad
 //go:generate mockgen -destination=muxpi_mock_test.go -package dryad git.tizen.org/tools/muxpi/sw/nanopi/stm Interface
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"os"
@@ -82,7 +84,9 @@ var _ = Describe("Rusalka", func() {
 			Skip("must be run as root")
 		}
 
-		key, err := d.Prepare()
+		key, err := rsa.GenerateKey(rand.Reader, 1024)
+		Expect(err).ToNot(HaveOccurred())
+		err = d.Prepare(&key.PublicKey)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sshDir).To(BeADirectory())
 		Expect(authorizedKeysFile).To(BeARegularFile())

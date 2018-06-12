@@ -70,16 +70,15 @@ func (mr *MockDryadClientManagerMockRecorder) Healthcheck() *gomock.Call {
 }
 
 // Prepare mocks base method
-func (m *MockDryadClientManager) Prepare() (*rsa.PrivateKey, error) {
-	ret := m.ctrl.Call(m, "Prepare")
-	ret0, _ := ret[0].(*rsa.PrivateKey)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+func (m *MockDryadClientManager) Prepare(arg0 *rsa.PublicKey) error {
+	ret := m.ctrl.Call(m, "Prepare", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Prepare indicates an expected call of Prepare
-func (mr *MockDryadClientManagerMockRecorder) Prepare() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockDryadClientManager)(nil).Prepare))
+func (mr *MockDryadClientManagerMockRecorder) Prepare(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockDryadClientManager)(nil).Prepare), arg0)
 }
 
 // PutInMaintenance mocks base method

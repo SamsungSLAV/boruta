@@ -18,6 +18,7 @@
 package workers
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
 	"math"
@@ -30,6 +31,10 @@ import (
 
 // UUID denotes a key in Capabilities where WorkerUUID is stored.
 const UUID string = "UUID"
+
+// sizeRSA is a length of the RSA key.
+// It is a variable for test purposes.
+var sizeRSA = 4096
 
 // mapWorker is used by WorkerList to store all
 // (public and private) structures representing Worker.
@@ -440,8 +445,7 @@ func (wl *WorkerList) setState(worker WorkerUUID, state WorkerState) error {
 	return nil
 }
 
-// prepareKey delegates key generation to Dryad and sets up generated key in the
-// worker. In case of any failure it returns an error.
+// prepareKey generates key, installs public part on worker and stores private part in WorkerList.
 func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
 	addr, err := wl.GetWorkerAddr(worker)
 	if err != nil {
@@ -453,7 +457,11 @@ func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
 		return err
 	}
 	defer client.Close()
-	key, err := client.Prepare()
+	key, err := rsa.GenerateKey(rand.Reader, sizeRSA)
+	if err != nil {
+		return err
+	}
+	err = client.Prepare(&key.PublicKey)
 	if err != nil {
 		return err
 	}

@@ -17,18 +17,12 @@
 package dryad
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"os"
 	"path"
 	"strconv"
 
 	"golang.org/x/crypto/ssh"
 )
-
-// sizeRSA is a length of the RSA key.
-// It is experimentally chosen value as it is the longest key while still being fast to generate.
-const sizeRSA = 1024
 
 // installPublicKey marshals and stores key in a proper location to be read by ssh daemon.
 func installPublicKey(key ssh.PublicKey, homedir, uid, gid string) error {
@@ -66,22 +60,4 @@ func updateOwnership(key *os.File, sshDir, uidStr, gidStr string) (err error) {
 		return
 	}
 	return key.Chown(uid, gid)
-}
-
-// generateAndInstallKey generates a new RSA key pair, installs the public part,
-// changes its owner, and returns the private part.
-func generateAndInstallKey(homedir, uid, gid string) (*rsa.PrivateKey, error) {
-	key, err := rsa.GenerateKey(rand.Reader, sizeRSA)
-	if err != nil {
-		return nil, err
-	}
-	sshPubKey, err := ssh.NewPublicKey(&key.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	err = installPublicKey(sshPubKey, homedir, uid, gid)
-	if err != nil {
-		return nil, err
-	}
-	return key, nil
 }

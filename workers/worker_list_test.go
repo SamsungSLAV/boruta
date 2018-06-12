@@ -16,6 +16,8 @@
 
 package workers
 
+//go:generate mockgen -package workers -destination=dryadclientmanager_mock_test.go -write_package_comment=false -mock_names ClientManager=MockDryadClientManager git.tizen.org/tools/boruta/rpc/dryad ClientManager
+
 import (
 	"crypto/rand"
 	"crypto/rsa"
@@ -48,6 +50,7 @@ var _ = Describe("WorkerList", func() {
 		IP: dryadAddr.IP,
 	}
 	BeforeEach(func() {
+		sizeRSA = 256
 		wl = NewWorkerList()
 	})
 
@@ -339,7 +342,6 @@ var _ = Describe("WorkerList", func() {
 				var ctrl *gomock.Controller
 				var dcm *MockDryadClientManager
 				ip := net.IPv4(2, 4, 6, 8)
-				key := &rsa.PrivateKey{}
 				testerr := errors.New("Test Error")
 				var info *mapWorker
 				noWorker := WorkerUUID("There's no such worker")
@@ -352,12 +354,12 @@ var _ = Describe("WorkerList", func() {
 						return info.State
 					}).Should(Equal(state))
 				}
-				eventuallyKey := func(info *mapWorker, key *rsa.PrivateKey) {
+				eventuallyKey := func(info *mapWorker, match types.GomegaMatcher) {
 					EventuallyWithOffset(1, func() *rsa.PrivateKey {
 						wl.mutex.RLock()
 						defer wl.mutex.RUnlock()
 						return info.key
-					}).Should(Equal(key))
+					}).Should(match)
 				}
 
 				BeforeEach(func() {
@@ -390,20 +392,20 @@ var _ = Describe("WorkerList", func() {
 					It("should work to SetState", func() {
 						gomock.InOrder(
 							dcm.EXPECT().Create(info.dryad),
-							dcm.EXPECT().Prepare().Return(key, nil),
+							dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(nil),
 							dcm.EXPECT().Close(),
 						)
 
 						err := wl.SetState(worker, IDLE)
 						Expect(err).ToNot(HaveOccurred())
 						eventuallyState(info, IDLE)
-						eventuallyKey(info, key)
+						eventuallyKey(info, Not(Equal(&rsa.PrivateKey{})))
 					})
 
 					It("should fail to SetState if dryadClientManager fails to prepare client", func() {
 						gomock.InOrder(
 							dcm.EXPECT().Create(info.dryad),
-							dcm.EXPECT().Prepare().Return(nil, testerr),
+							dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(testerr),
 							dcm.EXPECT().Close(),
 						)
 
@@ -793,16 +795,15 @@ var _ = Describe("WorkerList", func() {
 			var ctrl *gomock.Controller
 			var dcm *MockDryadClientManager
 			ip := net.IPv4(2, 4, 6, 8)
-			key := &rsa.PrivateKey{}
 			testerr := errors.New("Test Error")
 			noWorker := WorkerUUID("There's no such worker")
 
-			eventuallyKey := func(info *mapWorker, key *rsa.PrivateKey) {
+			eventuallyKey := func(info *mapWorker, match types.GomegaMatcher) {
 				EventuallyWithOffset(1, func() *rsa.PrivateKey {
 					wl.mutex.RLock()
 					defer wl.mutex.RUnlock()
 					return info.key
-				}).Should(Equal(key))
+				}).Should(match)
 			}
 			eventuallyState := func(info *mapWorker, state WorkerState) {
 				EventuallyWithOffset(1, func() WorkerState {
@@ -854,7 +855,7 @@ var _ = Describe("WorkerList", func() {
 				It("should set worker into IDLE state and prepare a key", func() {
 					gomock.InOrder(
 						dcm.EXPECT().Create(info.dryad),
-						dcm.EXPECT().Prepare().Return(key, nil),
+						dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(nil),
 						dcm.EXPECT().Close(),
 					)
 
@@ -862,12 +863,12 @@ var _ = Describe("WorkerList", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					eventuallyState(info, IDLE)
-					eventuallyKey(info, key)
+					eventuallyKey(info, Not(Equal(&rsa.PrivateKey{})))
 				})
 				It("should fail to prepare worker if dryadClientManager fails to prepare client", func() {
 					gomock.InOrder(
 						dcm.EXPECT().Create(info.dryad),
-						dcm.EXPECT().Prepare().Return(nil, testerr),
+						dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(testerr),
 						dcm.EXPECT().Close(),
 					)
 
@@ -888,6 +889,7 @@ var _ = Describe("WorkerList", func() {
 				})
 			})
 		})
+
 		Describe("setState with changeListener", func() {
 			var ctrl *gomock.Controller
 			var wc *MockWorkerChange

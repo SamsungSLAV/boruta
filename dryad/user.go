@@ -17,12 +17,13 @@
 package dryad
 
 import (
-	"crypto/rsa"
 	"fmt"
 	"os/exec"
 	"os/user"
 	"strings"
 	"syscall"
+
+	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -138,6 +139,6 @@ func (bu *borutaUser) update() (err error) {
 
 // generateAndInstallKey calls generateAndInstallKey with parameters retrieved from the user field
 // of borutaUser structure. This filed must be set before call to this function by update() method.
-func (bu *borutaUser) generateAndInstallKey() (*rsa.PrivateKey, error) {
-	return generateAndInstallKey(bu.user.HomeDir, bu.user.Uid, bu.user.Gid)
+func (bu *borutaUser) generateAndInstallKey(key ssh.PublicKey) error {
+	return installPublicKey(key, bu.user.HomeDir, bu.user.Uid, bu.user.Gid)
 }

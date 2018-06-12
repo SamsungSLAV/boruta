@@ -232,7 +232,7 @@ type Dryad interface {
 	// Prepare creates appropriate user, generates RSA key, installs public key
 	// so that it can be used for SSH authentication and returns private key.
 	// It removes current instance of the user, etc.
-	Prepare() (key *rsa.PrivateKey, err error)
+	Prepare(key *rsa.PublicKey) (err error)
 	// Healthcheck tests Dryad for system state, STM functions and state on MuxPi.
 	// It may cause Dryad to call SetFail of Worker interface if the problem detected is critical.
 	Healthcheck() (err error)
