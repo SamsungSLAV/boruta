@@ -36,26 +36,29 @@ var (
 	pink   = colorLED{128, 16, 32}
 )
 
+type stmHelper struct {
+	stm.Interface
+}
+
 // setLED wraps stm's SetLED so that simple color definitions may be used.
-func setLED(led stm.LED, col colorLED) error {
-	return stm.SetLED(led, col.r, col.g, col.b)
+func (sh *stmHelper) setLED(led stm.LED, col colorLED) (err error) {
+	return sh.SetLED(led, col.r, col.g, col.b)
 }
 
 // blinkMaintenanceLED alternates between LED1 and LED2 lighting each
 // with yellow color for approximately 1 second.
 //
 // It is cancelled by ctx.
-func blinkMaintenanceLED(ctx context.Context) {
-	defer stm.Close()
-	defer stm.ClearDisplay()
+func (sh *stmHelper) blinkMaintenanceLED(ctx context.Context) {
+	defer sh.ClearDisplay()
 	for {
-		setLED(stm.LED1, yellow)
+		sh.setLED(stm.LED1, yellow)
 		time.Sleep(time.Second)
-		setLED(stm.LED1, off)
+		sh.setLED(stm.LED1, off)
 
-		setLED(stm.LED2, yellow)
+		sh.setLED(stm.LED2, yellow)
 		time.Sleep(time.Second)
-		setLED(stm.LED2, off)
+		sh.setLED(stm.LED2, off)
 
 		select {
 		case <-ctx.Done():
@@ -66,10 +69,16 @@ func blinkMaintenanceLED(ctx context.Context) {
 }
 
 // printMessage clears the OLED display and prints msg to it.
-func printMessage(msg string) error {
-	err := stm.ClearDisplay()
+func (sh *stmHelper) printMessage(msg string) (err error) {
+	err = sh.ClearDisplay()
 	if err != nil {
 		return err
 	}
-	return stm.PrintText(0, 0, stm.Foreground, msg)
+	return sh.PrintText(0, 0, stm.Foreground, msg)
+}
+
+// powerTick switches relay on and off.
+// It may be used for Healthcheck.
+func (sh *stmHelper) powerTick() (err error) {
+	return sh.PowerTick(time.Second)
 }

@@ -33,13 +33,15 @@ import (
 type Rusalka struct {
 	Dryad
 	dryadUser         *borutaUser
+	stm               *stmHelper
 	cancelMaintenance context.CancelFunc
 }
 
 // NewRusalka returns Dryad interface to Rusalka.
-func NewRusalka(username string, groups []string) Dryad {
+func NewRusalka(stmConn stm.Interface, username string, groups []string) Dryad {
 	return &Rusalka{
 		dryadUser: newBorutaUser(username, groups),
+		stm:       &stmHelper{stmConn},
 	}
 }
 
@@ -48,18 +50,13 @@ func NewRusalka(username string, groups []string) Dryad {
 // Otherwise it may make it unusable for other STM users. It is closed
 // when blinkMaintenanceLED exits.
 func (r *Rusalka) PutInMaintenance(msg string) error {
-	// Connection to STM is closed in blinkMaintenanceLED().
-	err := stm.Open()
-	if err != nil {
-		return err
-	}
-	err = printMessage(msg)
+	err := r.stm.printMessage(msg)
 	if err != nil {
 		return err
 	}
 	var ctx context.Context
 	ctx, r.cancelMaintenance = context.WithCancel(context.Background())
-	go blinkMaintenanceLED(ctx)
+	go r.stm.blinkMaintenanceLED(ctx)
 	return nil
 }
 
@@ -90,9 +87,5 @@ func (r *Rusalka) Prepare() (key *rsa.PrivateKey, err error) {
 
 // Healthcheck is part of implementation of Dryad interface.
 func (r *Rusalka) Healthcheck() (err error) {
-	err = stm.Open()
-	if err != nil {
-		return err
-	}
-	return stm.Close()
+	return r.stm.powerTick()
 }

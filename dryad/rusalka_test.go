@@ -14,25 +14,28 @@
  *  limitations under the License
  */
 
-package dryad_test
+package dryad
+
+//go:generate mockgen -destination=muxpi_mock_test.go -package dryad git.tizen.org/tools/muxpi/sw/nanopi/stm Interface
 
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"os"
+	"os/user"
 	"time"
 
-	. "git.tizen.org/tools/boruta/dryad"
-	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
-
 	"git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Rusalka", func() {
 	var d boruta.Dryad
+	var ctrl *gomock.Controller
+	var stmMock *MockInterface
 	const (
 		username           = "test-user"
 		homeDir            = "/home/" + username
@@ -41,23 +44,42 @@ var _ = Describe("Rusalka", func() {
 	)
 
 	BeforeEach(func() {
-		err := stm.Open()
-		if err != nil {
-			Skip(fmt.Sprintf("STM is probably missing: %s", err))
-		}
-		err = stm.Close()
-		Expect(err).ToNot(HaveOccurred())
-		d = NewRusalka(username, []string{"users"})
+		ctrl = gomock.NewController(GinkgoT())
+		stmMock = NewMockInterface(ctrl)
+
+		d = NewRusalka(stmMock, username, nil)
 	})
 
-	It("should put in maintenance", func() {
-		err := d.PutInMaintenance("test message")
-		Expect(err).ToNot(HaveOccurred())
-		// TODO(amistewicz): somehow check that goroutine is running and can be terminated.
-		time.Sleep(10 * time.Second)
+	AfterEach(func() {
+		ctrl.Finish()
 	})
+
+	It("should put in maintenance", func(done Done) {
+		const msg = "test message"
+
+		gomock.InOrder(
+			stmMock.EXPECT().ClearDisplay(),
+			stmMock.EXPECT().PrintText(uint(0), uint(0), stm.Foreground, msg),
+			stmMock.EXPECT().SetLED(stm.LED1, yellow.r, yellow.g, yellow.b),
+			stmMock.EXPECT().SetLED(stm.LED1, off.r, off.g, off.b),
+			stmMock.EXPECT().SetLED(stm.LED2, yellow.r, yellow.g, yellow.b),
+			stmMock.EXPECT().SetLED(stm.LED2, off.r, off.g, off.b),
+			stmMock.EXPECT().ClearDisplay().Do(
+				func() { close(done) }),
+		)
+
+		err := d.PutInMaintenance(msg)
+		Expect(err).ToNot(HaveOccurred())
+		d.(*Rusalka).cancelMaintenance()
+	}, 4) // blinkMaintenanceLED sleeps twice for 2 seconds each time.
 
 	It("should prepare", func() {
+		u, err := user.Current()
+		Expect(err).ToNot(HaveOccurred())
+		if u.Uid != "0" {
+			Skip("must be run as root")
+		}
+
 		key, err := d.Prepare()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sshDir).To(BeADirectory())
@@ -72,6 +94,8 @@ var _ = Describe("Rusalka", func() {
 	})
 
 	It("should be healthy", func() {
+		stmMock.EXPECT().PowerTick(time.Second)
+
 		err := d.Healthcheck()
 		Expect(err).ToNot(HaveOccurred())
 	})
