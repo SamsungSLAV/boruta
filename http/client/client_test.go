@@ -73,6 +73,8 @@ func (r dummyReadCloser) Read(p []byte) (n int, err error) {
 const (
 	contentJSON = "application/json"
 	dateLayout  = "2006-01-02T15:04:05Z07:00"
+	invalidID   = "test"
+	validUUID   = "ec4898ac-0853-407c-8501-cbb24ef6bd77"
 )
 
 var (
@@ -829,12 +831,49 @@ func TestListWorkers(t *testing.T) {
 }
 
 func TestGetWorkerInfo(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "worker-info-"
+	path := "/api/v1/workers/"
+	worker := newWorker(validUUID, IDLE, Groups{}, nil)
+	header := make(http.Header)
+	header.Set("Boruta-Worker-State", "IDLE")
 
-	info, err := client.GetWorkerInfo(WorkerUUID(""))
+	tests := []*testCase{
+		&testCase{
+			// valid
+			name:        prefix + "valid",
+			path:        path + validUUID,
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      header,
+		},
+		&testCase{
+			// invalid UUID
+			name:        prefix + "bad-uuid",
+			path:        path + invalidID,
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
+		},
+	}
+
+	srv := prepareServer(http.MethodGet, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	info, err := client.GetWorkerInfo(validUUID)
+	assert.Nil(err)
+	assert.Equal(worker, info)
+
+	// invalid UUID
+	info, err = client.GetWorkerInfo(invalidID)
 	assert.Zero(info)
-	assert.Equal(util.ErrNotImplemented, err)
+	assert.Equal(util.NewServerError(util.ErrBadUUID), err)
+
+	// http.Get failure
+	client.url = "http://nosuchaddress.fail"
+	info, err = client.GetWorkerInfo(validUUID)
+	assert.Zero(info)
+	assert.NotNil(err)
 }
 
 func TestSetState(t *testing.T) {

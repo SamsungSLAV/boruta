@@ -301,9 +301,15 @@ func (client *BorutaClient) ListWorkers(groups boruta.Groups,
 
 // GetWorkerInfo queries Boruta server for information about worker with given
 // UUID.
-func (client *BorutaClient) GetWorkerInfo(uuid boruta.WorkerUUID) (
-	boruta.WorkerInfo, error) {
-	return boruta.WorkerInfo{}, util.ErrNotImplemented
+func (client *BorutaClient) GetWorkerInfo(uuid boruta.WorkerUUID) (boruta.WorkerInfo, error) {
+	var info boruta.WorkerInfo
+	path := client.url + "workers/" + string(uuid)
+	resp, err := http.Get(path)
+	if err != nil {
+		return info, err
+	}
+	err = processResponse(resp, &info)
+	return info, err
 }
 
 // SetState requests Boruta server to change state of worker with provided UUID.
