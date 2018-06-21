@@ -915,11 +915,42 @@ func TestSetState(t *testing.T) {
 }
 
 func TestSetGroups(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "worker-set-groups-"
+	path := "/api/v1/workers/"
+	groups := Groups{"foo", "bar"}
 
-	err := client.SetGroups(WorkerUUID(""), nil)
-	assert.Equal(util.ErrNotImplemented, err)
+	tests := []*testCase{
+		&testCase{
+			// valid
+			name:        prefix + "valid",
+			path:        path + validUUID + "/setgroups",
+			json:        string(jsonMustMarshal(groups)),
+			contentType: contentJSON,
+			status:      http.StatusNoContent,
+		},
+		&testCase{
+			// invalid UUID
+			name:        prefix + "bad-uuid",
+			path:        path + invalidID + "/setgroups",
+			json:        string(jsonMustMarshal(groups)),
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	assert.Nil(client.SetGroups(validUUID, groups))
+
+	// invalid UUID
+	assert.Equal(util.NewServerError(util.ErrBadUUID), client.SetGroups(invalidID, groups))
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.SetGroups(validUUID, groups))
 }
 
 func TestDeregister(t *testing.T) {

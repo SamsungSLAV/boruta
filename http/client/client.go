@@ -329,9 +329,17 @@ func (client *BorutaClient) SetState(uuid boruta.WorkerUUID, state boruta.Worker
 
 // SetGroups requests Boruta server to change groups of worker with provided
 // UUID. SetGroups is intended only for Boruta server administrators.
-func (client *BorutaClient) SetGroups(uuid boruta.WorkerUUID,
-	groups boruta.Groups) error {
-	return util.ErrNotImplemented
+func (client *BorutaClient) SetGroups(uuid boruta.WorkerUUID, groups boruta.Groups) error {
+	path := client.url + "workers/" + string(uuid) + "/setgroups"
+	req, err := json.Marshal(groups)
+	if err != nil {
+		return err
+	}
+	resp, err := http.Post(path, contentType, bytes.NewReader(req))
+	if err != nil {
+		return err
+	}
+	return processResponse(resp, nil)
 }
 
 // Deregister requests Boruta server to deregister worker with provided UUID.
