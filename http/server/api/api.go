@@ -18,6 +18,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -66,6 +67,20 @@ func redirectToDefault(w http.ResponseWriter, r *http.Request,
 	http.Redirect(w, r, u.String(), http.StatusPermanentRedirect)
 }
 
+// setNotFoundHandler catches all requests that were redirected to default API,
+// and not found there.
+func notFoundHandler(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+	srvErr := util.NewServerError(NotFoundError(r.URL.Path))
+	data, err := json.Marshal(srvErr)
+	if err != nil {
+		data = []byte(srvErr.Err)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+	}
+	w.WriteHeader(srvErr.Status)
+	w.Write(data)
+}
+
 // setDefaultAPI register handler for API calls that lack API version in path.
 func setDefaultAPIRedirect(prefix *httptreemux.Group) {
 	for _, method := range [...]string{
@@ -80,6 +95,8 @@ func setDefaultAPIRedirect(prefix *httptreemux.Group) {
 		http.MethodTrace,
 	} {
 		prefix.Handle(method, "/*path", redirectToDefault)
+		// Redirect was done, requested API call wasn't found.
+		prefix.Handle(method, "/"+defaultAPI+"/*path", notFoundHandler)
 	}
 }
 

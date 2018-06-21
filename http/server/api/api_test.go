@@ -17,6 +17,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"io/ioutil"
@@ -26,6 +27,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "git.tizen.org/tools/boruta"
 	util "git.tizen.org/tools/boruta/http"
 	"git.tizen.org/tools/boruta/matcher"
 	"git.tizen.org/tools/boruta/requests"
@@ -143,4 +145,16 @@ func TestRedirectToDefault(t *testing.T) {
 	// Response is checked in redirCheck.
 	_, err := client.Post(srv.URL+reqPath, "text/plain", nil)
 	assert.Nil(err)
+
+	// Path to default version of API, which wasn't found.
+	badPath := "/api/" + defaultAPI + "/missing/test"
+	var srvErr util.ServerError
+	resp, err := client.Post(srv.URL+badPath, "text/plain", nil)
+	assert.Nil(err)
+	defer resp.Body.Close()
+	decoder := json.NewDecoder(resp.Body)
+	assert.Equal("application/json", resp.Header.Get("Content-Type"))
+	err = decoder.Decode(&srvErr)
+	assert.Equal(http.StatusNotFound, resp.StatusCode)
+	assert.Equal(NotFoundError(badPath).Error(), srvErr.Err)
 }
