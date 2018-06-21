@@ -877,11 +877,41 @@ func TestGetWorkerInfo(t *testing.T) {
 }
 
 func TestSetState(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "worker-set-state-"
+	path := "/api/v1/workers/"
 
-	err := client.SetState(WorkerUUID(""), FAIL)
-	assert.Equal(util.ErrNotImplemented, err)
+	tests := []*testCase{
+		&testCase{
+			// valid
+			name:        prefix + "valid",
+			path:        path + validUUID + "/setstate",
+			json:        string(jsonMustMarshal(&util.WorkerStatePack{IDLE})),
+			contentType: contentJSON,
+			status:      http.StatusNoContent,
+		},
+		&testCase{
+			// invalid UUID
+			name:        prefix + "bad-uuid",
+			path:        path + invalidID + "/setstate",
+			json:        string(jsonMustMarshal(&util.WorkerStatePack{FAIL})),
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	assert.Nil(client.SetState(validUUID, IDLE))
+
+	// invalid UUID
+	assert.Equal(util.NewServerError(util.ErrBadUUID), client.SetState(invalidID, FAIL))
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.SetState(validUUID, FAIL))
 }
 
 func TestSetGroups(t *testing.T) {

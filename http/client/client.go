@@ -314,9 +314,17 @@ func (client *BorutaClient) GetWorkerInfo(uuid boruta.WorkerUUID) (boruta.Worker
 
 // SetState requests Boruta server to change state of worker with provided UUID.
 // SetState is intended only for Boruta server administrators.
-func (client *BorutaClient) SetState(uuid boruta.WorkerUUID,
-	state boruta.WorkerState) error {
-	return util.ErrNotImplemented
+func (client *BorutaClient) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
+	path := client.url + "workers/" + string(uuid) + "/setstate"
+	req, err := json.Marshal(&util.WorkerStatePack{state})
+	if err != nil {
+		return err
+	}
+	resp, err := http.Post(path, contentType, bytes.NewReader(req))
+	if err != nil {
+		return err
+	}
+	return processResponse(resp, nil)
 }
 
 // SetGroups requests Boruta server to change groups of worker with provided
