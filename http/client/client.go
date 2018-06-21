@@ -345,5 +345,10 @@ func (client *BorutaClient) SetGroups(uuid boruta.WorkerUUID, groups boruta.Grou
 // Deregister requests Boruta server to deregister worker with provided UUID.
 // Deregister is intended only for Boruta server administrators.
 func (client *BorutaClient) Deregister(uuid boruta.WorkerUUID) error {
-	return util.ErrNotImplemented
+	path := client.url + "workers/" + string(uuid) + "/deregister"
+	resp, err := http.Post(path, "", nil)
+	if err != nil {
+		return err
+	}
+	return processResponse(resp, nil)
 }

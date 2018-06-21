@@ -954,9 +954,37 @@ func TestSetGroups(t *testing.T) {
 }
 
 func TestDeregister(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "worker-deregister-"
+	path := "/api/v1/workers/"
 
-	err := client.Deregister(WorkerUUID(""))
-	assert.Equal(util.ErrNotImplemented, err)
+	tests := []*testCase{
+		&testCase{
+			// valid
+			name:        prefix + "valid",
+			path:        path + validUUID + "/deregister",
+			contentType: contentJSON,
+			status:      http.StatusNoContent,
+		},
+		&testCase{
+			// invalid UUID
+			name:        prefix + "bad-uuid",
+			path:        path + invalidID + "/deregister",
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	assert.Nil(client.Deregister(validUUID))
+
+	// invalid UUID
+	assert.Equal(util.NewServerError(util.ErrBadUUID), client.Deregister(invalidID))
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.Deregister(validUUID))
 }
