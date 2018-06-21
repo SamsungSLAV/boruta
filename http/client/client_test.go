@@ -204,6 +204,23 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
+// from http/server/api/v1/api_test.go
+func newWorker(uuid string, state WorkerState, groups Groups, caps Capabilities) (w WorkerInfo) {
+	if caps == nil {
+		caps = make(Capabilities)
+	}
+	caps["UUID"] = uuid
+	w = WorkerInfo{
+		WorkerUUID: WorkerUUID(uuid),
+		State:      state,
+		Caps:       caps,
+	}
+	if len(groups) != 0 {
+		w.Groups = groups
+	}
+	return
+}
+
 func TestNewBorutaClient(t *testing.T) {
 	assert, client := initTest(t, "")
 
@@ -727,12 +744,88 @@ func TestProlongAccess(t *testing.T) {
 }
 
 func TestListWorkers(t *testing.T) {
-	assert, client := initTest(t, "")
-	assert.NotNil(client)
+	prefix := "filter-workers-"
+	path := "/api/v1/workers/list"
 
-	list, err := client.ListWorkers(nil, nil)
-	assert.Nil(list)
-	assert.Equal(util.ErrNotImplemented, err)
+	// based on http/server/api/v1/handlers_test.go
+	armCaps := make(Capabilities)
+	armCaps["architecture"] = "AArch64"
+	riscvCaps := make(Capabilities)
+	riscvCaps["architecture"] = "RISC-V"
+	workers := []WorkerInfo{
+		newWorker("0", IDLE, Groups{"Lędzianie"}, armCaps),
+		newWorker("1", FAIL, Groups{"Malinowy Chruśniak"}, armCaps),
+		newWorker("2", IDLE, Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
+		newWorker("3", FAIL, Groups{"Malinowy Chruśniak"}, riscvCaps),
+	}
+	validFilter := util.WorkersFilter{
+		Groups:       Groups{"Lędzianie"},
+		Capabilities: map[string]string{"architecture": "AArch64"},
+	}
+	validHeader := make(http.Header)
+	validHeader.Set("Boruta-Worker-Count", "2")
+	allHeader := make(http.Header)
+	allHeader.Set("Boruta-Worker-Count", "4")
+	missingFilter := util.WorkersFilter{
+		Groups: Groups{"Fern Flower"},
+	}
+	missingHeader := make(http.Header)
+	missingHeader.Set("Boruta-Worker-Count", "0")
+
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:        prefix + "valid-filter",
+			path:        path,
+			json:        string(jsonMustMarshal(validFilter)),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      validHeader,
+		},
+		&testCase{
+			// list all
+			name:        prefix + "empty-filter",
+			path:        path,
+			json:        string(jsonMustMarshal(util.WorkersFilter{nil, nil})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      allHeader,
+		},
+		&testCase{
+			// no matches
+			name:        prefix + "nomatch",
+			path:        path,
+			json:        string(jsonMustMarshal(missingFilter)),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      missingHeader,
+		},
+	}
+
+	srv := prepareServer(http.MethodPost, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// list some
+	list, err := client.ListWorkers(validFilter.Groups, validFilter.Capabilities)
+	assert.Nil(err)
+	assert.Equal(workers[:2], list)
+
+	// list all
+	list, err = client.ListWorkers(nil, nil)
+	assert.Nil(err)
+	assert.Equal(workers, list)
+
+	// no matches
+	list, err = client.ListWorkers(missingFilter.Groups, missingFilter.Capabilities)
+	assert.Nil(err)
+	assert.Empty(list)
+
+	// http.Post failure
+	client.url = "http://nosuchaddress.fail"
+	list, err = client.ListWorkers(nil, nil)
+	assert.Zero(list)
+	assert.NotNil(err)
 }
 
 func TestGetWorkerInfo(t *testing.T) {

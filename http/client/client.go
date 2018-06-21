@@ -282,7 +282,21 @@ func (client *BorutaClient) ProlongAccess(reqID boruta.ReqID) error {
 // lists all workers.
 func (client *BorutaClient) ListWorkers(groups boruta.Groups,
 	caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
-	return nil, util.ErrNotImplemented
+	req, err := json.Marshal(&util.WorkersFilter{
+		Groups:       groups,
+		Capabilities: caps,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.Post(client.url+"workers/list", contentType,
+		bytes.NewReader(req))
+	if err != nil {
+		return nil, err
+	}
+	list := new([]boruta.WorkerInfo)
+	err = processResponse(resp, list)
+	return *list, err
 }
 
 // GetWorkerInfo queries Boruta server for information about worker with given
