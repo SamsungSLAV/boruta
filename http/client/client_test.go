@@ -176,7 +176,7 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 				break
 			}
 		}
-		if test.status != http.StatusNoContent {
+		if test.status != http.StatusNoContent && r.Method != http.MethodHead {
 			// Find appropriate file with reply.
 			fpath += test.name + "-" + r.Method
 			switch test.contentType {
@@ -195,6 +195,12 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 				data = []byte(test.resp)
 			}
 			w.Header().Set("Content-Type", test.contentType)
+		}
+		// Set custom Boruta HTTP headers.
+		if test.header != nil {
+			for k := range test.header {
+				w.Header().Set(k, test.header.Get(k))
+			}
 		}
 		w.WriteHeader(test.status)
 		if test.status != http.StatusNoContent {
@@ -987,4 +993,46 @@ func TestDeregister(t *testing.T) {
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
 	assert.NotNil(client.Deregister(validUUID))
+}
+
+func TestGetRequestState(t *testing.T) {
+	prefix := "get-request-state-"
+	path := "/api/v1/reqs/"
+
+	header := make(http.Header)
+	header.Set("Boruta-Request-State", string(DONE))
+
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:   prefix + "valid",
+			path:   path + "1",
+			status: http.StatusNoContent,
+			header: header,
+		},
+		&testCase{
+			// missing request
+			name:        prefix + "missing",
+			path:        path + "2",
+			contentType: contentJSON,
+			status:      http.StatusNotFound,
+		},
+	}
+
+	srv := prepareServer(http.MethodHead, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid request
+	state, err := client.GetRequestState(ReqID(1))
+	assert.Nil(err)
+	assert.Equal(DONE, state)
+
+	// missing request
+	state, err = client.GetRequestState(ReqID(2))
+	assert.Equal(errors.New("bad HTTP status: 404 Not Found"), err)
+
+	// http.Head failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.GetRequestState(ReqID(1)))
 }

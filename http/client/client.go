@@ -352,3 +352,19 @@ func (client *BorutaClient) Deregister(uuid boruta.WorkerUUID) error {
 	}
 	return processResponse(resp, nil)
 }
+
+// GetRequestState is convenient way to check state of a request with given reqID.
+// When error occurs then returned boruta.ReqState will make no sense. Developer
+// should always check for an error before proceeding with actions dependent on
+// request state.
+func (client *BorutaClient) GetRequestState(reqID boruta.ReqID) (boruta.ReqState, error) {
+	path := client.url + "reqs/" + strconv.Itoa(int(reqID))
+	resp, err := http.Head(path)
+	if err != nil {
+		return boruta.FAILED, err
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		return boruta.FAILED, errors.New("bad HTTP status: " + resp.Status)
+	}
+	return boruta.ReqState(resp.Header.Get("Boruta-Request-State")), nil
+}
