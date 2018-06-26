@@ -353,6 +353,18 @@ func TestProcessResponse(t *testing.T) {
 	assert.PanicsWithValue(badType, func() { processResponse(&resp, foo) })
 }
 
+func TestCheckStatus(t *testing.T) {
+	var resp http.Response
+	resp.StatusCode = http.StatusNoContent
+	err := errors.New("bad HTTP status: 204 No Content")
+
+	assert := assert.New(t)
+
+	assert.Nil(checkStatus(http.StatusNoContent, &resp))
+	resp.Status = "204 No Content"
+	assert.Equal(err, checkStatus(http.StatusBadRequest, &resp))
+}
+
 func TestNewRequest(t *testing.T) {
 	prefix := "new-req-"
 	path := "/api/v1/reqs/"
@@ -1035,4 +1047,46 @@ func TestGetRequestState(t *testing.T) {
 	// http.Head failure
 	client.url = "http://nosuchaddress.fail"
 	assert.NotNil(client.GetRequestState(ReqID(1)))
+}
+
+func TestGetWorkerState(t *testing.T) {
+	prefix := "get-worker-state-"
+	path := "/api/v1/workers/"
+
+	header := make(http.Header)
+	header.Set("Boruta-Worker-State", string(RUN))
+
+	tests := []*testCase{
+		&testCase{
+			// valid
+			name:   prefix + "valid",
+			path:   path + validUUID,
+			status: http.StatusNoContent,
+			header: header,
+		},
+		&testCase{
+			// invalid UUID
+			name:        prefix + "bad-uuid",
+			path:        path + invalidID,
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
+		},
+	}
+
+	srv := prepareServer(http.MethodHead, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	// valid
+	state, err := client.GetWorkerState(validUUID)
+	assert.Nil(err)
+	assert.Equal(RUN, state)
+
+	// invalid UUID
+	state, err = client.GetWorkerState(invalidID)
+	assert.Equal(errors.New("bad HTTP status: 400 Bad Request"), err)
+
+	// http.Head failure
+	client.url = "http://nosuchaddress.fail"
+	assert.NotNil(client.GetWorkerState(validUUID))
 }

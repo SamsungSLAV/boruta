@@ -145,6 +145,15 @@ func processResponse(resp *http.Response, val interface{}) error {
 	}
 }
 
+// checkStatus is a helper function that returns an error when HTTP response
+// status is different than expected.
+func checkStatus(shouldBe int, resp *http.Response) (err error) {
+	if resp.StatusCode != shouldBe {
+		err = errors.New("bad HTTP status: " + resp.Status)
+	}
+	return
+}
+
 // NewRequest creates new Boruta request.
 func (client *BorutaClient) NewRequest(caps boruta.Capabilities,
 	priority boruta.Priority, owner boruta.UserInfo, validAfter time.Time,
@@ -363,8 +372,21 @@ func (client *BorutaClient) GetRequestState(reqID boruta.ReqID) (boruta.ReqState
 	if err != nil {
 		return boruta.FAILED, err
 	}
-	if resp.StatusCode != http.StatusNoContent {
-		return boruta.FAILED, errors.New("bad HTTP status: " + resp.Status)
+	if err = checkStatus(http.StatusNoContent, resp); err != nil {
+		return boruta.FAILED, err
 	}
 	return boruta.ReqState(resp.Header.Get("Boruta-Request-State")), nil
+}
+
+// GetWorkerState is convenient way to check state of a worker with given UUID.
+func (client *BorutaClient) GetWorkerState(uuid boruta.WorkerUUID) (boruta.WorkerState, error) {
+	path := client.url + "workers/" + string(uuid)
+	resp, err := http.Head(path)
+	if err != nil {
+		return boruta.FAIL, err
+	}
+	if err = checkStatus(http.StatusNoContent, resp); err != nil {
+		return boruta.FAIL, err
+	}
+	return boruta.WorkerState(resp.Header.Get("Boruta-Worker-State")), nil
 }
