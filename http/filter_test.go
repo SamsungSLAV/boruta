@@ -19,7 +19,6 @@
 package http
 
 import (
-	"strconv"
 	"testing"
 
 	. "git.tizen.org/tools/boruta"
@@ -29,7 +28,7 @@ import (
 func TestNewRequestFilter(t *testing.T) {
 	assert := assert.New(t)
 	state := string(WAIT)
-	priority := strconv.FormatUint(uint64(HiPrio), 10)
+	priority := HiPrio.String()
 	filter := &RequestFilter{
 		State:    state,
 		Priority: priority,
@@ -68,11 +67,11 @@ func TestMatch(t *testing.T) {
 		result   bool
 	}{
 		{
-			priority: strconv.FormatUint(uint64(req.Priority), 10),
+			priority: req.Priority.String(),
 			result:   true,
 		},
 		{
-			priority: strconv.FormatUint(uint64(req.Priority+1), 10),
+			priority: (req.Priority + 1).String(),
 			result:   false,
 		},
 		{

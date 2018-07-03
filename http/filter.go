@@ -19,7 +19,6 @@
 package http
 
 import (
-	"strconv"
 	"strings"
 
 	. "git.tizen.org/tools/boruta"
@@ -62,7 +61,7 @@ func (filter *RequestFilter) Match(req *ReqInfo) bool {
 		return false
 	}
 
-	priority := strconv.FormatUint(uint64(req.Priority), 10)
+	priority := req.Priority.String()
 	if filter.Priority != "" && priority != filter.Priority {
 		return false
 	}

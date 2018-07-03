@@ -19,7 +19,6 @@ package requests
 import (
 	"errors"
 	"net"
-	"strconv"
 	"testing"
 	"time"
 
@@ -332,7 +331,7 @@ func (filter *reqFilter) Match(req *ReqInfo) bool {
 		return false
 	}
 
-	priority := strconv.FormatUint(uint64(req.Priority), 10)
+	priority := req.Priority.String()
 	if filter.priority != "" && priority != filter.priority {
 		return false
 	}
@@ -374,42 +373,42 @@ func TestListRequests(t *testing.T) {
 		{
 			filter: reqFilter{
 				state:    string(WAIT),
-				priority: strconv.FormatUint(uint64(req.Priority), 10),
+				priority: req.Priority.String(),
 			},
 			result: map[ReqID]bool{ReqID(1): true},
 		},
 		{
 			filter: reqFilter{
 				state:    string(WAIT),
-				priority: strconv.FormatUint(uint64(req.Priority+1), 10),
+				priority: (req.Priority + 1).String(),
 			},
 			result: map[ReqID]bool{ReqID(2): true},
 		},
 		{
 			filter: reqFilter{
 				state:    string(DONE),
-				priority: strconv.FormatUint(uint64(req.Priority), 10),
+				priority: req.Priority.String(),
 			},
 			result: map[ReqID]bool{ReqID(3): true},
 		},
 		{
 			filter: reqFilter{
 				state:    string(DONE),
-				priority: strconv.FormatUint(uint64(req.Priority+1), 10),
+				priority: (req.Priority + 1).String(),
 			},
 			result: map[ReqID]bool{ReqID(4): true},
 		},
 		{
 			filter: reqFilter{
 				state:    "",
-				priority: strconv.FormatUint(uint64(req.Priority), 10),
+				priority: req.Priority.String(),
 			},
 			result: map[ReqID]bool{ReqID(1): true, ReqID(3): true},
 		},
 		{
 			filter: reqFilter{
 				state:    "",
-				priority: strconv.FormatUint(uint64(req.Priority+1), 10),
+				priority: (req.Priority + 1).String(),
 			},
 			result: map[ReqID]bool{ReqID(2): true, ReqID(4): true},
 		},
@@ -437,21 +436,21 @@ func TestListRequests(t *testing.T) {
 		{
 			filter: reqFilter{
 				state:    string(notFoundState),
-				priority: strconv.FormatUint(uint64(notFoundPrio), 10),
+				priority: notFoundPrio.String(),
 			},
 			result: noReqs,
 		},
 		{
 			filter: reqFilter{
 				state:    string(WAIT),
-				priority: strconv.FormatUint(uint64(notFoundPrio), 10),
+				priority: notFoundPrio.String(),
 			},
 			result: noReqs,
 		},
 		{
 			filter: reqFilter{
 				state:    string(notFoundState),
-				priority: strconv.FormatUint(uint64(req.Priority), 10),
+				priority: req.Priority.String(),
 			},
 			result: noReqs,
 		},
