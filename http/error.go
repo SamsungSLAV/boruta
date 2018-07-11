@@ -94,3 +94,8 @@ func NewServerError(err error, details ...string) (ret *ServerError) {
 
 	return
 }
+
+// Error is implementation of error interface (it returns error string).
+func (err *ServerError) Error() string {
+	return err.Err
+}

@@ -1,0 +1,1 @@
+{"ID":2,"Priority":8,"Owner":{"Groups":null},"Deadline":"2200-12-31T01:02:03Z","ValidAfter":"2100-01-01T04:05:06Z","State":"IN PROGRESS","Job":{"WorkerUUID":"ec4898ac-0853-407c-8501-cbb24ef6bd77","Timeout":"2222-12-31T00:00:00Z"},"Caps":{"architecture":"armv7l","monitor":"yes"}}

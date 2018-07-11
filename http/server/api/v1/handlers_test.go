@@ -197,10 +197,26 @@ func TestGetRequestInfoHandler(t *testing.T) {
 	header := make(http.Header)
 	header.Set("Boruta-Request-State", "WAITING")
 
-	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+"2", methods...)
+	timeout, err := time.Parse(dateLayout, future)
+	assert.Nil(err)
+	var running ReqInfo
+	err = json.Unmarshal([]byte(validReqJSON), &running)
+	assert.Nil(err)
+	running.ID = ReqID(2)
+	running.State = INPROGRESS
+	running.Job = &JobInfo{
+		WorkerUUID: validUUID,
+		Timeout:    timeout,
+	}
+	rheader := make(http.Header)
+	rheader.Set("Boruta-Request-State", string(INPROGRESS))
+	rheader.Set("Boruta-Job-Timeout", timeout.Format(util.DateFormat))
+
+	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+"3", methods...)
 	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, path+invalidID, methods...)
 	m.rq.EXPECT().GetRequestInfo(ReqID(1)).Return(req, nil).Times(2)
-	m.rq.EXPECT().GetRequestInfo(ReqID(2)).Return(ReqInfo{}, NotFoundError("Request")).Times(2)
+	m.rq.EXPECT().GetRequestInfo(ReqID(2)).Return(running, nil).Times(2)
+	m.rq.EXPECT().GetRequestInfo(ReqID(3)).Return(ReqInfo{}, NotFoundError("Request")).Times(2)
 
 	tests := []requestTest{
 		// Get information of existing request.
@@ -212,6 +228,16 @@ func TestGetRequestInfoHandler(t *testing.T) {
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      header,
+		},
+		// Get information of running request.
+		{
+			name:        "req-info-running",
+			path:        path + "2",
+			methods:     methods,
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+			header:      rheader,
 		},
 		// Try to get request information of request that doesn't exist.
 		notFoundTest,

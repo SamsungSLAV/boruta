@@ -63,3 +63,9 @@ func TestNewServerError(t *testing.T) {
 	assert.Equal(notFound, NewServerError(NotFoundError("Fern Flower")))
 	assert.Nil(NewServerError(nil))
 }
+
+func TestError(t *testing.T) {
+	assert := assert.New(t)
+	err := NewServerError(errors.New("foo"))
+	assert.Equal(err.Err, err.Error())
+}
