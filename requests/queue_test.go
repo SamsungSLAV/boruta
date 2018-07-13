@@ -22,54 +22,55 @@ package requests
 import (
 	"testing"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRemovePanic(t *testing.T) {
 	assert := assert.New(t)
 	queue := newPrioQueue()
-	assert.Panics(func() { queue._remove(ReqID(1), LoPrio) })
+	assert.Panics(func() { queue._remove(boruta.ReqID(1), boruta.LoPrio) })
 }
 
 func TestQueue(t *testing.T) {
 	assert := assert.New(t)
 	queue := newPrioQueue()
 	var reqs = []struct {
-		id ReqID
-		pr Priority
+		id boruta.ReqID
+		pr boruta.Priority
 	}{
-		{ReqID(1), Priority(7)},
-		{ReqID(2), Priority(1)},
-		{ReqID(3), Priority(2)},
-		{ReqID(4), Priority(12)},
-		{ReqID(5), Priority(3)},
-		{ReqID(6), Priority(3)},
+		{boruta.ReqID(1), boruta.Priority(7)},
+		{boruta.ReqID(2), boruta.Priority(1)},
+		{boruta.ReqID(3), boruta.Priority(2)},
+		{boruta.ReqID(4), boruta.Priority(12)},
+		{boruta.ReqID(5), boruta.Priority(3)},
+		{boruta.ReqID(6), boruta.Priority(3)},
 	}
-	sorted := []ReqID{ReqID(2), ReqID(3), ReqID(5), ReqID(6), ReqID(1), ReqID(4)}
+	sorted := []boruta.ReqID{boruta.ReqID(2), boruta.ReqID(3), boruta.ReqID(5), boruta.ReqID(6),
+		boruta.ReqID(1), boruta.ReqID(4)}
 
 	// Test for empty queue.
 	reqid, ok := queue.next()
 	assert.False(ok)
-	assert.Equal(ReqID(0), reqid)
+	assert.Equal(boruta.ReqID(0), reqid)
 
 	// Test if iterator was initialized and queue is empty.
 	queue.initIterator()
 	reqid, ok = queue.next()
 	assert.False(ok)
-	assert.Equal(ReqID(0), reqid)
+	assert.Equal(boruta.ReqID(0), reqid)
 	queue.releaseIterator()
 
 	req := requestsTests[0].req
 	// Push requests to the queue.
 	for _, r := range reqs {
-		queue.pushRequest(&ReqInfo{
+		queue.pushRequest(&boruta.ReqInfo{
 			ID:         r.id,
 			Priority:   r.pr,
 			Owner:      req.Owner,
 			Deadline:   req.Deadline,
 			ValidAfter: req.ValidAfter,
-			State:      WAIT,
+			State:      boruta.WAIT,
 			Caps:       req.Caps,
 		})
 	}
@@ -85,7 +86,7 @@ func TestQueue(t *testing.T) {
 	// Check if call to next() after iterating through whole queue returns false.
 	reqid, ok = queue.next()
 	assert.False(ok)
-	assert.Equal(ReqID(0), reqid)
+	assert.Equal(boruta.ReqID(0), reqid)
 	queue.releaseIterator()
 
 	// Check if after another initialization next() returns first element.
@@ -98,5 +99,5 @@ func TestQueue(t *testing.T) {
 	queue.releaseIterator()
 	reqid, ok = queue.next()
 	assert.False(ok)
-	assert.Equal(ReqID(0), reqid)
+	assert.Equal(boruta.ReqID(0), reqid)
 }

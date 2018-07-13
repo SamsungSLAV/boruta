@@ -21,13 +21,13 @@ package http
 import (
 	"strings"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // WorkersFilter contains Groups and Capabilities to be used to filter workers.
 type WorkersFilter struct {
-	Groups
-	Capabilities
+	boruta.Groups
+	boruta.Capabilities
 }
 
 // RequestFilter implements ListFilter interface. Currently it is possible to
@@ -52,7 +52,7 @@ func NewRequestFilter(state, priority string) *RequestFilter {
 // * ranges,
 // * one of given,
 // * except of.
-func (filter *RequestFilter) Match(req *ReqInfo) bool {
+func (filter *RequestFilter) Match(req *boruta.ReqInfo) bool {
 	if req == nil {
 		return false
 	}

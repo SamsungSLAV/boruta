@@ -23,14 +23,14 @@ import (
 	"sync"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/matcher"
 )
 
 // ReqsCollection contains information (also historical) about handled requests.
 // It implements Requests, RequestsManager and WorkerChange interfaces.
 type ReqsCollection struct {
-	requests          map[ReqID]*ReqInfo
+	requests          map[boruta.ReqID]*boruta.ReqInfo
 	queue             *prioQueue
 	mutex             *sync.RWMutex
 	iterating         bool
@@ -47,7 +47,7 @@ type ReqsCollection struct {
 // NewRequestQueue provides initialized priority queue for requests.
 func NewRequestQueue(w matcher.WorkersManager, j matcher.JobsManager) *ReqsCollection {
 	r := &ReqsCollection{
-		requests:        make(map[ReqID]*ReqInfo),
+		requests:        make(map[boruta.ReqID]*boruta.ReqInfo),
 		queue:           newPrioQueue(),
 		mutex:           new(sync.RWMutex),
 		workers:         w,
@@ -82,17 +82,17 @@ func (reqs *ReqsCollection) Finish() {
 // NewRequest is part of implementation of Requests interface. It validates
 // provided arguments and creates request or returns an error. Caller must make
 // sure that provided time values are in UTC.
-func (reqs *ReqsCollection) NewRequest(caps Capabilities,
-	priority Priority, owner UserInfo, validAfter time.Time,
-	deadline time.Time) (ReqID, error) {
+func (reqs *ReqsCollection) NewRequest(caps boruta.Capabilities,
+	priority boruta.Priority, owner boruta.UserInfo, validAfter time.Time,
+	deadline time.Time) (boruta.ReqID, error) {
 
-	req := &ReqInfo{
-		ID:         ReqID(len(reqs.requests) + 1),
+	req := &boruta.ReqInfo{
+		ID:         boruta.ReqID(len(reqs.requests) + 1),
 		Priority:   priority,
 		Owner:      owner,
 		Deadline:   deadline,
 		ValidAfter: validAfter,
-		State:      WAIT,
+		State:      boruta.WAIT,
 		Caps:       caps,
 	}
 
@@ -114,7 +114,7 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 	}
 
 	// TODO(mwereski): Check if user has rights to set given priority.
-	if req.Priority < HiPrio || req.Priority > LoPrio {
+	if req.Priority < boruta.HiPrio || req.Priority > boruta.LoPrio {
 		return 0, ErrPriority
 	}
 
@@ -135,10 +135,10 @@ func (reqs *ReqsCollection) NewRequest(caps Capabilities,
 // It is used by both Close and CloseRequest methods after verification that
 // all required conditions to close request are met.
 // The method must be called in reqs.mutex critical section.
-func (reqs *ReqsCollection) closeRequest(req *ReqInfo) {
+func (reqs *ReqsCollection) closeRequest(req *boruta.ReqInfo) {
 	worker := req.Job.WorkerUUID
 	reqs.jobs.Finish(worker)
-	req.State = DONE
+	req.State = boruta.DONE
 }
 
 // CloseRequest is part of implementation of Requests interface.
@@ -146,18 +146,18 @@ func (reqs *ReqsCollection) closeRequest(req *ReqInfo) {
 // in INPROGRESS state and changes it to DONE. NotFoundError may be returned
 // if request with given reqID doesn't exist in the queue
 // or ErrModificationForbidden if request is in state which can't be closed.
-func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
+func (reqs *ReqsCollection) CloseRequest(reqID boruta.ReqID) error {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
-		return NotFoundError("Request")
+		return boruta.NotFoundError("Request")
 	}
 	switch req.State {
-	case WAIT:
-		req.State = CANCEL
+	case boruta.WAIT:
+		req.State = boruta.CANCEL
 		reqs.queue.removeRequest(req)
-	case INPROGRESS:
+	case boruta.INPROGRESS:
 		reqs.closeRequest(req)
 	default:
 		return ErrModificationForbidden
@@ -167,8 +167,8 @@ func (reqs *ReqsCollection) CloseRequest(reqID ReqID) error {
 
 // modificationPossible is simple helper function that checks if it is possible
 // to modify request it given state.
-func modificationPossible(state ReqState) bool {
-	return state == WAIT
+func modificationPossible(state boruta.ReqState) bool {
+	return state == boruta.WAIT
 }
 
 // UpdateRequest is part of implementation of Requests interface. It may be used
@@ -176,8 +176,8 @@ func modificationPossible(state ReqState) bool {
 // pointer to new ReqInfo struct which has any of these fields set. Zero value
 // means that field shouldn't be changed. All fields that cannot be changed are
 // ignored.
-func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
-	if src == nil || (src.Priority == Priority(0) &&
+func (reqs *ReqsCollection) UpdateRequest(src *boruta.ReqInfo) error {
+	if src == nil || (src.Priority == boruta.Priority(0) &&
 		src.ValidAfter.IsZero() &&
 		src.Deadline.IsZero()) {
 		return nil
@@ -196,13 +196,13 @@ func (reqs *ReqsCollection) UpdateRequest(src *ReqInfo) error {
 }
 
 // updateRequest is a part of UpdateRequest implementation run in critical section.
-func (reqs *ReqsCollection) updateRequest(src *ReqInfo) (validAfterTime, deadlineTime *requestTime, err error) {
+func (reqs *ReqsCollection) updateRequest(src *boruta.ReqInfo) (validAfterTime, deadlineTime *requestTime, err error) {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 
 	dst, ok := reqs.requests[src.ID]
 	if !ok {
-		err = NotFoundError("Request")
+		err = boruta.NotFoundError("Request")
 		return
 	}
 	if !modificationPossible(dst.State) {
@@ -215,8 +215,8 @@ func (reqs *ReqsCollection) updateRequest(src *ReqInfo) (validAfterTime, deadlin
 		return
 	}
 	// TODO(mwereski): Check if user has rights to set given priority.
-	if src.Priority != Priority(0) && (src.Priority < HiPrio ||
-		src.Priority > LoPrio) {
+	if src.Priority != boruta.Priority(0) && (src.Priority < boruta.HiPrio ||
+		src.Priority > boruta.LoPrio) {
 		err = ErrPriority
 		return
 	}
@@ -234,7 +234,7 @@ func (reqs *ReqsCollection) updateRequest(src *ReqInfo) (validAfterTime, deadlin
 		return
 	}
 
-	if src.Priority != Priority(0) {
+	if src.Priority != boruta.Priority(0) {
 		reqs.queue.setRequestPriority(dst, src.Priority)
 		dst.Priority = src.Priority
 	}
@@ -252,7 +252,7 @@ func (reqs *ReqsCollection) updateRequest(src *ReqInfo) (validAfterTime, deadlin
 // GetRequestInfo is part of implementation of Requests interface. It returns
 // ReqInfo for given request ID or NotFoundError if request with given ID doesn't
 // exits in the collection.
-func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
+func (reqs *ReqsCollection) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, error) {
 	reqs.mutex.RLock()
 	defer reqs.mutex.RUnlock()
 	return reqs.Get(reqID)
@@ -260,9 +260,9 @@ func (reqs *ReqsCollection) GetRequestInfo(reqID ReqID) (ReqInfo, error) {
 
 // ListRequests is part of implementation of Requests interface. It returns slice
 // of ReqInfo that matches ListFilter. Returned slice is sorted by request ids.
-func (reqs *ReqsCollection) ListRequests(filter ListFilter) ([]ReqInfo, error) {
+func (reqs *ReqsCollection) ListRequests(filter boruta.ListFilter) ([]boruta.ReqInfo, error) {
 	reqs.mutex.RLock()
-	res := make([]ReqInfo, 0, len(reqs.requests))
+	res := make([]boruta.ReqInfo, 0, len(reqs.requests))
 	for _, req := range reqs.requests {
 		if filter == nil || reflect.ValueOf(filter).IsNil() ||
 			filter.Match(req) {
@@ -279,20 +279,20 @@ func (reqs *ReqsCollection) ListRequests(filter ListFilter) ([]ReqInfo, error) {
 // AcquireWorker is part of implementation of Requests interface. When worker is
 // assigned to the requests then owner of such requests may call AcquireWorker
 // to get all information required to use assigned worker.
-func (reqs *ReqsCollection) AcquireWorker(reqID ReqID) (AccessInfo, error) {
+func (reqs *ReqsCollection) AcquireWorker(reqID boruta.ReqID) (boruta.AccessInfo, error) {
 	reqs.mutex.RLock()
 	defer reqs.mutex.RUnlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
-		return AccessInfo{}, NotFoundError("Request")
+		return boruta.AccessInfo{}, boruta.NotFoundError("Request")
 	}
-	if req.State != INPROGRESS || req.Job == nil {
-		return AccessInfo{}, ErrWorkerNotAssigned
+	if req.State != boruta.INPROGRESS || req.Job == nil {
+		return boruta.AccessInfo{}, ErrWorkerNotAssigned
 	}
 
 	job, err := reqs.jobs.Get(req.Job.WorkerUUID)
 	if err != nil {
-		return AccessInfo{}, err
+		return boruta.AccessInfo{}, err
 	}
 	return job.Access, nil
 }
@@ -300,14 +300,14 @@ func (reqs *ReqsCollection) AcquireWorker(reqID ReqID) (AccessInfo, error) {
 // ProlongAccess is part of implementation of Requests interface. When owner of
 // the request has acquired worker that to extend time for which the worker is
 // assigned to the request.
-func (reqs *ReqsCollection) ProlongAccess(reqID ReqID) error {
+func (reqs *ReqsCollection) ProlongAccess(reqID boruta.ReqID) error {
 	reqs.mutex.RLock()
 	defer reqs.mutex.RUnlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
-		return NotFoundError("Request")
+		return boruta.NotFoundError("Request")
 	}
-	if req.State != INPROGRESS || req.Job == nil {
+	if req.State != boruta.INPROGRESS || req.Job == nil {
 		return ErrWorkerNotAssigned
 	}
 
@@ -327,7 +327,7 @@ func (reqs *ReqsCollection) InitIteration() error {
 	reqs.mutex.Lock()
 	if reqs.iterating {
 		reqs.mutex.Unlock()
-		return ErrInternalLogicError
+		return boruta.ErrInternalLogicError
 	}
 	reqs.queue.initIterator()
 	reqs.iterating = true
@@ -348,7 +348,7 @@ func (reqs *ReqsCollection) TerminateIteration() {
 // Next gets next ID from request queue. Method returns {ID, true} if there is
 // pending request or {ReqID(0), false} if queue's end has been reached.
 // It is part of implementation of RequestsManager interface.
-func (reqs *ReqsCollection) Next() (ReqID, bool) {
+func (reqs *ReqsCollection) Next() (boruta.ReqID, bool) {
 	if reqs.iterating {
 		return reqs.queue.next()
 	}
@@ -357,34 +357,34 @@ func (reqs *ReqsCollection) Next() (ReqID, bool) {
 
 // VerifyIfReady checks if the request is ready to be run on worker.
 // It is part of implementation of RequestsManager interface.
-func (reqs *ReqsCollection) VerifyIfReady(rid ReqID, now time.Time) bool {
+func (reqs *ReqsCollection) VerifyIfReady(rid boruta.ReqID, now time.Time) bool {
 	req, ok := reqs.requests[rid]
-	return ok && req.State == WAIT && req.Deadline.After(now) && !req.ValidAfter.After(now)
+	return ok && req.State == boruta.WAIT && req.Deadline.After(now) && !req.ValidAfter.After(now)
 }
 
 // Get retrieves request's information structure for request with given ID.
 // It is part of implementation of RequestsManager interface.
-func (reqs *ReqsCollection) Get(rid ReqID) (ReqInfo, error) {
+func (reqs *ReqsCollection) Get(rid boruta.ReqID) (boruta.ReqInfo, error) {
 	req, ok := reqs.requests[rid]
 	if !ok {
-		return ReqInfo{}, NotFoundError("Request")
+		return boruta.ReqInfo{}, boruta.NotFoundError("Request")
 	}
 	return *req, nil
 }
 
 // Timeout sets request to TIMEOUT state after Deadline time is exceeded.
 // It is part of implementation of RequestsManager interface.
-func (reqs *ReqsCollection) Timeout(rid ReqID) error {
+func (reqs *ReqsCollection) Timeout(rid boruta.ReqID) error {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[rid]
 	if !ok {
-		return NotFoundError("Request")
+		return boruta.NotFoundError("Request")
 	}
-	if req.State != WAIT || req.Deadline.After(time.Now()) {
+	if req.State != boruta.WAIT || req.Deadline.After(time.Now()) {
 		return ErrModificationForbidden
 	}
-	req.State = TIMEOUT
+	req.State = boruta.TIMEOUT
 	reqs.queue.removeRequest(req)
 	return nil
 }
@@ -392,20 +392,20 @@ func (reqs *ReqsCollection) Timeout(rid ReqID) error {
 // Close verifies if request time has been exceeded and if so closes it.
 // If request is still valid to continue it's job an error is returned.
 // It is part of implementation of RequestsManager interface.
-func (reqs *ReqsCollection) Close(reqID ReqID) error {
+func (reqs *ReqsCollection) Close(reqID boruta.ReqID) error {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
-		return NotFoundError("Request")
+		return boruta.NotFoundError("Request")
 	}
-	if req.State != INPROGRESS {
+	if req.State != boruta.INPROGRESS {
 		return ErrModificationForbidden
 	}
 	if req.Job == nil {
 		// TODO log a critical logic error. Job should be assigned to the request
 		// in INPROGRESS state.
-		return ErrInternalLogicError
+		return boruta.ErrInternalLogicError
 	}
 	if req.Job.Timeout.After(time.Now()) {
 		// Request prolonged not yet ready to be closed because of timeout.
@@ -419,18 +419,18 @@ func (reqs *ReqsCollection) Close(reqID ReqID) error {
 
 // Run starts job performing the request on the worker.
 // It is part of implementation of RequestsManager interface.
-func (reqs *ReqsCollection) Run(rid ReqID, worker WorkerUUID) error {
+func (reqs *ReqsCollection) Run(rid boruta.ReqID, worker boruta.WorkerUUID) error {
 	req, ok := reqs.requests[rid]
 	if !ok {
-		return NotFoundError("Request")
+		return boruta.NotFoundError("Request")
 	}
 
-	if req.State != WAIT {
+	if req.State != boruta.WAIT {
 		return ErrModificationForbidden
 	}
-	req.State = INPROGRESS
+	req.State = boruta.INPROGRESS
 
-	req.Job = &JobInfo{WorkerUUID: worker}
+	req.Job = &boruta.JobInfo{WorkerUUID: worker}
 
 	if reqs.iterating {
 		reqs.queue.releaseIterator()
@@ -448,12 +448,12 @@ func (reqs *ReqsCollection) Run(rid ReqID, worker WorkerUUID) error {
 }
 
 // OnWorkerIdle triggers ValidMatcher to rematch requests with idle worker.
-func (reqs *ReqsCollection) OnWorkerIdle(worker WorkerUUID) {
+func (reqs *ReqsCollection) OnWorkerIdle(worker boruta.WorkerUUID) {
 	reqs.validAfterTimes.insert(requestTime{time: time.Now()})
 }
 
 // OnWorkerFail sets request being processed by failed worker into FAILED state.
-func (reqs *ReqsCollection) OnWorkerFail(worker WorkerUUID) {
+func (reqs *ReqsCollection) OnWorkerFail(worker boruta.WorkerUUID) {
 	reqs.mutex.Lock()
 	defer reqs.mutex.Unlock()
 
@@ -468,5 +468,5 @@ func (reqs *ReqsCollection) OnWorkerFail(worker WorkerUUID) {
 		panic("request related to job not found")
 	}
 	reqs.jobs.Finish(worker)
-	req.State = FAILED
+	req.State = boruta.FAILED
 }

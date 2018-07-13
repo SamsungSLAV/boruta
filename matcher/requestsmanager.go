@@ -22,7 +22,7 @@ package matcher
 import (
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // RequestsManager interface defines API for internal boruta management of requests.
@@ -36,16 +36,16 @@ type RequestsManager interface {
 	// Next gets next ID from request queue.
 	// Method returns {ID, true} if there is pending request
 	// or {ReqID(0), false} if queue's end has been reached.
-	Next() (ReqID, bool)
+	Next() (boruta.ReqID, bool)
 	// VerifyIfReady checks if the request is ready to be run on worker.
-	VerifyIfReady(ReqID, time.Time) bool
+	VerifyIfReady(boruta.ReqID, time.Time) bool
 	// Get retrieves full request information or error if no request is found.
-	Get(ReqID) (ReqInfo, error)
+	Get(boruta.ReqID) (boruta.ReqInfo, error)
 	// Timeout sets request to TIMEOUT state after Deadline time is exceeded.
-	Timeout(ReqID) error
+	Timeout(boruta.ReqID) error
 	// Close closes request setting it in DONE state, closing job
 	// and releasing worker after run time of the request has been exceeded.
-	Close(ReqID) error
+	Close(boruta.ReqID) error
 	// Run starts job performing the request on the worker.
-	Run(ReqID, WorkerUUID) error
+	Run(boruta.ReqID, boruta.WorkerUUID) error
 }

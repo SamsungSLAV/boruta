@@ -20,7 +20,7 @@ import (
 	"errors"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/workers"
 
 	gomock "github.com/golang/mock/gomock"
@@ -34,11 +34,11 @@ var _ = Describe("Requests as WorkerChange", func() {
 	var jm *MockJobsManager
 	var R *ReqsCollection
 	testErr := errors.New("Test Error")
-	testWorker := WorkerUUID("Test Worker UUID")
-	noWorker := WorkerUUID("")
-	testCapabilities := Capabilities{"key": "value"}
-	testPriority := (HiPrio + LoPrio) / 2
-	testUser := UserInfo{Groups: []Group{"Test Group"}}
+	testWorker := boruta.WorkerUUID("Test Worker UUID")
+	noWorker := boruta.WorkerUUID("")
+	testCapabilities := boruta.Capabilities{"key": "value"}
+	testPriority := (boruta.HiPrio + boruta.LoPrio) / 2
+	testUser := boruta.UserInfo{Groups: []boruta.Group{"Test Group"}}
 	now := time.Now()
 	tomorrow := now.AddDate(0, 0, 1)
 	trigger := make(chan int, 1)
@@ -49,8 +49,8 @@ var _ = Describe("Requests as WorkerChange", func() {
 	eventuallyTrigger := func(val int) {
 		EventuallyWithOffset(1, trigger).Should(Receive(Equal(val)))
 	}
-	eventuallyState := func(reqid ReqID, state ReqState) {
-		EventuallyWithOffset(1, func() ReqState {
+	eventuallyState := func(reqid boruta.ReqID, state boruta.ReqState) {
+		EventuallyWithOffset(1, func() boruta.ReqState {
 			info, err := R.GetRequestInfo(reqid)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 			ExpectWithOffset(1, info).NotTo(BeNil())
@@ -76,7 +76,7 @@ var _ = Describe("Requests as WorkerChange", func() {
 		})
 		It("ValidMatcher should try matching request", func() {
 			// Add Request. Use trigger to wait for ValidMatcher goroutine to match worker.
-			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(Groups, Capabilities) {
+			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(boruta.Groups, boruta.Capabilities) {
 				setTrigger(1)
 			})
 			reqid, err := R.NewRequest(testCapabilities, testPriority, testUser, now, tomorrow)
@@ -85,7 +85,7 @@ var _ = Describe("Requests as WorkerChange", func() {
 			eventuallyTrigger(1)
 
 			// Test. Use trigger to wait for ValidMatcher goroutine to match worker.
-			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(Groups, Capabilities) {
+			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(boruta.Groups, boruta.Capabilities) {
 				setTrigger(2)
 			})
 			R.OnWorkerIdle(testWorker)
@@ -100,7 +100,7 @@ var _ = Describe("Requests as WorkerChange", func() {
 			}).To(Panic())
 		})
 		It("should panic if failing worker was processing unknown Job", func() {
-			noReq := ReqID(0)
+			noReq := boruta.ReqID(0)
 			job := workers.Job{Req: noReq}
 			jm.EXPECT().Get(testWorker).Return(&job, nil)
 			Expect(func() {
@@ -109,7 +109,7 @@ var _ = Describe("Requests as WorkerChange", func() {
 		})
 		It("should set request to FAILED state if call succeeds", func() {
 			// Add Request. Use trigger to wait for ValidMatcher goroutine to match worker.
-			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(Groups, Capabilities) {
+			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(boruta.Groups, boruta.Capabilities) {
 				setTrigger(3)
 			})
 			reqid, err := R.NewRequest(testCapabilities, testPriority, testUser, now, tomorrow)
@@ -122,7 +122,7 @@ var _ = Describe("Requests as WorkerChange", func() {
 			jm.EXPECT().Get(testWorker).Return(&job, nil)
 			jm.EXPECT().Finish(testWorker)
 			R.OnWorkerFail(testWorker)
-			eventuallyState(reqid, FAILED)
+			eventuallyState(reqid, boruta.FAILED)
 		})
 	})
 })

@@ -19,7 +19,7 @@
 package matcher
 
 import (
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // Matcher defines interface for objects that can be notified about events.
@@ -27,5 +27,5 @@ type Matcher interface {
 	// Notify triggers action in the matcher. The ReqID slice contain set
 	// of requests' IDs related to the event. The slice can be empty if the event
 	// requires generic actions on all requests.
-	Notify([]ReqID)
+	Notify([]boruta.ReqID)
 }

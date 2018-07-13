@@ -26,14 +26,14 @@ import (
 	"net"
 	"net/http"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	util "git.tizen.org/tools/boruta/http"
 )
 
 // newRequestHandler parses HTTP request for creating new Boruta request and
 // calls NewRequest().
 func (api *API) newRequestHandler(r *http.Request, ps map[string]string) responseData {
-	var newReq ReqInfo
+	var newReq boruta.ReqInfo
 	defer r.Body.Close()
 
 	if err := json.NewDecoder(r.Body).Decode(&newReq); err != nil {
@@ -41,7 +41,7 @@ func (api *API) newRequestHandler(r *http.Request, ps map[string]string) respons
 	}
 
 	//FIXME: currently UserInfo is ignored. Change when user support is added.
-	rid, err := api.reqs.NewRequest(newReq.Caps, newReq.Priority, UserInfo{},
+	rid, err := api.reqs.NewRequest(newReq.Caps, newReq.Priority, boruta.UserInfo{},
 		newReq.ValidAfter.UTC(), newReq.Deadline.UTC())
 	if err != nil {
 		return util.NewServerError(err)
@@ -74,7 +74,7 @@ func (api *API) updateRequestHandler(r *http.Request, ps map[string]string) resp
 		return util.NewServerError(util.ErrBadID)
 	}
 
-	var req ReqInfo
+	var req boruta.ReqInfo
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return util.NewServerError(err)
 	}
@@ -198,7 +198,7 @@ func (api *API) getWorkerInfoHandler(r *http.Request, ps map[string]string) resp
 		return util.NewServerError(util.ErrBadUUID)
 	}
 
-	workerinfo, err := api.workers.GetWorkerInfo(WorkerUUID(ps["id"]))
+	workerinfo, err := api.workers.GetWorkerInfo(boruta.WorkerUUID(ps["id"]))
 	if err != nil {
 		return util.NewServerError(err)
 	}
@@ -220,14 +220,14 @@ func (api *API) setWorkerStateHandler(r *http.Request, ps map[string]string) res
 		return util.NewServerError(err)
 	}
 
-	return util.NewServerError(api.workers.SetState(WorkerUUID(ps["id"]),
+	return util.NewServerError(api.workers.SetState(boruta.WorkerUUID(ps["id"]),
 		state.WorkerState))
 }
 
 // setWorkerGroupsHandler parses HTTP workers for setting worker groups and calls
 // workers.SetGroups().
 func (api *API) setWorkerGroupsHandler(r *http.Request, ps map[string]string) responseData {
-	var groups Groups
+	var groups boruta.Groups
 	defer r.Body.Close()
 
 	if !isValidUUID(ps["id"]) {
@@ -237,7 +237,7 @@ func (api *API) setWorkerGroupsHandler(r *http.Request, ps map[string]string) re
 	if err := json.NewDecoder(r.Body).Decode(&groups); err != nil {
 		return util.NewServerError(err)
 	}
-	return util.NewServerError(api.workers.SetGroups(WorkerUUID(ps["id"]), groups))
+	return util.NewServerError(api.workers.SetGroups(boruta.WorkerUUID(ps["id"]), groups))
 }
 
 // workerDeregister parses HTTP workers for deregistering worker state and calls
@@ -249,5 +249,5 @@ func (api *API) workerDeregister(r *http.Request, ps map[string]string) response
 		return util.NewServerError(util.ErrBadUUID)
 	}
 
-	return util.NewServerError(api.workers.Deregister(WorkerUUID(ps["id"])))
+	return util.NewServerError(api.workers.Deregister(boruta.WorkerUUID(ps["id"])))
 }

@@ -21,20 +21,20 @@ import (
 	"runtime/debug"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 type TestMatcher struct {
 	Counter  int
-	Notified []ReqID
+	Notified []boruta.ReqID
 }
 
-func (m *TestMatcher) Notify(reqs []ReqID) {
+func (m *TestMatcher) Notify(reqs []boruta.ReqID) {
 	m.Counter++
 	if m.Notified == nil {
-		m.Notified = make([]ReqID, 0)
+		m.Notified = make([]boruta.ReqID, 0)
 	}
 	m.Notified = append(m.Notified, reqs...)
 }
@@ -74,7 +74,7 @@ var _ = Describe("Times", func() {
 		defer t.mutex.Unlock()
 		return t.times.Min()
 	}
-	prepareRequestTime := func(after time.Duration, req ReqID) requestTime {
+	prepareRequestTime := func(after time.Duration, req boruta.ReqID) requestTime {
 		d := time.Duration(after)
 		n := time.Now().Add(d)
 		return requestTime{time: n, req: req}
@@ -191,7 +191,7 @@ var _ = Describe("Times", func() {
 			var m TestMatcher
 			t.setMatcher(&m)
 
-			rid := ReqID(100)
+			rid := boruta.ReqID(100)
 			t.insert(prepareRequestTime(100*time.Millisecond, rid))
 
 			Expect(m.Counter).To(BeZero())
@@ -209,7 +209,7 @@ var _ = Describe("Times", func() {
 		It("should be run once for same times", func() {
 			var m TestMatcher
 			r100m := prepareRequestTime(100*time.Millisecond, 0)
-			reqs := []ReqID{101, 102, 103, 104, 105}
+			reqs := []boruta.ReqID{101, 102, 103, 104, 105}
 
 			t.setMatcher(&m)
 			for _, r := range reqs {
@@ -230,7 +230,7 @@ var _ = Describe("Times", func() {
 			var m TestMatcher
 			t.setMatcher(&m)
 
-			rid := ReqID(200)
+			rid := boruta.ReqID(200)
 			t.insert(prepareRequestTime(-time.Hour, rid))
 
 			// Expect process() to remove element.

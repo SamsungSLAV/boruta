@@ -24,12 +24,12 @@ package dryad
 import (
 	"net"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // ClientManager defines API for managing client RPC calls to Dryad.
 type ClientManager interface {
-	Dryad
+	boruta.Dryad
 	// Create creates a new RPC client.
 	Create(*net.TCPAddr) error
 	// Close shuts down RPC client connection.

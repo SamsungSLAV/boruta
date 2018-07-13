@@ -23,13 +23,13 @@ package requests
 import (
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // requestTime combines ReqID with time.Time.
 type requestTime struct {
-	time time.Time // stores point in time.
-	req  ReqID     // identifies request related to the time.
+	time time.Time    // stores point in time.
+	req  boruta.ReqID // identifies request related to the time.
 }
 
 // timesHeapContainer wraps requestTime slice for implementation of heap.Interface.

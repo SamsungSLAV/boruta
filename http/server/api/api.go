@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	util "git.tizen.org/tools/boruta/http"
 	"git.tizen.org/tools/boruta/http/server/api/v1"
 	"github.com/dimfeld/httptreemux"
@@ -35,8 +35,8 @@ const defaultAPI = v1.Version
 // API provides HTTP API handlers.
 type API struct {
 	r       *httptreemux.TreeMux
-	reqs    Requests
-	workers Workers
+	reqs    boruta.Requests
+	workers boruta.Workers
 }
 
 // panicHandler is desired as httptreemux PanicHandler function. It sends
@@ -70,7 +70,7 @@ func redirectToDefault(w http.ResponseWriter, r *http.Request,
 // setNotFoundHandler catches all requests that were redirected to default API,
 // and not found there.
 func notFoundHandler(w http.ResponseWriter, r *http.Request, _ map[string]string) {
-	srvErr := util.NewServerError(NotFoundError(r.URL.Path))
+	srvErr := util.NewServerError(boruta.NotFoundError(r.URL.Path))
 	data, err := json.Marshal(srvErr)
 	if err != nil {
 		data = []byte(srvErr.Err)
@@ -103,8 +103,8 @@ func setDefaultAPIRedirect(prefix *httptreemux.Group) {
 // NewAPI registers all available Boruta HTTP APIs on provided router. It also
 // sets panicHandler for all panics that may occur in any API. Finally it sets
 // default API version to which requests that miss API version are redirected.
-func NewAPI(router *httptreemux.TreeMux, requestsAPI Requests,
-	workersAPI Workers) (api *API) {
+func NewAPI(router *httptreemux.TreeMux, requestsAPI boruta.Requests,
+	workersAPI boruta.Workers) (api *API) {
 	api = new(API)
 
 	api.reqs = requestsAPI

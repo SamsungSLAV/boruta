@@ -22,7 +22,7 @@ import (
 	"errors"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -79,7 +79,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 					R.mutex.Unlock()
 
 					err := R.InitIteration()
-					Expect(err).To(Equal(ErrInternalLogicError))
+					Expect(err).To(Equal(boruta.ErrInternalLogicError))
 
 					// Verify that mutex is not locked.
 					go testMutex()
@@ -110,13 +110,13 @@ var _ = Describe("Requests as RequestsManager", func() {
 			})
 		})
 		Describe("Iterating over requests", func() {
-			verify := []ReqID{3, 5, 1, 2, 7, 4, 6}
+			verify := []boruta.ReqID{3, 5, 1, 2, 7, 4, 6}
 			BeforeEach(func() {
 				now := time.Now()
 				tomorrow := now.AddDate(0, 0, 1)
-				wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(WorkerUUID(""), testErr).AnyTimes()
-				insert := func(p Priority) {
-					_, err := R.NewRequest(Capabilities{}, p, UserInfo{}, now, tomorrow)
+				wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), testErr).AnyTimes()
+				insert := func(p boruta.Priority) {
+					_, err := R.NewRequest(boruta.Capabilities{}, p, boruta.UserInfo{}, now, tomorrow)
 					Expect(err).NotTo(HaveOccurred())
 				}
 				insert(3) //1
@@ -128,7 +128,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 				insert(3) //7
 			})
 			It("should properly iterate over requests", func() {
-				reqs := make([]ReqID, 0)
+				reqs := make([]boruta.ReqID, 0)
 
 				R.InitIteration()
 				for r, ok := R.Next(); ok; r, ok = R.Next() {
@@ -140,7 +140,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 			})
 			It("should restart iterations in new critical section", func() {
 				for times := 0; times < len(verify); times++ {
-					reqs := make([]ReqID, 0)
+					reqs := make([]boruta.ReqID, 0)
 					i := 0
 					R.InitIteration()
 					for r, ok := R.Next(); ok && i < times; r, ok = R.Next() {
@@ -162,14 +162,14 @@ var _ = Describe("Requests as RequestsManager", func() {
 		})
 		Describe("With request in the queue", func() {
 			var now, tomorrow time.Time
-			var req, noreq ReqID
-			var rinfo *ReqInfo
+			var req, noreq boruta.ReqID
+			var rinfo *boruta.ReqInfo
 			BeforeEach(func() {
 				now = time.Now()
 				tomorrow = now.AddDate(0, 0, 1)
-				wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(WorkerUUID(""), testErr).AnyTimes()
+				wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), testErr).AnyTimes()
 				var err error
-				req, err = R.NewRequest(Capabilities{}, 3, UserInfo{}, now, tomorrow)
+				req, err = R.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
 				Expect(err).NotTo(HaveOccurred())
 				var ok bool
 				R.mutex.Lock()
@@ -183,7 +183,8 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(R.VerifyIfReady(noreq, now)).To(BeFalse())
 				})
 				It("should fail if state is not WAIT", func() {
-					states := []ReqState{INPROGRESS, CANCEL, TIMEOUT, INVALID, DONE, FAILED}
+					states := []boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
+						boruta.DONE, boruta.FAILED}
 					for _, s := range states {
 						R.mutex.Lock()
 						rinfo.State = s
@@ -208,8 +209,8 @@ var _ = Describe("Requests as RequestsManager", func() {
 			Describe("Get", func() {
 				It("should fail if reqID is unknown", func() {
 					r, err := R.Get(noreq)
-					Expect(err).To(Equal(NotFoundError("Request")))
-					Expect(r).To(Equal(ReqInfo{}))
+					Expect(err).To(Equal(boruta.NotFoundError("Request")))
+					Expect(r).To(Equal(boruta.ReqInfo{}))
 				})
 				It("should succeed if reqID is valid", func() {
 					r, err := R.Get(req)
@@ -221,7 +222,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 				It("should fail if reqID is unknown", func() {
 					Expect(R.queue.length).To(Equal(uint(1)))
 					err := R.Timeout(noreq)
-					Expect(err).To(Equal(NotFoundError("Request")))
+					Expect(err).To(Equal(boruta.NotFoundError("Request")))
 					Expect(R.queue.length).To(Equal(uint(1)))
 				})
 				It("should fail if request is not in WAIT state", func() {
@@ -229,7 +230,8 @@ var _ = Describe("Requests as RequestsManager", func() {
 					rinfo.Deadline = now.Add(-time.Hour)
 					R.mutex.Unlock()
 					Expect(R.queue.length).To(Equal(uint(1)))
-					states := []ReqState{INPROGRESS, CANCEL, TIMEOUT, INVALID, DONE, FAILED}
+					states := []boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
+						boruta.DONE, boruta.FAILED}
 					for _, s := range states {
 						R.mutex.Lock()
 						rinfo.State = s
@@ -252,17 +254,18 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(R.queue.length).To(Equal(uint(1)))
 					err := R.Timeout(req)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(TIMEOUT))
+					Expect(rinfo.State).To(Equal(boruta.TIMEOUT))
 					Expect(R.queue.length).To(BeZero())
 				})
 			})
 			Describe("Close", func() {
 				It("should fail if reqID is unknown", func() {
 					err := R.Close(noreq)
-					Expect(err).To(Equal(NotFoundError("Request")))
+					Expect(err).To(Equal(boruta.NotFoundError("Request")))
 				})
 				It("should fail if request is not in INPROGRESS state", func() {
-					states := []ReqState{WAIT, CANCEL, TIMEOUT, INVALID, DONE, FAILED}
+					states := []boruta.ReqState{boruta.WAIT, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
+						boruta.DONE, boruta.FAILED}
 					for _, state := range states {
 						R.mutex.Lock()
 						rinfo.State = state
@@ -274,17 +277,17 @@ var _ = Describe("Requests as RequestsManager", func() {
 				})
 				It("should fail if request has no job assigned", func() {
 					R.mutex.Lock()
-					rinfo.State = INPROGRESS
+					rinfo.State = boruta.INPROGRESS
 					Expect(rinfo.Job).To(BeNil())
 					R.mutex.Unlock()
 
 					err := R.Close(req)
-					Expect(err).To(Equal(ErrInternalLogicError))
+					Expect(err).To(Equal(boruta.ErrInternalLogicError))
 				})
 				It("should fail if job's is not yet timed out", func() {
 					R.mutex.Lock()
-					rinfo.State = INPROGRESS
-					rinfo.Job = &JobInfo{
+					rinfo.State = boruta.INPROGRESS
+					rinfo.Job = &boruta.JobInfo{
 						Timeout: time.Now().AddDate(0, 0, 1),
 					}
 					R.mutex.Unlock()
@@ -293,10 +296,10 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(err).To(Equal(ErrModificationForbidden))
 				})
 				It("should close request and release worker", func() {
-					testWorker := WorkerUUID("TestWorker")
+					testWorker := boruta.WorkerUUID("TestWorker")
 					R.mutex.Lock()
-					rinfo.State = INPROGRESS
-					rinfo.Job = &JobInfo{
+					rinfo.State = boruta.INPROGRESS
+					rinfo.Job = &boruta.JobInfo{
 						Timeout:    time.Now().AddDate(0, 0, -1),
 						WorkerUUID: testWorker,
 					}
@@ -306,18 +309,18 @@ var _ = Describe("Requests as RequestsManager", func() {
 					)
 					err := R.Close(req)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(DONE))
+					Expect(rinfo.State).To(Equal(boruta.DONE))
 				})
 			})
 			Describe("Run", func() {
-				testWorker := WorkerUUID("TestWorker")
+				testWorker := boruta.WorkerUUID("TestWorker")
 
 				It("should fail if reqID is unknown", func() {
 					R.mutex.Lock()
 					defer R.mutex.Unlock()
 					Expect(R.queue.length).To(Equal(uint(1)))
 					err := R.Run(noreq, testWorker)
-					Expect(err).To(Equal(NotFoundError("Request")))
+					Expect(err).To(Equal(boruta.NotFoundError("Request")))
 					Expect(R.queue.length).To(Equal(uint(1)))
 				})
 				It("should fail if reqID is unknown during iteration", func() {
@@ -326,17 +329,18 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(R.iterating).To(BeTrue())
 					Expect(R.queue.length).To(Equal(uint(1)))
 					err := R.Run(noreq, testWorker)
-					Expect(err).To(Equal(NotFoundError("Request")))
+					Expect(err).To(Equal(boruta.NotFoundError("Request")))
 					Expect(R.iterating).To(BeTrue())
 					Expect(R.queue.length).To(Equal(uint(1)))
 				})
 				It("should fail if request is not in WAIT state", func() {
-					states := []ReqState{INPROGRESS, CANCEL, TIMEOUT, INVALID, DONE, FAILED}
+					states := []boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
+						boruta.DONE, boruta.FAILED}
 					for _, state := range states {
 						R.InitIteration()
 						Expect(R.queue.length).To(Equal(uint(1)), "state = %s", state)
 						rinfo.State = state
-						err := R.Run(req, WorkerUUID("TestWorker"))
+						err := R.Run(req, boruta.WorkerUUID("TestWorker"))
 						Expect(err).To(Equal(ErrModificationForbidden), "state = %s", state)
 						Expect(R.queue.length).To(Equal(uint(1)), "state = %s", state)
 						R.TerminateIteration()
@@ -348,7 +352,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(R.queue.length).To(Equal(uint(1)))
 					err := R.Run(req, testWorker)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(INPROGRESS))
+					Expect(rinfo.State).To(Equal(boruta.INPROGRESS))
 					Expect(rinfo.Job.Timeout).To(BeTemporally(">", time.Now()))
 					Expect(R.queue.length).To(BeZero())
 				})
@@ -359,7 +363,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 					Expect(R.iterating).To(BeTrue())
 					err := R.Run(req, testWorker)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(INPROGRESS))
+					Expect(rinfo.State).To(Equal(boruta.INPROGRESS))
 					Expect(rinfo.Job.Timeout).To(BeTemporally(">", time.Now()))
 					Expect(R.iterating).To(BeFalse())
 					Expect(R.queue.length).To(BeZero())

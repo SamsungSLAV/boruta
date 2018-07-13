@@ -23,7 +23,7 @@ package matcher
 import (
 	"sync"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/tunnels"
 	"git.tizen.org/tools/boruta/workers"
 )
@@ -36,7 +36,7 @@ const defaultDryadUsername = "boruta-user"
 type JobsManagerImpl struct {
 	JobsManager
 	// jobs stores all running jobs indexed by ID of the worker they are running on.
-	jobs map[WorkerUUID]*workers.Job
+	jobs map[boruta.WorkerUUID]*workers.Job
 	// workers provides access to workers.
 	workers WorkersManager
 	// mutex protects JobsManagerImpl from concurrent access.
@@ -56,7 +56,7 @@ func newTunnel() tunnels.Tunneler {
 // NewJobsManager creates and returns new JobsManagerImpl structure.
 func NewJobsManager(w WorkersManager) JobsManager {
 	return &JobsManagerImpl{
-		jobs:      make(map[WorkerUUID]*workers.Job),
+		jobs:      make(map[boruta.WorkerUUID]*workers.Job),
 		workers:   w,
 		mutex:     new(sync.RWMutex),
 		newTunnel: newTunnel,
@@ -66,7 +66,7 @@ func NewJobsManager(w WorkersManager) JobsManager {
 // Create method creates a new job for the request and the worker. It also prepares
 // communication to Dryad by creating a tunnel. It is a part of JobsManager
 // interface implementation.
-func (m *JobsManagerImpl) Create(req ReqID, worker WorkerUUID) error {
+func (m *JobsManagerImpl) Create(req boruta.ReqID, worker boruta.WorkerUUID) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -90,7 +90,7 @@ func (m *JobsManagerImpl) Create(req ReqID, worker WorkerUUID) error {
 	}
 
 	job := &workers.Job{
-		Access: AccessInfo{
+		Access: boruta.AccessInfo{
 			Addr: t.Addr(),
 			Key:  key,
 			// TODO (m.wereski) Acquire username from config.
@@ -106,13 +106,13 @@ func (m *JobsManagerImpl) Create(req ReqID, worker WorkerUUID) error {
 
 // Get returns job information related to the worker ID or error if no job for
 // that worker was found. It is a part of JobsManager interface implementation.
-func (m *JobsManagerImpl) Get(worker WorkerUUID) (*workers.Job, error) {
+func (m *JobsManagerImpl) Get(worker boruta.WorkerUUID) (*workers.Job, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	job, present := m.jobs[worker]
 	if !present {
-		return nil, NotFoundError("Job")
+		return nil, boruta.NotFoundError("Job")
 	}
 	return job, nil
 }
@@ -121,14 +121,14 @@ func (m *JobsManagerImpl) Get(worker WorkerUUID) (*workers.Job, error) {
 // from jobs collection.
 // The Dryad should be notified and prepared for next job with key regeneration.
 // It is a part of JobsManager interface implementation.
-func (m *JobsManagerImpl) Finish(worker WorkerUUID) error {
+func (m *JobsManagerImpl) Finish(worker boruta.WorkerUUID) error {
 	defer m.workers.PrepareWorker(worker, true)
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	job, present := m.jobs[worker]
 	if !present {
-		return NotFoundError("Job")
+		return boruta.NotFoundError("Job")
 	}
 	job.Tunnel.Close()
 	// TODO log an error in case of tunnel closing failure. Nothing more can be done.

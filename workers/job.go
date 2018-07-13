@@ -17,7 +17,7 @@
 package workers
 
 import (
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/tunnels"
 )
 
@@ -25,9 +25,9 @@ import (
 type Job struct {
 	// Access describes details of the connection to Dryad. It is returned to the request
 	// owner when a job for request is run and acquired by the user.
-	Access AccessInfo
+	Access boruta.AccessInfo
 	// Tunnel is a connection to Dryad for the user.
 	Tunnel tunnels.Tunneler
 	// Req is ID of the worked request.
-	Req ReqID
+	Req boruta.ReqID
 }

@@ -24,7 +24,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // DefaultRPCPort is a port that should be used as default parameter
@@ -39,7 +39,7 @@ func NewConf() *General {
 	return &General{
 		Address:   fmt.Sprintf(":%d", DefaultRPCPort),
 		SSHAdress: fmt.Sprintf(":%d", DefaultSSHPort),
-		Caps:      Capabilities(map[string]string{}),
+		Caps:      boruta.Capabilities(map[string]string{}),
 		User: &User{
 			Name:   "boruta-user",
 			Groups: []string{},
@@ -70,7 +70,7 @@ type General struct {
 	//
 	// TODO(amistewicz): This field should be removed when
 	// it will be possible to read it from hardware.
-	Caps Capabilities `toml:"caps"`
+	Caps boruta.Capabilities `toml:"caps"`
 	// User refers information necessary to create the user.
 	User *User `toml:"user"`
 	// SDcard is a base path to block device of sdcard.

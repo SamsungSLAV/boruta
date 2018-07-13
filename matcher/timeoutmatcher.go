@@ -21,7 +21,7 @@
 package matcher
 
 import (
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // TimeoutMatcher implements Matcher interface for handling running requests
@@ -43,7 +43,7 @@ func NewTimeoutMatcher(r RequestsManager) *TimeoutMatcher {
 // matcher. Close method is called on RequestsManager for each request.
 // Some of the cases might be invalid, because the request's state has been changed
 // to DONE or FAILED. Verification of closing conditions is done inside Close method.
-func (m TimeoutMatcher) Notify(out []ReqID) {
+func (m TimeoutMatcher) Notify(out []boruta.ReqID) {
 	for _, r := range out {
 		m.requests.Close(r)
 	}

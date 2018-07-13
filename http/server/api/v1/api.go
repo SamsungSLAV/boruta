@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strconv"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	util "git.tizen.org/tools/boruta/http"
 	"github.com/dimfeld/httptreemux"
 )
@@ -43,8 +43,8 @@ const Version = "v1"
 // API provides HTTP API handlers.
 type API struct {
 	r       *httptreemux.Group
-	reqs    Requests
-	workers Workers
+	reqs    boruta.Requests
+	workers boruta.Workers
 }
 
 // uuidRE matches only valid UUID strings.
@@ -77,17 +77,17 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 				if data != nil {
 					status = data.Status
 				}
-			case ReqInfo:
+			case boruta.ReqInfo:
 				w.Header().Add("Boruta-Request-State", string(data.State))
-				if data.State == INPROGRESS {
+				if data.State == boruta.INPROGRESS {
 					w.Header().Add("Boruta-Job-Timeout",
 						data.Job.Timeout.Format(util.DateFormat))
 				}
-			case []ReqInfo:
+			case []boruta.ReqInfo:
 				w.Header().Add("Boruta-Request-Count", strconv.Itoa(len(data)))
-			case WorkerInfo:
+			case boruta.WorkerInfo:
 				w.Header().Add("Boruta-Worker-State", string(data.State))
-			case []WorkerInfo:
+			case []boruta.WorkerInfo:
 				w.Header().Add("Boruta-Worker-Count", strconv.Itoa(len(data)))
 			}
 			if status != http.StatusNoContent {
@@ -106,8 +106,8 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 
 // NewAPI takes router and registers HTTP API in it. htttreemux.PanicHandler
 // function is set. Also other setting of the router may be modified.
-func NewAPI(router *httptreemux.Group, requestsAPI Requests,
-	workersAPI Workers) (api *API) {
+func NewAPI(router *httptreemux.Group, requestsAPI boruta.Requests,
+	workersAPI boruta.Workers) (api *API) {
 	api = new(API)
 
 	api.reqs = requestsAPI
@@ -155,9 +155,9 @@ func NewAPI(router *httptreemux.Group, requestsAPI Requests,
 	return
 }
 
-func parseReqID(id string) (ReqID, error) {
+func parseReqID(id string) (boruta.ReqID, error) {
 	reqid, err := strconv.ParseUint(id, 10, 64)
-	return ReqID(reqid), err
+	return boruta.ReqID(reqid), err
 }
 
 // isValidUUID checks if given string is properly formatted UUID.

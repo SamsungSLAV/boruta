@@ -24,7 +24,7 @@ import (
 	"io"
 	"net/http"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // ServerError represents error that occured while creating response.
@@ -56,7 +56,7 @@ var (
 
 // isNotFoundError returns true if passed error is of type NotFoundError.
 func isNotFoundError(err error) bool {
-	_, ok := err.(NotFoundError)
+	_, ok := err.(boruta.NotFoundError)
 	return ok
 }
 

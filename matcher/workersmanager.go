@@ -23,7 +23,7 @@ import (
 	"crypto/rsa"
 	"net"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/workers"
 )
 
@@ -31,22 +31,22 @@ import (
 type WorkersManager interface {
 	// TakeBestMatchingWorker returns best matching worker that meets a criteria.
 	// An error is returned if no matching worker is found.
-	TakeBestMatchingWorker(Groups, Capabilities) (WorkerUUID, error)
+	TakeBestMatchingWorker(boruta.Groups, boruta.Capabilities) (boruta.WorkerUUID, error)
 
 	// PrepareWorker makes it ready for running a job.
 	// Caller of this method can decide (with 2nd parameter) if key generation
 	// is required for preparing worker.
-	PrepareWorker(worker WorkerUUID, withKeyGeneration bool) error
+	PrepareWorker(worker boruta.WorkerUUID, withKeyGeneration bool) error
 
 	// GetWorkerSSHAddr returns address of the ssh daemon on the worker that can
 	// be used for setting up tunnel to the worker. If there is no worker with
 	// given WorkerUUID an error is returned.
-	GetWorkerSSHAddr(WorkerUUID) (net.TCPAddr, error)
+	GetWorkerSSHAddr(boruta.WorkerUUID) (net.TCPAddr, error)
 
 	// GetWorkerKey returns private RSA key of the worker that can be used for
 	// accessing the worker. If there is no worker with given WorkerUUID an error
 	// is returned.
-	GetWorkerKey(WorkerUUID) (rsa.PrivateKey, error)
+	GetWorkerKey(boruta.WorkerUUID) (rsa.PrivateKey, error)
 
 	// SetChangeListener stores reference to object, which should be notified
 	// in case of changes of workers' states.

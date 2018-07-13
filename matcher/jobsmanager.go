@@ -20,17 +20,17 @@
 package matcher
 
 import (
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/workers"
 )
 
 // JobsManager defines API for internal boruta management of jobs.
 type JobsManager interface {
 	// Create prepares a new job for the worker.
-	Create(ReqID, WorkerUUID) error
+	Create(boruta.ReqID, boruta.WorkerUUID) error
 	// Get returns pointer to a Job from JobsManager or error if no job for
 	// the worker is found.
-	Get(WorkerUUID) (*workers.Job, error)
+	Get(boruta.WorkerUUID) (*workers.Job, error)
 	// Finish cleans up after job is done.
-	Finish(WorkerUUID) error
+	Finish(boruta.WorkerUUID) error
 }

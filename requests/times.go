@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/matcher"
 )
 
@@ -95,7 +95,7 @@ func (rt *requestTimes) process(t time.Time) {
 	// are already in the past. There is no need to set timer for them,
 	// as it will return immediately. So all past times must be removed
 	// and timer set to earliest future time.
-	past := make([]ReqID, 0)
+	past := make([]boruta.ReqID, 0)
 	for rt.times.Len() > 0 && t.After(rt.minTime()) {
 		x := rt.times.Pop()
 		past = append(past, x.req)

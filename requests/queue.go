@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"container/list"
 	"sync"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // prioQueue is priority queue that stores request IDs.
@@ -41,22 +41,22 @@ type prioQueue struct {
 	// indicates if ID was found. False means that caller has iterated through
 	// all elements and pq.releaseIterator() followed by pq.initIterator()
 	// must be called in order to have a working iterator again.
-	next func() (ReqID, bool)
+	next func() (boruta.ReqID, bool)
 	mtx  *sync.Mutex
 }
 
 // _emptyIterator is helper function which always returns values which indicate
 // that iterator should be initialized. It is desired to be set as next member of
 // prioQueue structure whenever iterator needs initialization.
-func _emptyIterator() (ReqID, bool) { return ReqID(0), false }
+func _emptyIterator() (boruta.ReqID, bool) { return boruta.ReqID(0), false }
 
 // newPrioQueue returns pointer to newly created and initialized priority queue.
 func newPrioQueue() *prioQueue {
 	pq := new(prioQueue)
 
 	// Prepare queues.
-	pq.queue = make([]*list.List, LoPrio+1)
-	for i := HiPrio; i <= LoPrio; i++ {
+	pq.queue = make([]*list.List, boruta.LoPrio+1)
+	for i := boruta.HiPrio; i <= boruta.LoPrio; i++ {
 		pq.queue[i] = new(list.List).Init()
 	}
 	pq.length = 0
@@ -71,9 +71,9 @@ func newPrioQueue() *prioQueue {
 // _remove removes request with given reqID from the queue. Caller must be sure
 // that request with given ID exists in the queue otherwise function will panic.
 // It's more convenient to use removeRequest().
-func (pq *prioQueue) _remove(reqID ReqID, priority Priority) {
+func (pq *prioQueue) _remove(reqID boruta.ReqID, priority boruta.Priority) {
 	for e := pq.queue[priority].Front(); e != nil; e = e.Next() {
-		if e.Value.(ReqID) == reqID {
+		if e.Value.(boruta.ReqID) == reqID {
 			pq.length--
 			pq.queue[priority].Remove(e)
 			return
@@ -85,7 +85,7 @@ func (pq *prioQueue) _remove(reqID ReqID, priority Priority) {
 // removeRequest removes request from the priority queue. It wraps _remove(),
 // which will panic if request is missing from the queue and removeRequest will
 // propagate this panic.
-func (pq *prioQueue) removeRequest(req *ReqInfo) {
+func (pq *prioQueue) removeRequest(req *boruta.ReqInfo) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
 	pq._remove(req.ID, req.Priority)
@@ -93,13 +93,13 @@ func (pq *prioQueue) removeRequest(req *ReqInfo) {
 
 // _push adds request ID at the end of priority queue. It's more convenient to use
 // pushRequest().
-func (pq *prioQueue) _push(reqID ReqID, priority Priority) {
+func (pq *prioQueue) _push(reqID boruta.ReqID, priority boruta.Priority) {
 	pq.queue[priority].PushBack(reqID)
 	pq.length++
 }
 
 // pushRequest adds request to priority queue. It wraps _push().
-func (pq *prioQueue) pushRequest(req *ReqInfo) {
+func (pq *prioQueue) pushRequest(req *boruta.ReqInfo) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
 	pq._push(req.ID, req.Priority)
@@ -108,7 +108,7 @@ func (pq *prioQueue) pushRequest(req *ReqInfo) {
 // setRequestPriority modifies priority of request that was already added to the
 // queue. Caller must make sure that request with given ID exists in the queue.
 // Panic will occur if such ID doesn't exist.
-func (pq *prioQueue) setRequestPriority(req *ReqInfo, newPrio Priority) {
+func (pq *prioQueue) setRequestPriority(req *boruta.ReqInfo, newPrio boruta.Priority) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
 	pq._remove(req.ID, req.Priority)
@@ -122,31 +122,31 @@ func (pq *prioQueue) setRequestPriority(req *ReqInfo, newPrio Priority) {
 func (pq *prioQueue) initIterator() {
 	pq.mtx.Lock()
 	// current priority
-	p := HiPrio
+	p := boruta.HiPrio
 	// current element of list for p priority
 	e := pq.queue[p].Front()
 
-	pq.next = func() (id ReqID, ok bool) {
+	pq.next = func() (id boruta.ReqID, ok bool) {
 
 		// The queue is empty.
 		if pq.length == 0 {
-			p = HiPrio
+			p = boruta.HiPrio
 			e = nil
-			return ReqID(0), false
+			return boruta.ReqID(0), false
 		}
 
 		if e == nil {
 			// Find next priority.
-			for p++; p <= LoPrio && pq.queue[p].Len() == 0; p++ {
+			for p++; p <= boruta.LoPrio && pq.queue[p].Len() == 0; p++ {
 			}
-			if p > LoPrio {
-				return ReqID(0), false
+			if p > boruta.LoPrio {
+				return boruta.ReqID(0), false
 			}
 			// Get it's first element.
 			e = pq.queue[p].Front()
 		}
 
-		id, ok = e.Value.(ReqID), true
+		id, ok = e.Value.(boruta.ReqID), true
 		e = e.Next()
 		return
 	}

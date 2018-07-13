@@ -21,7 +21,7 @@
 package matcher
 
 import (
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // DeadlineMatcher implements Matcher interface for handling pending requests
@@ -47,7 +47,7 @@ func NewDeadlineMatcher(r RequestsManager) *DeadlineMatcher {
 // If changing state to TIMEOUT is not possible Timeout returns an error.
 // Any errors are ignored as they are false negatives cases from DeadlineMatcher
 // point of view.
-func (m DeadlineMatcher) Notify(dead []ReqID) {
+func (m DeadlineMatcher) Notify(dead []boruta.ReqID) {
 	for _, r := range dead {
 		m.requests.Timeout(r)
 	}

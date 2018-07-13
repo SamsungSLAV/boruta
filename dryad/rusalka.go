@@ -23,7 +23,7 @@ import (
 	"context"
 	"fmt"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
 	"golang.org/x/crypto/ssh"
 )
@@ -31,14 +31,14 @@ import (
 // Rusalka implements Dryad interface. It is intended to be used on NanoPi connected to MuxPi.
 // It is not safe for concurrent use.
 type Rusalka struct {
-	Dryad
+	boruta.Dryad
 	dryadUser         *borutaUser
 	stm               *stmHelper
 	cancelMaintenance context.CancelFunc
 }
 
 // NewRusalka returns Dryad interface to Rusalka.
-func NewRusalka(stmConn stm.Interface, username string, groups []string) Dryad {
+func NewRusalka(stmConn stm.Interface, username string, groups []string) boruta.Dryad {
 	return &Rusalka{
 		dryadUser: newBorutaUser(username, groups),
 		stm:       &stmHelper{stmConn},

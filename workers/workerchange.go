@@ -20,15 +20,15 @@
 package workers
 
 import (
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // WorkerChange defines API for implementation to be informed about
 // changes in workers.
 type WorkerChange interface {
 	// OnWorkerIdle notifies about available idle worker.
-	OnWorkerIdle(WorkerUUID)
+	OnWorkerIdle(boruta.WorkerUUID)
 	// OnWorkerFail notifies about breaking execution of job by a running worker and
 	// putting it into FAIL or MAINTENANCE state.
-	OnWorkerFail(WorkerUUID)
+	OnWorkerFail(boruta.WorkerUUID)
 }

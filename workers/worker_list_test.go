@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"net"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/rpc/dryad"
 
 	gomock "github.com/golang/mock/gomock"
@@ -79,14 +79,14 @@ var _ = Describe("WorkerList", func() {
 			defer wl.mutex.RUnlock()
 			// Check if all registeredWorkers are present
 			for _, uuid := range registeredWorkers {
-				_, ok := wl.workers[WorkerUUID(uuid)]
+				_, ok := wl.workers[boruta.WorkerUUID(uuid)]
 				Expect(ok).To(BeTrue())
 			}
 			// Check if all workers from the wl.workers are present
 			for _, workerInfo := range wl.workers {
 				ok := false
 				for _, uuid := range registeredWorkers {
-					if workerInfo.WorkerUUID == WorkerUUID(uuid) {
+					if workerInfo.WorkerUUID == boruta.WorkerUUID(uuid) {
 						ok = true
 						break
 					}
@@ -100,8 +100,8 @@ var _ = Describe("WorkerList", func() {
 			Expect(err).To(Equal(ErrMissingUUID))
 		})
 
-		getRandomCaps := func() Capabilities {
-			return Capabilities{
+		getRandomCaps := func() boruta.Capabilities {
+			return boruta.Capabilities{
 				UUID: getUUID(),
 			}
 		}
@@ -127,11 +127,11 @@ var _ = Describe("WorkerList", func() {
 			caps := getRandomCaps()
 			err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
-			uuid := WorkerUUID(caps[UUID])
+			uuid := boruta.WorkerUUID(caps[UUID])
 			wl.mutex.RLock()
 			defer wl.mutex.RUnlock()
 			Expect(wl.workers).To(HaveKey(uuid))
-			Expect(wl.workers[uuid].State).To(Equal(MAINTENANCE))
+			Expect(wl.workers[uuid].State).To(Equal(boruta.MAINTENANCE))
 		})
 
 		It("should update the caps when called twice for the same worker", func() {
@@ -152,7 +152,7 @@ var _ = Describe("WorkerList", func() {
 			err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			wl.mutex.RLock()
-			Expect(wl.workers[WorkerUUID(caps[UUID])].Caps).To(Equal(caps))
+			Expect(wl.workers[boruta.WorkerUUID(caps[UUID])].Caps).To(Equal(caps))
 			wl.mutex.RUnlock()
 			compareLists()
 		})
@@ -194,18 +194,18 @@ var _ = Describe("WorkerList", func() {
 	})
 
 	Context("with worker registered", func() {
-		var worker WorkerUUID
+		var worker boruta.WorkerUUID
 
-		randomUUID := func() WorkerUUID {
+		randomUUID := func() boruta.WorkerUUID {
 			newUUID := worker
 			for newUUID == worker {
-				newUUID = WorkerUUID(getUUID())
+				newUUID = boruta.WorkerUUID(getUUID())
 			}
 			return newUUID
 		}
-		registerWorker := func() WorkerUUID {
+		registerWorker := func() boruta.WorkerUUID {
 			capsUUID := randomUUID()
-			err := wl.Register(Capabilities{UUID: string(capsUUID)}, dryadAddr.String(), sshdAddr.String())
+			err := wl.Register(boruta.Capabilities{UUID: string(capsUUID)}, dryadAddr.String(), sshdAddr.String())
 			Expect(err).ToNot(HaveOccurred())
 			wl.mutex.RLock()
 			Expect(wl.workers).ToNot(BeEmpty())
@@ -228,26 +228,26 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			It("should work to SetFail", func() {
-				for _, state := range []WorkerState{IDLE, RUN} {
+				for _, state := range []boruta.WorkerState{boruta.IDLE, boruta.RUN} {
 					wl.mutex.Lock()
 					wl.workers[worker].State = state
 					wl.mutex.Unlock()
 					err := wl.SetFail(worker, "")
 					Expect(err).ToNot(HaveOccurred())
 					wl.mutex.RLock()
-					Expect(wl.workers[worker].State).To(Equal(FAIL))
+					Expect(wl.workers[worker].State).To(Equal(boruta.FAIL))
 					wl.mutex.RUnlock()
 				}
 			})
 
 			It("Should fail to SetFail in MAINTENANCE state", func() {
 				wl.mutex.Lock()
-				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
+				Expect(wl.workers[worker].State).To(Equal(boruta.MAINTENANCE))
 				wl.mutex.Unlock()
 				err := wl.SetFail(worker, "")
 				Expect(err).To(Equal(ErrInMaintenance))
 				wl.mutex.RLock()
-				Expect(wl.workers[worker].State).To(Equal(MAINTENANCE))
+				Expect(wl.workers[worker].State).To(Equal(boruta.MAINTENANCE))
 				wl.mutex.RUnlock()
 			})
 		})
@@ -279,7 +279,7 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			It("should fail to deregister worker not in MAINTENANCE state", func() {
-				for _, state := range []WorkerState{IDLE, RUN, FAIL} {
+				for _, state := range []boruta.WorkerState{boruta.IDLE, boruta.RUN, boruta.FAIL} {
 					wl.mutex.Lock()
 					wl.workers[worker].State = state
 					wl.mutex.Unlock()
@@ -295,14 +295,14 @@ var _ = Describe("WorkerList", func() {
 		Describe("SetState", func() {
 			It("should fail to SetState of nonexistent worker", func() {
 				uuid := randomUUID()
-				err := wl.SetState(uuid, MAINTENANCE)
+				err := wl.SetState(uuid, boruta.MAINTENANCE)
 				Expect(err).To(Equal(ErrWorkerNotFound))
 			})
 
 			It("should fail to SetState for invalid transitions", func() {
-				invalidTransitions := [][]WorkerState{
-					{RUN, IDLE},
-					{FAIL, IDLE},
+				invalidTransitions := [][]boruta.WorkerState{
+					{boruta.RUN, boruta.IDLE},
+					{boruta.FAIL, boruta.IDLE},
 				}
 				for _, transition := range invalidTransitions {
 					fromState, toState := transition[0], transition[1]
@@ -318,13 +318,13 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			It("should fail to SetState for incorrect state argument", func() {
-				invalidArgument := [][]WorkerState{
-					{MAINTENANCE, RUN},
-					{MAINTENANCE, FAIL},
-					{IDLE, FAIL},
-					{IDLE, RUN},
-					{RUN, FAIL},
-					{FAIL, RUN},
+				invalidArgument := [][]boruta.WorkerState{
+					{boruta.MAINTENANCE, boruta.RUN},
+					{boruta.MAINTENANCE, boruta.FAIL},
+					{boruta.IDLE, boruta.FAIL},
+					{boruta.IDLE, boruta.RUN},
+					{boruta.RUN, boruta.FAIL},
+					{boruta.FAIL, boruta.RUN},
 				}
 				for _, transition := range invalidArgument {
 					fromState, toState := transition[0], transition[1]
@@ -344,11 +344,11 @@ var _ = Describe("WorkerList", func() {
 				ip := net.IPv4(2, 4, 6, 8)
 				testerr := errors.New("Test Error")
 				var info *mapWorker
-				noWorker := WorkerUUID("There's no such worker")
+				noWorker := boruta.WorkerUUID("There's no such worker")
 				putStr := "maintenance"
 
-				eventuallyState := func(info *mapWorker, state WorkerState) {
-					EventuallyWithOffset(1, func() WorkerState {
+				eventuallyState := func(info *mapWorker, state boruta.WorkerState) {
+					EventuallyWithOffset(1, func() boruta.WorkerState {
 						wl.mutex.RLock()
 						defer wl.mutex.RUnlock()
 						return info.State
@@ -385,7 +385,7 @@ var _ = Describe("WorkerList", func() {
 				Describe("from MAINTENANCE to IDLE", func() {
 					BeforeEach(func() {
 						wl.mutex.Lock()
-						info.State = MAINTENANCE
+						info.State = boruta.MAINTENANCE
 						wl.mutex.Unlock()
 					})
 
@@ -396,9 +396,9 @@ var _ = Describe("WorkerList", func() {
 							dcm.EXPECT().Close(),
 						)
 
-						err := wl.SetState(worker, IDLE)
+						err := wl.SetState(worker, boruta.IDLE)
 						Expect(err).ToNot(HaveOccurred())
-						eventuallyState(info, IDLE)
+						eventuallyState(info, boruta.IDLE)
 						eventuallyKey(info, Not(Equal(&rsa.PrivateKey{})))
 					})
 
@@ -409,18 +409,18 @@ var _ = Describe("WorkerList", func() {
 							dcm.EXPECT().Close(),
 						)
 
-						err := wl.SetState(worker, IDLE)
+						err := wl.SetState(worker, boruta.IDLE)
 						Expect(err).ToNot(HaveOccurred())
-						eventuallyState(info, FAIL)
+						eventuallyState(info, boruta.FAIL)
 						Expect(info.key).To(BeNil())
 					})
 
 					It("should fail to SetState if dryadClientManager fails to create client", func() {
 						dcm.EXPECT().Create(info.dryad).Return(testerr)
 
-						err := wl.SetState(worker, IDLE)
+						err := wl.SetState(worker, boruta.IDLE)
 						Expect(err).ToNot(HaveOccurred())
-						eventuallyState(info, FAIL)
+						eventuallyState(info, boruta.FAIL)
 						Expect(info.key).To(BeNil())
 					})
 				})
@@ -434,7 +434,7 @@ var _ = Describe("WorkerList", func() {
 					EventuallyWithOffset(1, trigger).Should(Receive(Equal(val)))
 				}
 
-				fromStates := []WorkerState{IDLE, RUN, FAIL}
+				fromStates := []boruta.WorkerState{boruta.IDLE, boruta.RUN, boruta.FAIL}
 				for _, from := range fromStates {
 					Describe("from "+string(from)+" to MAINTENANCE", func() {
 						BeforeEach(func() {
@@ -450,9 +450,9 @@ var _ = Describe("WorkerList", func() {
 								dcm.EXPECT().Close(),
 							)
 
-							err := wl.SetState(worker, MAINTENANCE)
+							err := wl.SetState(worker, boruta.MAINTENANCE)
 							Expect(err).ToNot(HaveOccurred())
-							eventuallyState(info, MAINTENANCE)
+							eventuallyState(info, boruta.MAINTENANCE)
 						})
 
 						It("should fail to SetState if dryadClientManager fails to put dryad in maintenance state", func() {
@@ -461,30 +461,30 @@ var _ = Describe("WorkerList", func() {
 								dcm.EXPECT().PutInMaintenance(putStr).Return(testerr),
 								dcm.EXPECT().Close().Do(func() {
 									wl.mutex.Lock()
-									info.State = WorkerState("TEST")
+									info.State = boruta.WorkerState("TEST")
 									wl.mutex.Unlock()
 									setTrigger(1)
 								}),
 							)
 
-							err := wl.SetState(worker, MAINTENANCE)
+							err := wl.SetState(worker, boruta.MAINTENANCE)
 							Expect(err).ToNot(HaveOccurred())
 							eventuallyTrigger(1)
-							eventuallyState(info, FAIL)
+							eventuallyState(info, boruta.FAIL)
 						})
 
 						It("should fail to SetState if dryadClientManager fails to create client", func() {
 							dcm.EXPECT().Create(info.dryad).Return(testerr).Do(func(*net.TCPAddr) {
 								wl.mutex.Lock()
-								info.State = WorkerState("TEST")
+								info.State = boruta.WorkerState("TEST")
 								wl.mutex.Unlock()
 								setTrigger(2)
 							})
 
-							err := wl.SetState(worker, MAINTENANCE)
+							err := wl.SetState(worker, boruta.MAINTENANCE)
 							Expect(err).ToNot(HaveOccurred())
 							eventuallyTrigger(2)
-							eventuallyState(info, FAIL)
+							eventuallyState(info, boruta.FAIL)
 						})
 					})
 				}
@@ -534,7 +534,7 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			It("should work to SetGroup", func() {
-				var group Groups = []Group{
+				var group boruta.Groups = []boruta.Group{
 					"group1",
 				}
 
@@ -555,14 +555,14 @@ var _ = Describe("WorkerList", func() {
 		})
 
 		Describe("ListWorkers", func() {
-			var refWorkerList []WorkerInfo
+			var refWorkerList []boruta.WorkerInfo
 
-			registerAndSetGroups := func(groups Groups, caps Capabilities) WorkerInfo {
+			registerAndSetGroups := func(groups boruta.Groups, caps boruta.Capabilities) boruta.WorkerInfo {
 				capsUUID := getUUID()
 				caps[UUID] = capsUUID
 				err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
 				Expect(err).ToNot(HaveOccurred())
-				workerID := WorkerUUID(capsUUID)
+				workerID := boruta.WorkerUUID(capsUUID)
 
 				err = wl.SetGroups(workerID, groups)
 				Expect(err).ToNot(HaveOccurred())
@@ -575,48 +575,48 @@ var _ = Describe("WorkerList", func() {
 			}
 
 			BeforeEach(func() {
-				refWorkerList = make([]WorkerInfo, 1)
+				refWorkerList = make([]boruta.WorkerInfo, 1)
 				// Add worker with minimal caps and empty groups.
 				wl.mutex.RLock()
 				refWorkerList[0] = wl.workers[worker].WorkerInfo
 				wl.mutex.RUnlock()
 				// Add worker with both groups and caps declared.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
-					Groups{"all", "small_1", "small_2"},
-					Capabilities{
+					boruta.Groups{"all", "small_1", "small_2"},
+					boruta.Capabilities{
 						"target":  "yes",
 						"display": "yes",
 					}))
 				// Add worker similar to the second one, but without caps.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
-					Groups{"all", "small_1", "small_2"},
-					Capabilities{},
+					boruta.Groups{"all", "small_1", "small_2"},
+					boruta.Capabilities{},
 				))
 				// Add worker similar to the second one, but without groups.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
-					Groups{},
-					Capabilities{
+					boruta.Groups{},
+					boruta.Capabilities{
 						"target":  "yes",
 						"display": "yes",
 					}))
 				// Add worker similar to the second one, but with display set to no.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
-					Groups{"all", "small_1", "small_2"},
-					Capabilities{
+					boruta.Groups{"all", "small_1", "small_2"},
+					boruta.Capabilities{
 						"target":  "yes",
 						"display": "no",
 					}))
 				// Add worker similar to the second one, but absent from small_1 group.
 				refWorkerList = append(refWorkerList, registerAndSetGroups(
-					Groups{"all", "small_2"},
-					Capabilities{
+					boruta.Groups{"all", "small_2"},
+					boruta.Capabilities{
 						"target":  "yes",
 						"display": "yes",
 					}))
 			})
 
-			testWorkerList := func(groups Groups, caps Capabilities,
-				present, absent []WorkerInfo) {
+			testWorkerList := func(groups boruta.Groups, caps boruta.Capabilities,
+				present, absent []boruta.WorkerInfo) {
 				workers, err := wl.ListWorkers(groups, caps)
 				Expect(err).ToNot(HaveOccurred())
 				for _, workerInfo := range present {
@@ -632,28 +632,28 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			It("should return all workers when parameters are empty", func() {
-				testWorkerList(Groups{}, Capabilities{}, refWorkerList, nil)
+				testWorkerList(boruta.Groups{}, boruta.Capabilities{}, refWorkerList, nil)
 			})
 
 			Describe("filterCaps", func() {
 				It("should return all workers satisfying defined caps", func() {
 					By("Returning all workers with display")
-					testWorkerList(Groups{},
-						Capabilities{"display": "yes"},
-						[]WorkerInfo{refWorkerList[1], refWorkerList[3], refWorkerList[5]},
-						[]WorkerInfo{refWorkerList[0], refWorkerList[2], refWorkerList[4]})
+					testWorkerList(boruta.Groups{},
+						boruta.Capabilities{"display": "yes"},
+						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[3], refWorkerList[5]},
+						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[2], refWorkerList[4]})
 
 					By("Returning all workers without display")
-					testWorkerList(Groups{},
-						Capabilities{"display": "no"},
-						[]WorkerInfo{refWorkerList[4]},
-						[]WorkerInfo{refWorkerList[0], refWorkerList[1],
+					testWorkerList(boruta.Groups{},
+						boruta.Capabilities{"display": "no"},
+						[]boruta.WorkerInfo{refWorkerList[4]},
+						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[1],
 							refWorkerList[2], refWorkerList[3], refWorkerList[5]})
 				})
 
 				It("should return empty list if no worker matches the caps", func() {
-					workers, err := wl.ListWorkers(Groups{},
-						Capabilities{
+					workers, err := wl.ListWorkers(boruta.Groups{},
+						boruta.Capabilities{
 							"non-existing-caps": "",
 						})
 					Expect(err).ToNot(HaveOccurred())
@@ -664,21 +664,21 @@ var _ = Describe("WorkerList", func() {
 			Describe("filterGroups", func() {
 				It("should return all workers satisfying defined groups", func() {
 					By("Returning all workers in group all")
-					testWorkerList(Groups{"all"},
+					testWorkerList(boruta.Groups{"all"},
 						nil,
-						[]WorkerInfo{refWorkerList[1], refWorkerList[2],
+						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[2],
 							refWorkerList[4], refWorkerList[5]},
-						[]WorkerInfo{refWorkerList[0], refWorkerList[3]})
+						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[3]})
 
 					By("Returning all workers in group small_1")
-					testWorkerList(Groups{"small_1"},
+					testWorkerList(boruta.Groups{"small_1"},
 						nil,
-						[]WorkerInfo{refWorkerList[1], refWorkerList[2], refWorkerList[4]},
-						[]WorkerInfo{refWorkerList[0], refWorkerList[3], refWorkerList[5]})
+						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[2], refWorkerList[4]},
+						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[3], refWorkerList[5]})
 				})
 
 				It("should return empty list if no worker matches the group", func() {
-					workers, err := wl.ListWorkers(Groups{"non-existing-group"}, nil)
+					workers, err := wl.ListWorkers(boruta.Groups{"non-existing-group"}, nil)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
 				})
@@ -686,23 +686,23 @@ var _ = Describe("WorkerList", func() {
 
 			It("should work with many groups and caps defined", func() {
 				By("Returning all targets with display in both groups")
-				testWorkerList(Groups{"small_1", "small_2"},
-					Capabilities{
+				testWorkerList(boruta.Groups{"small_1", "small_2"},
+					boruta.Capabilities{
 						"target":  "yes",
 						"display": "yes",
 					},
-					[]WorkerInfo{refWorkerList[1], refWorkerList[5]},
-					[]WorkerInfo{refWorkerList[0], refWorkerList[2],
+					[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[5]},
+					[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[2],
 						refWorkerList[3], refWorkerList[4]})
 
 				By("Returning all targets without display in group all and small_1")
-				testWorkerList(Groups{"all", "small_1"},
-					Capabilities{
+				testWorkerList(boruta.Groups{"all", "small_1"},
+					boruta.Capabilities{
 						"target":  "yes",
 						"display": "no",
 					},
-					[]WorkerInfo{refWorkerList[4]},
-					[]WorkerInfo{refWorkerList[0], refWorkerList[1],
+					[]boruta.WorkerInfo{refWorkerList[4]},
+					[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[1],
 						refWorkerList[2], refWorkerList[3], refWorkerList[5]})
 			})
 		})
@@ -724,8 +724,8 @@ var _ = Describe("WorkerList", func() {
 		})
 
 		Describe("Setters and Getters", func() {
-			type genericGet func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error)
-			getDryad := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+			type genericGet func(wl *WorkerList, uuid boruta.WorkerUUID, expectedItem interface{}, expectedErr error)
+			getDryad := genericGet(func(wl *WorkerList, uuid boruta.WorkerUUID, expectedItem interface{}, expectedErr error) {
 				item, err := wl.GetWorkerAddr(uuid)
 				if expectedErr != nil {
 					Expect(item).To(Equal(net.TCPAddr{}))
@@ -735,7 +735,7 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(item).To(Equal(expectedItem.(net.TCPAddr)))
 			})
-			getSSH := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+			getSSH := genericGet(func(wl *WorkerList, uuid boruta.WorkerUUID, expectedItem interface{}, expectedErr error) {
 				item, err := wl.GetWorkerSSHAddr(uuid)
 				if expectedErr != nil {
 					Expect(item).To(Equal(net.TCPAddr{}))
@@ -745,7 +745,7 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(item).To(Equal(expectedItem.(net.TCPAddr)))
 			})
-			getKey := genericGet(func(wl *WorkerList, uuid WorkerUUID, expectedItem interface{}, expectedErr error) {
+			getKey := genericGet(func(wl *WorkerList, uuid boruta.WorkerUUID, expectedItem interface{}, expectedErr error) {
 				item, err := wl.GetWorkerKey(uuid)
 				if expectedErr != nil {
 					Expect(err).To(Equal(expectedErr))
@@ -756,8 +756,8 @@ var _ = Describe("WorkerList", func() {
 			})
 			getters := []genericGet{getKey, getDryad, getSSH}
 
-			type genericSet func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{}
-			setKey := genericSet(func(wl *WorkerList, uuid WorkerUUID, expectedErr error) interface{} {
+			type genericSet func(wl *WorkerList, uuid boruta.WorkerUUID, expectedErr error) interface{}
+			setKey := genericSet(func(wl *WorkerList, uuid boruta.WorkerUUID, expectedErr error) interface{} {
 				key, err := rsa.GenerateKey(rand.Reader, 128)
 				Expect(err).ToNot(HaveOccurred())
 				err = wl.SetWorkerKey(uuid, key)
@@ -799,7 +799,7 @@ var _ = Describe("WorkerList", func() {
 			var dcm *MockDryadClientManager
 			ip := net.IPv4(2, 4, 6, 8)
 			testerr := errors.New("Test Error")
-			noWorker := WorkerUUID("There's no such worker")
+			noWorker := boruta.WorkerUUID("There's no such worker")
 
 			eventuallyKey := func(info *mapWorker, match types.GomegaMatcher) {
 				EventuallyWithOffset(1, func() *rsa.PrivateKey {
@@ -808,8 +808,8 @@ var _ = Describe("WorkerList", func() {
 					return info.key
 				}).Should(match)
 			}
-			eventuallyState := func(info *mapWorker, state WorkerState) {
-				EventuallyWithOffset(1, func() WorkerState {
+			eventuallyState := func(info *mapWorker, state boruta.WorkerState) {
+				EventuallyWithOffset(1, func() boruta.WorkerState {
 					wl.mutex.RLock()
 					defer wl.mutex.RUnlock()
 					return info.State
@@ -834,7 +834,7 @@ var _ = Describe("WorkerList", func() {
 				info, ok := wl.workers[worker]
 				wl.mutex.RUnlock()
 				Expect(ok).To(BeTrue())
-				Expect(info.State).To(Equal(IDLE))
+				Expect(info.State).To(Equal(boruta.IDLE))
 			})
 			It("should fail to prepare not existing worker in without-key preparation", func() {
 				uuid := randomUUID()
@@ -865,7 +865,7 @@ var _ = Describe("WorkerList", func() {
 					err := wl.PrepareWorker(worker, true)
 					Expect(err).NotTo(HaveOccurred())
 
-					eventuallyState(info, IDLE)
+					eventuallyState(info, boruta.IDLE)
 					eventuallyKey(info, Not(Equal(&rsa.PrivateKey{})))
 				})
 				It("should fail to prepare worker if dryadClientManager fails to prepare client", func() {
@@ -878,7 +878,7 @@ var _ = Describe("WorkerList", func() {
 					err := wl.PrepareWorker(worker, true)
 					Expect(err).NotTo(HaveOccurred())
 
-					eventuallyState(info, FAIL)
+					eventuallyState(info, boruta.FAIL)
 					Expect(info.key).To(BeNil())
 				})
 				It("should fail to prepare worker if dryadClientManager fails to create client", func() {
@@ -887,7 +887,7 @@ var _ = Describe("WorkerList", func() {
 					err := wl.PrepareWorker(worker, true)
 					Expect(err).NotTo(HaveOccurred())
 
-					eventuallyState(info, FAIL)
+					eventuallyState(info, boruta.FAIL)
 					Expect(info.key).To(BeNil())
 				})
 			})
@@ -897,12 +897,12 @@ var _ = Describe("WorkerList", func() {
 			var ctrl *gomock.Controller
 			var wc *MockWorkerChange
 
-			set := func(state WorkerState) {
+			set := func(state boruta.WorkerState) {
 				wl.mutex.Lock()
 				wl.workers[worker].State = state
 				wl.mutex.Unlock()
 			}
-			check := func(state WorkerState) {
+			check := func(state boruta.WorkerState) {
 				wl.mutex.RLock()
 				Expect(wl.workers[worker].State).To(Equal(state))
 				wl.mutex.RUnlock()
@@ -917,53 +917,53 @@ var _ = Describe("WorkerList", func() {
 				ctrl.Finish()
 			})
 			DescribeTable("Should change state without calling changeListener",
-				func(from, to WorkerState) {
+				func(from, to boruta.WorkerState) {
 					set(from)
 					err := wl.setState(worker, to)
 					Expect(err).NotTo(HaveOccurred())
 					check(to)
 				},
-				Entry("MAINTENANCE->MAINTENANCE", MAINTENANCE, MAINTENANCE),
-				Entry("MAINTENANCE->RUN", MAINTENANCE, RUN),
-				Entry("MAINTENANCE->FAIL", MAINTENANCE, FAIL),
-				Entry("IDLE->MAINTENANCE", IDLE, MAINTENANCE),
-				Entry("IDLE->RUN", IDLE, RUN),
-				Entry("IDLE->FAIL", IDLE, FAIL),
-				Entry("FAIL->MAINTENANCE", FAIL, MAINTENANCE),
-				Entry("FAIL->RUN", FAIL, RUN),
-				Entry("FAIL->FAIL", FAIL, FAIL),
+				Entry("MAINTENANCE->MAINTENANCE", boruta.MAINTENANCE, boruta.MAINTENANCE),
+				Entry("MAINTENANCE->RUN", boruta.MAINTENANCE, boruta.RUN),
+				Entry("MAINTENANCE->FAIL", boruta.MAINTENANCE, boruta.FAIL),
+				Entry("IDLE->MAINTENANCE", boruta.IDLE, boruta.MAINTENANCE),
+				Entry("IDLE->RUN", boruta.IDLE, boruta.RUN),
+				Entry("IDLE->FAIL", boruta.IDLE, boruta.FAIL),
+				Entry("FAIL->MAINTENANCE", boruta.FAIL, boruta.MAINTENANCE),
+				Entry("FAIL->RUN", boruta.FAIL, boruta.RUN),
+				Entry("FAIL->FAIL", boruta.FAIL, boruta.FAIL),
 			)
 			DescribeTable("Should change state and call OnWorkerIdle",
-				func(from, to WorkerState) {
+				func(from, to boruta.WorkerState) {
 					set(from)
 					wc.EXPECT().OnWorkerIdle(worker)
 					err := wl.setState(worker, to)
 					Expect(err).NotTo(HaveOccurred())
 					check(to)
 				},
-				Entry("MAINTENANCE->IDLE", MAINTENANCE, IDLE),
-				Entry("IDLE->IDLE", IDLE, IDLE),
-				Entry("RUN->IDLE", RUN, IDLE),
-				Entry("FAIL->IDLE", FAIL, IDLE),
+				Entry("MAINTENANCE->IDLE", boruta.MAINTENANCE, boruta.IDLE),
+				Entry("IDLE->IDLE", boruta.IDLE, boruta.IDLE),
+				Entry("RUN->IDLE", boruta.RUN, boruta.IDLE),
+				Entry("FAIL->IDLE", boruta.FAIL, boruta.IDLE),
 			)
 			DescribeTable("Should change state and call OnWorkerFail",
-				func(from, to WorkerState) {
+				func(from, to boruta.WorkerState) {
 					set(from)
 					wc.EXPECT().OnWorkerFail(worker)
 					err := wl.setState(worker, to)
 					Expect(err).NotTo(HaveOccurred())
 					check(to)
 				},
-				Entry("RUN->MAINTENANCE", RUN, MAINTENANCE),
-				Entry("RUN->RUN", RUN, RUN),
-				Entry("RUN->FAIL", RUN, FAIL),
+				Entry("RUN->MAINTENANCE", boruta.RUN, boruta.MAINTENANCE),
+				Entry("RUN->RUN", boruta.RUN, boruta.RUN),
+				Entry("RUN->FAIL", boruta.RUN, boruta.FAIL),
 			)
 		})
 	})
 	Describe("TakeBestMatchingWorker", func() {
-		addWorker := func(groups Groups, caps Capabilities) *mapWorker {
+		addWorker := func(groups boruta.Groups, caps boruta.Capabilities) *mapWorker {
 			capsUUID := getUUID()
-			workerUUID := WorkerUUID(capsUUID)
+			workerUUID := boruta.WorkerUUID(capsUUID)
 
 			caps[UUID] = capsUUID
 			wl.Register(caps, dryadAddr.String(), sshdAddr.String())
@@ -971,31 +971,31 @@ var _ = Describe("WorkerList", func() {
 			w, ok := wl.workers[workerUUID]
 			wl.mutex.RUnlock()
 			Expect(ok).To(BeTrue())
-			Expect(w.State).To(Equal(MAINTENANCE))
+			Expect(w.State).To(Equal(boruta.MAINTENANCE))
 
 			err := wl.SetGroups(workerUUID, groups)
 			Expect(err).NotTo(HaveOccurred())
 
 			return w
 		}
-		addIdleWorker := func(groups Groups, caps Capabilities) *mapWorker {
+		addIdleWorker := func(groups boruta.Groups, caps boruta.Capabilities) *mapWorker {
 			w := addWorker(groups, caps)
 
 			err := wl.PrepareWorker(w.WorkerUUID, false)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(w.State).To(Equal(IDLE))
+			Expect(w.State).To(Equal(boruta.IDLE))
 
 			return w
 		}
-		generateGroups := func(count int) Groups {
-			var groups Groups
+		generateGroups := func(count int) boruta.Groups {
+			var groups boruta.Groups
 			for i := 0; i < count; i++ {
-				groups = append(groups, Group(fmt.Sprintf("testGroup_%d", i)))
+				groups = append(groups, boruta.Group(fmt.Sprintf("testGroup_%d", i)))
 			}
 			return groups
 		}
-		generateCaps := func(count int) Capabilities {
-			caps := make(Capabilities)
+		generateCaps := func(count int) boruta.Capabilities {
+			caps := make(boruta.Capabilities)
 			for i := 0; i < count; i++ {
 				k := fmt.Sprintf("testCapKey_%d", i)
 				v := fmt.Sprintf("testCapValue_%d", i)
@@ -1004,22 +1004,22 @@ var _ = Describe("WorkerList", func() {
 			return caps
 		}
 		It("should fail to find matching worker when there are no workers", func() {
-			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			ret, err := wl.TakeBestMatchingWorker(boruta.Groups{}, boruta.Capabilities{})
 			Expect(err).To(Equal(ErrNoMatchingWorker))
 			Expect(ret).To(BeZero())
 		})
 		It("should match fitting worker and set it into RUN state", func() {
-			w := addIdleWorker(Groups{}, Capabilities{})
+			w := addIdleWorker(boruta.Groups{}, boruta.Capabilities{})
 
-			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			ret, err := wl.TakeBestMatchingWorker(boruta.Groups{}, boruta.Capabilities{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ret).To(Equal(w.WorkerUUID))
-			Expect(w.State).To(Equal(RUN))
+			Expect(w.State).To(Equal(boruta.RUN))
 		})
 		It("should not match not IDLE workers", func() {
-			addWorker(Groups{}, Capabilities{})
+			addWorker(boruta.Groups{}, boruta.Capabilities{})
 
-			ret, err := wl.TakeBestMatchingWorker(Groups{}, Capabilities{})
+			ret, err := wl.TakeBestMatchingWorker(boruta.Groups{}, boruta.Capabilities{})
 			Expect(err).To(Equal(ErrNoMatchingWorker))
 			Expect(ret).To(BeZero())
 		})
@@ -1037,7 +1037,7 @@ var _ = Describe("WorkerList", func() {
 				ret, err := wl.TakeBestMatchingWorker(generateGroups(1), generateCaps(1))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ret).To(Equal(w.WorkerUUID))
-				Expect(w.State).To(Equal(RUN))
+				Expect(w.State).To(Equal(boruta.RUN))
 			}
 			ret, err := wl.TakeBestMatchingWorker(generateGroups(1), generateCaps(1))
 			Expect(err).To(Equal(ErrNoMatchingWorker))
@@ -1045,7 +1045,7 @@ var _ = Describe("WorkerList", func() {
 
 			leftWorkers := []*mapWorker{w2g0c, w0g2c}
 			for _, w := range leftWorkers {
-				Expect(w.State).To(Equal(IDLE))
+				Expect(w.State).To(Equal(boruta.IDLE))
 			}
 		})
 	})

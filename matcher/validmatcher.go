@@ -23,7 +23,7 @@ package matcher
 import (
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // ValidMatcher implements Matcher interface for handling requests validation.
@@ -49,7 +49,7 @@ func NewValidMatcher(r RequestsManager, w WorkersManager, j JobsManager) *ValidM
 // Notify implements Matcher interface. This method reacts on events passed to
 // matcher. In this implementation requests' IDs are ignored as requests must be
 // matched in order they are placed in requests priority queue.
-func (m ValidMatcher) Notify([]ReqID) {
+func (m ValidMatcher) Notify([]boruta.ReqID) {
 	// Repeat verification until iterateRequests() returns false indicating that
 	// there is no more job to be done.
 	for m.iterateRequests() {
@@ -96,7 +96,7 @@ func (m ValidMatcher) iterateRequests() bool {
 // matchWorkers tries to find the best of the idle workers matching capabilities
 // and groups of the requests. Best worker is the one with least matching penalty.
 // If such worker is found a job is created and the request is processed.
-func (m ValidMatcher) matchWorkers(req ReqInfo) bool {
+func (m ValidMatcher) matchWorkers(req boruta.ReqInfo) bool {
 
 	worker, err := m.workers.TakeBestMatchingWorker(req.Owner.Groups, req.Caps)
 	if err != nil {

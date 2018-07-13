@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 )
 
 // DateFormat denotes layout of timestamps used by Boruta HTTP API.
@@ -29,12 +29,12 @@ const DateFormat = time.RFC3339
 
 // ReqIDPack is used for JSON (un)marshaller.
 type ReqIDPack struct {
-	ReqID
+	boruta.ReqID
 }
 
 // WorkerStatePack is used by JSON (un)marshaller.
 type WorkerStatePack struct {
-	WorkerState
+	boruta.WorkerState
 }
 
 // AccessInfo2 structure is used by HTTP instead of AccessInfo when acquiring

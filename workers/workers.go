@@ -25,7 +25,7 @@ import (
 	"net"
 	"sync"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/rpc/dryad"
 	"golang.org/x/crypto/ssh"
 )
@@ -40,9 +40,10 @@ var sizeRSA = 4096
 // mapWorker is used by WorkerList to store all
 // (public and private) structures representing Worker.
 type mapWorker struct {
-	WorkerInfo
+	boruta.WorkerInfo
 	dryad *net.TCPAddr
 	sshd  *net.TCPAddr
+	ip    net.IP
 	key   *rsa.PrivateKey
 }
 
@@ -55,9 +56,9 @@ type mapWorker struct {
 // The dryad.ClientManager allows managing Dryads' clients for key generation.
 // One can be created using newDryadClient function.
 type WorkerList struct {
-	Superviser
-	Workers
-	workers        map[WorkerUUID]*mapWorker
+	boruta.Superviser
+	boruta.Workers
+	workers        map[boruta.WorkerUUID]*mapWorker
 	mutex          *sync.RWMutex
 	changeListener WorkerChange
 	newDryadClient func() dryad.ClientManager
@@ -74,7 +75,7 @@ func newDryadClient() dryad.ClientManager {
 // NewWorkerList returns a new WorkerList with all fields set.
 func NewWorkerList() *WorkerList {
 	return &WorkerList{
-		workers:        make(map[WorkerUUID]*mapWorker),
+		workers:        make(map[boruta.WorkerUUID]*mapWorker),
 		mutex:          new(sync.RWMutex),
 		newDryadClient: newDryadClient,
 	}
@@ -84,12 +85,13 @@ func NewWorkerList() *WorkerList {
 // UUID, which identifies Worker, must be present in caps. Both dryadAddress and
 // sshAddress must resolve and parse to net.TCPAddr. Neither IP address nor port number
 // can not be ommited.
-func (wl *WorkerList) Register(caps Capabilities, dryadAddress string, sshAddress string) error {
+func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
+	sshAddress string) error {
 	capsUUID, present := caps[UUID]
 	if !present {
 		return ErrMissingUUID
 	}
-	uuid := WorkerUUID(capsUUID)
+	uuid := boruta.WorkerUUID(capsUUID)
 
 	dryad, err := net.ResolveTCPAddr("tcp", dryadAddress)
 	if err != nil {
@@ -125,9 +127,9 @@ func (wl *WorkerList) Register(caps Capabilities, dryadAddress string, sshAddres
 		worker.sshd = sshd
 	} else {
 		wl.workers[uuid] = &mapWorker{
-			WorkerInfo: WorkerInfo{
+			WorkerInfo: boruta.WorkerInfo{
 				WorkerUUID: uuid,
-				State:      MAINTENANCE,
+				State:      boruta.MAINTENANCE,
 				Caps:       caps,
 			},
 			dryad: dryad,
@@ -140,23 +142,23 @@ func (wl *WorkerList) Register(caps Capabilities, dryadAddress string, sshAddres
 // SetFail is an implementation of SetFail from Superviser interface.
 //
 // TODO(amistewicz): WorkerList should process the reason and store it.
-func (wl *WorkerList) SetFail(uuid WorkerUUID, reason string) error {
+func (wl *WorkerList) SetFail(uuid boruta.WorkerUUID, reason string) error {
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
 	}
-	if worker.State == MAINTENANCE {
+	if worker.State == boruta.MAINTENANCE {
 		return ErrInMaintenance
 	}
-	return wl.setState(uuid, FAIL)
+	return wl.setState(uuid, boruta.FAIL)
 }
 
 // SetState is an implementation of SetState from Workers interface.
-func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
+func (wl *WorkerList) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
 	// Only state transitions to IDLE or MAINTENANCE are allowed.
-	if state != MAINTENANCE && state != IDLE {
+	if state != boruta.MAINTENANCE && state != boruta.IDLE {
 		return ErrWrongStateArgument
 	}
 	wl.mutex.Lock()
@@ -166,20 +168,20 @@ func (wl *WorkerList) SetState(uuid WorkerUUID, state WorkerState) error {
 		return ErrWorkerNotFound
 	}
 	// State transitions to IDLE are allowed from MAINTENANCE state only.
-	if state == IDLE && worker.State != MAINTENANCE {
+	if state == boruta.IDLE && worker.State != boruta.MAINTENANCE {
 		return ErrForbiddenStateChange
 	}
 	switch state {
-	case IDLE:
+	case boruta.IDLE:
 		go wl.prepareKeyAndSetState(uuid)
-	case MAINTENANCE:
+	case boruta.MAINTENANCE:
 		go wl.putInMaintenanceWorker(uuid)
 	}
 	return nil
 }
 
 // SetGroups is an implementation of SetGroups from Workers interface.
-func (wl *WorkerList) SetGroups(uuid WorkerUUID, groups Groups) error {
+func (wl *WorkerList) SetGroups(uuid boruta.WorkerUUID, groups boruta.Groups) error {
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
@@ -191,14 +193,14 @@ func (wl *WorkerList) SetGroups(uuid WorkerUUID, groups Groups) error {
 }
 
 // Deregister is an implementation of Deregister from Workers interface.
-func (wl *WorkerList) Deregister(uuid WorkerUUID) error {
+func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
 		return ErrWorkerNotFound
 	}
-	if worker.State != MAINTENANCE {
+	if worker.State != boruta.MAINTENANCE {
 		return ErrNotInMaintenance
 	}
 	delete(wl.workers, uuid)
@@ -221,7 +223,7 @@ func (wl *WorkerList) Deregister(uuid WorkerUUID) error {
 //   "VOLTAGE": "2.9-3.6" should satisfy "VOLTAGE": "3.3"
 //
 // It is a helper function of ListWorkers.
-func isCapsMatching(worker WorkerInfo, caps Capabilities) bool {
+func isCapsMatching(worker boruta.WorkerInfo, caps boruta.Capabilities) bool {
 	if len(caps) == 0 {
 		return true
 	}
@@ -242,7 +244,7 @@ func isCapsMatching(worker WorkerInfo, caps Capabilities) bool {
 // isGroupsMatching returns true if a worker belongs to any of groups in groupsMatcher.
 // Empty groupsMatcher is satisfied by every Worker.
 // It is a helper function of ListWorkers.
-func isGroupsMatching(worker WorkerInfo, groupsMatcher map[Group]interface{}) bool {
+func isGroupsMatching(worker boruta.WorkerInfo, groupsMatcher map[boruta.Group]interface{}) bool {
 	if len(groupsMatcher) == 0 {
 		return true
 	}
@@ -256,7 +258,7 @@ func isGroupsMatching(worker WorkerInfo, groupsMatcher map[Group]interface{}) bo
 }
 
 // ListWorkers is an implementation of ListWorkers from Workers interface.
-func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error) {
+func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 
@@ -267,10 +269,10 @@ func (wl *WorkerList) ListWorkers(groups Groups, caps Capabilities) ([]WorkerInf
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
 // Caller of this method should own the mutex.
-func (wl *WorkerList) listWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error) {
-	matching := make([]WorkerInfo, 0, len(wl.workers))
+func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
+	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
 
-	groupsMatcher := make(map[Group]interface{})
+	groupsMatcher := make(map[boruta.Group]interface{})
 	for _, group := range groups {
 		groupsMatcher[group] = nil
 	}
@@ -285,18 +287,18 @@ func (wl *WorkerList) listWorkers(groups Groups, caps Capabilities) ([]WorkerInf
 }
 
 // GetWorkerInfo is an implementation of GetWorkerInfo from Workers interface.
-func (wl *WorkerList) GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error) {
+func (wl *WorkerList) GetWorkerInfo(uuid boruta.WorkerUUID) (boruta.WorkerInfo, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
-		return WorkerInfo{}, ErrWorkerNotFound
+		return boruta.WorkerInfo{}, ErrWorkerNotFound
 	}
 	return worker.WorkerInfo, nil
 }
 
 // GetWorkerAddr retrieves IP address from the internal structure.
-func (wl *WorkerList) GetWorkerAddr(uuid WorkerUUID) (net.TCPAddr, error) {
+func (wl *WorkerList) GetWorkerAddr(uuid boruta.WorkerUUID) (net.TCPAddr, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
@@ -307,7 +309,7 @@ func (wl *WorkerList) GetWorkerAddr(uuid WorkerUUID) (net.TCPAddr, error) {
 }
 
 // GetWorkerSSHAddr retrieves address of worker's ssh daemon from the internal structure.
-func (wl *WorkerList) GetWorkerSSHAddr(uuid WorkerUUID) (net.TCPAddr, error) {
+func (wl *WorkerList) GetWorkerSSHAddr(uuid boruta.WorkerUUID) (net.TCPAddr, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
@@ -319,7 +321,7 @@ func (wl *WorkerList) GetWorkerSSHAddr(uuid WorkerUUID) (net.TCPAddr, error) {
 
 // SetWorkerKey stores private key in the worker structure referenced by uuid.
 // It is safe to modify key after call to this function.
-func (wl *WorkerList) SetWorkerKey(uuid WorkerUUID, key *rsa.PrivateKey) error {
+func (wl *WorkerList) SetWorkerKey(uuid boruta.WorkerUUID, key *rsa.PrivateKey) error {
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
@@ -333,7 +335,7 @@ func (wl *WorkerList) SetWorkerKey(uuid WorkerUUID, key *rsa.PrivateKey) error {
 }
 
 // GetWorkerKey retrieves key from the internal structure.
-func (wl *WorkerList) GetWorkerKey(uuid WorkerUUID) (rsa.PrivateKey, error) {
+func (wl *WorkerList) GetWorkerKey(uuid boruta.WorkerUUID) (rsa.PrivateKey, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
@@ -349,7 +351,7 @@ func (wl *WorkerList) GetWorkerKey(uuid WorkerUUID) (rsa.PrivateKey, error) {
 // it is put into RUN state and its UUID is returned. An error is returned if no
 // matching IDLE worker is found.
 // It is a part of WorkersManager interface implementation by WorkerList.
-func (wl *WorkerList) TakeBestMatchingWorker(groups Groups, caps Capabilities) (bestWorker WorkerUUID, err error) {
+func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.Capabilities) (bestWorker boruta.WorkerUUID, err error) {
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 
@@ -357,7 +359,7 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups Groups, caps Capabilities) (
 
 	matching, _ := wl.listWorkers(groups, caps)
 	for _, info := range matching {
-		if info.State != IDLE {
+		if info.State != boruta.IDLE {
 			continue
 		}
 		score := len(info.Caps) + len(info.Groups)
@@ -371,7 +373,7 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups Groups, caps Capabilities) (
 		return
 	}
 
-	err = wl.setState(bestWorker, RUN)
+	err = wl.setState(bestWorker, boruta.RUN)
 	return
 }
 
@@ -384,11 +386,11 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups Groups, caps Capabilities) (
 // As key creation can take some time, the method is asynchronous and the worker's
 // state might not be changed when it returns.
 // It is a part of WorkersManager interface implementation by WorkerList.
-func (wl *WorkerList) PrepareWorker(worker WorkerUUID, withKeyGeneration bool) error {
+func (wl *WorkerList) PrepareWorker(worker boruta.WorkerUUID, withKeyGeneration bool) error {
 	if !withKeyGeneration {
 		wl.mutex.Lock()
 		defer wl.mutex.Unlock()
-		return wl.setState(worker, IDLE)
+		return wl.setState(worker, boruta.IDLE)
 	}
 
 	go wl.prepareKeyAndSetState(worker)
@@ -399,45 +401,45 @@ func (wl *WorkerList) PrepareWorker(worker WorkerUUID, withKeyGeneration bool) e
 // prepareKeyAndSetState prepares private RSA key for the worker and sets worker
 // into IDLE state in case of success. In case of failure of key preparation,
 // worker is put into FAIL state instead.
-func (wl *WorkerList) prepareKeyAndSetState(worker WorkerUUID) {
+func (wl *WorkerList) prepareKeyAndSetState(worker boruta.WorkerUUID) {
 	err := wl.prepareKey(worker)
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	if err != nil {
 		// TODO log error.
-		wl.setState(worker, FAIL)
+		wl.setState(worker, boruta.FAIL)
 		return
 	}
-	wl.setState(worker, IDLE)
+	wl.setState(worker, boruta.IDLE)
 }
 
 // putInMaintenanceWorker puts Dryad into maintenance mode and sets worker
 // into MAINTENANCE state in case of success. In case of failure of entering
 // maintenance mode, worker is put into FAIL state instead.
-func (wl *WorkerList) putInMaintenanceWorker(worker WorkerUUID) {
+func (wl *WorkerList) putInMaintenanceWorker(worker boruta.WorkerUUID) {
 	err := wl.putInMaintenance(worker)
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	if err != nil {
-		wl.setState(worker, FAIL)
+		wl.setState(worker, boruta.FAIL)
 		return
 	}
-	wl.setState(worker, MAINTENANCE)
+	wl.setState(worker, boruta.MAINTENANCE)
 }
 
 // setState changes state of worker. It does not contain any verification if change
 // is feasible. It should be used only for internal boruta purposes. It must be
 // called inside WorkerList critical section guarded by WorkerList.mutex.
-func (wl *WorkerList) setState(worker WorkerUUID, state WorkerState) error {
+func (wl *WorkerList) setState(worker boruta.WorkerUUID, state boruta.WorkerState) error {
 	w, ok := wl.workers[worker]
 	if !ok {
 		return ErrWorkerNotFound
 	}
 	if wl.changeListener != nil {
-		if state == IDLE {
+		if state == boruta.IDLE {
 			wl.changeListener.OnWorkerIdle(worker)
 		} else {
-			if w.State == RUN {
+			if w.State == boruta.RUN {
 				wl.changeListener.OnWorkerFail(worker)
 			}
 		}
@@ -447,7 +449,7 @@ func (wl *WorkerList) setState(worker WorkerUUID, state WorkerState) error {
 }
 
 // prepareKey generates key, installs public part on worker and stores private part in WorkerList.
-func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
+func (wl *WorkerList) prepareKey(worker boruta.WorkerUUID) error {
 	addr, err := wl.GetWorkerAddr(worker)
 	if err != nil {
 		return err
@@ -475,7 +477,7 @@ func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
 }
 
 // putInMaintenance orders Dryad to enter maintenance mode.
-func (wl *WorkerList) putInMaintenance(worker WorkerUUID) error {
+func (wl *WorkerList) putInMaintenance(worker boruta.WorkerUUID) error {
 	addr, err := wl.GetWorkerAddr(worker)
 	if err != nil {
 		return err

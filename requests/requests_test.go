@@ -22,44 +22,80 @@ import (
 	"testing"
 	"time"
 
-	. "git.tizen.org/tools/boruta"
+	"git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/workers"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	owner     UserInfo
-	job       JobInfo
+	owner     boruta.UserInfo
+	job       boruta.JobInfo
 	zeroTime  time.Time
-	caps      = make(Capabilities)
+	caps      = make(boruta.Capabilities)
 	now       = time.Now().UTC()
 	yesterday = now.AddDate(0, 0, -1).UTC()
 	tomorrow  = now.AddDate(0, 0, 1).UTC()
 )
 
 var requestsTests = [...]struct {
-	req ReqInfo
+	req boruta.ReqInfo
 	err error
 }{
 	{
 		// valid request
-		req: ReqInfo{ReqID(1), Priority((HiPrio + LoPrio) / 2), owner, tomorrow, now, WAIT, &job, caps},
+		req: boruta.ReqInfo{
+			ID:         boruta.ReqID(1),
+			Priority:   boruta.Priority((boruta.HiPrio + boruta.LoPrio) / 2),
+			Owner:      owner,
+			Deadline:   tomorrow,
+			ValidAfter: now,
+			State:      boruta.WAIT,
+			Job:        &job,
+			Caps:       caps,
+		},
 		err: nil,
 	},
 	{
 		// request with invalid priority
-		req: ReqInfo{ReqID(0), Priority(LoPrio + 1), owner, tomorrow, now, WAIT, &job, caps},
+		req: boruta.ReqInfo{
+			ID:         boruta.ReqID(0),
+			Priority:   boruta.Priority(boruta.LoPrio + 1),
+			Owner:      owner,
+			Deadline:   tomorrow,
+			ValidAfter: now,
+			State:      boruta.WAIT,
+			Job:        &job,
+			Caps:       caps,
+		},
 		err: ErrPriority,
 	},
 	{
 		// request with ValidAfter date newer then Deadline
-		req: ReqInfo{ReqID(0), Priority((HiPrio + LoPrio) / 2), owner, now.Add(time.Hour), tomorrow, WAIT, &job, caps},
+		req: boruta.ReqInfo{
+			ID:         boruta.ReqID(0),
+			Priority:   boruta.Priority((boruta.HiPrio + boruta.LoPrio) / 2),
+			Owner:      owner,
+			Deadline:   now.Add(time.Hour),
+			ValidAfter: tomorrow,
+			State:      boruta.WAIT,
+			Job:        &job,
+			Caps:       caps,
+		},
 		err: ErrInvalidTimeRange,
 	},
 	{
 		// request with Deadline set in the past.
-		req: ReqInfo{ReqID(0), Priority((HiPrio + LoPrio) / 2), owner, yesterday, now, WAIT, &job, caps},
+		req: boruta.ReqInfo{
+			ID:         boruta.ReqID(0),
+			Priority:   boruta.Priority((boruta.HiPrio + boruta.LoPrio) / 2),
+			Owner:      owner,
+			Deadline:   yesterday,
+			ValidAfter: now,
+			State:      boruta.WAIT,
+			Job:        &job,
+			Caps:       caps,
+		},
 		err: ErrDeadlineInThePast,
 	},
 }
@@ -69,7 +105,8 @@ func initTest(t *testing.T) (*assert.Assertions, *ReqsCollection, *gomock.Contro
 	wm := NewMockWorkersManager(ctrl)
 	jm := NewMockJobsManager(ctrl)
 	testErr := errors.New("Test Error")
-	wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(WorkerUUID(""), testErr).AnyTimes()
+	wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""),
+		testErr).AnyTimes()
 	wm.EXPECT().SetChangeListener(gomock.Any())
 	return assert.New(t), NewRequestQueue(wm, jm), ctrl, jm
 }
@@ -124,7 +161,7 @@ func TestCloseRequest(t *testing.T) {
 	defer finiTest(rqueue, ctrl)
 
 	req := requestsTests[0].req
-	jobInfo := JobInfo{
+	jobInfo := boruta.JobInfo{
 		WorkerUUID: "Test WorkerUUID",
 	}
 
@@ -139,13 +176,13 @@ func TestCloseRequest(t *testing.T) {
 	err = rqueue.CloseRequest(reqid)
 	assert.Nil(err)
 	rqueue.mutex.RLock()
-	assert.Equal(ReqState(CANCEL), rqueue.requests[reqid].State)
+	assert.Equal(boruta.ReqState(boruta.CANCEL), rqueue.requests[reqid].State)
 	assert.Zero(rqueue.queue.length)
 	rqueue.mutex.RUnlock()
 
 	// Try to close non-existent request.
-	err = rqueue.CloseRequest(ReqID(2))
-	assert.Equal(NotFoundError("Request"), err)
+	err = rqueue.CloseRequest(boruta.ReqID(2))
+	assert.Equal(boruta.NotFoundError("Request"), err)
 
 	// Add another valid request.
 	reqid, err = rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
@@ -155,7 +192,7 @@ func TestCloseRequest(t *testing.T) {
 	reqinfo, err := rqueue.GetRequestInfo(reqid)
 	assert.Nil(err)
 	rqueue.mutex.Lock()
-	rqueue.requests[reqid].State = INPROGRESS
+	rqueue.requests[reqid].State = boruta.INPROGRESS
 	rqueue.requests[reqid].Job = &jobInfo
 	rqueue.queue.removeRequest(&reqinfo)
 	rqueue.mutex.Unlock()
@@ -167,11 +204,12 @@ func TestCloseRequest(t *testing.T) {
 	assert.Nil(err)
 	rqueue.mutex.RLock()
 	assert.EqualValues(2, len(rqueue.requests))
-	assert.Equal(ReqState(DONE), rqueue.requests[reqid].State)
+	assert.Equal(boruta.ReqState(boruta.DONE), rqueue.requests[reqid].State)
 	rqueue.mutex.RUnlock()
 
 	// Simulation for the rest of states.
-	states := [...]ReqState{INVALID, CANCEL, TIMEOUT, DONE, FAILED}
+	states := [...]boruta.ReqState{boruta.INVALID, boruta.CANCEL, boruta.TIMEOUT, boruta.DONE,
+		boruta.FAILED}
 	reqid, err = rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
 	assert.Nil(err)
 	assert.EqualValues(3, reqid)
@@ -207,7 +245,7 @@ func TestUpdateRequest(t *testing.T) {
 	rqueue.mutex.RUnlock()
 	reqBefore, err := rqueue.GetRequestInfo(reqid)
 	assert.Nil(err)
-	reqUpdate := new(ReqInfo)
+	reqUpdate := new(boruta.ReqInfo)
 	rqueue.mutex.RLock()
 	*reqUpdate = *req
 	rqueue.mutex.RUnlock()
@@ -217,7 +255,7 @@ func TestUpdateRequest(t *testing.T) {
 	assert.Nil(err)
 	reqUpdate.ValidAfter = zeroTime
 	reqUpdate.Deadline = zeroTime
-	reqUpdate.Priority = Priority(0)
+	reqUpdate.Priority = boruta.Priority(0)
 	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Nil(err)
 	rqueue.mutex.RLock()
@@ -227,7 +265,7 @@ func TestUpdateRequest(t *testing.T) {
 	rqueue.mutex.RUnlock()
 	reqUpdate.ID++
 	err = rqueue.UpdateRequest(reqUpdate)
-	assert.Equal(NotFoundError("Request"), err)
+	assert.Equal(boruta.NotFoundError("Request"), err)
 	rqueue.mutex.RLock()
 	reqUpdate.ID = req.ID
 	// Change Priority only.
@@ -255,7 +293,7 @@ func TestUpdateRequest(t *testing.T) {
 	// Change Priority, ValidAfter and Deadline.
 	reqUpdate.Deadline = tomorrow
 	reqUpdate.ValidAfter = time.Now().Add(time.Hour)
-	reqUpdate.Priority = LoPrio
+	reqUpdate.Priority = boruta.LoPrio
 	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Nil(err)
 	rqueue.mutex.RLock()
@@ -268,7 +306,7 @@ func TestUpdateRequest(t *testing.T) {
 	assert.Equal(reqUpdate, req)
 	rqueue.mutex.RUnlock()
 	// Change Priority to illegal value.
-	reqUpdate.Priority = LoPrio + 1
+	reqUpdate.Priority = boruta.LoPrio + 1
 	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Equal(ErrPriority, err)
 	rqueue.mutex.RLock()
@@ -288,7 +326,8 @@ func TestUpdateRequest(t *testing.T) {
 	err = rqueue.UpdateRequest(reqUpdate)
 	assert.Equal(ErrInvalidTimeRange, err)
 	// Try to change values for other changes.
-	states := [...]ReqState{INVALID, CANCEL, TIMEOUT, DONE, FAILED, INPROGRESS}
+	states := [...]boruta.ReqState{boruta.INVALID, boruta.CANCEL, boruta.TIMEOUT, boruta.DONE,
+		boruta.FAILED, boruta.INPROGRESS}
 	for _, state := range states {
 		rqueue.mutex.Lock()
 		rqueue.requests[reqid].State = state
@@ -312,8 +351,8 @@ func TestGetRequestInfo(t *testing.T) {
 	assert.Equal(req, reqUpdate)
 
 	// Try to get information for non-existent request.
-	req3, err := rqueue.GetRequestInfo(ReqID(2))
-	assert.Equal(NotFoundError("Request"), err)
+	req3, err := rqueue.GetRequestInfo(boruta.ReqID(2))
+	assert.Equal(boruta.NotFoundError("Request"), err)
 	assert.Zero(req3)
 }
 
@@ -322,7 +361,7 @@ type reqFilter struct {
 	priority string
 }
 
-func (filter *reqFilter) Match(req *ReqInfo) bool {
+func (filter *reqFilter) Match(req *boruta.ReqInfo) bool {
 	if req == nil {
 		return false
 	}
@@ -346,8 +385,8 @@ func TestListRequests(t *testing.T) {
 	const reqsCnt = 4
 
 	// Add few requests.
-	reqs := make(map[ReqID]bool, reqsCnt)
-	noReqs := make(map[ReqID]bool)
+	reqs := make(map[boruta.ReqID]bool, reqsCnt)
+	noReqs := make(map[boruta.ReqID]bool)
 	for i := 0; i < reqsCnt; i++ {
 		reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
 		assert.Nil(err)
@@ -358,73 +397,73 @@ func TestListRequests(t *testing.T) {
 		}
 		if i > 1 {
 			rqueue.mutex.Lock()
-			rqueue.requests[reqid].State = DONE
+			rqueue.requests[reqid].State = boruta.DONE
 			rqueue.mutex.Unlock()
 		}
 		reqs[reqid] = true
 	}
 
 	notFoundPrio := req.Priority - 1
-	notFoundState := INVALID
+	notFoundState := boruta.INVALID
 	var filterTests = [...]struct {
 		filter reqFilter
-		result map[ReqID]bool
+		result map[boruta.ReqID]bool
 	}{
 		{
 			filter: reqFilter{
-				state:    string(WAIT),
+				state:    string(boruta.WAIT),
 				priority: req.Priority.String(),
 			},
-			result: map[ReqID]bool{ReqID(1): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(1): true},
 		},
 		{
 			filter: reqFilter{
-				state:    string(WAIT),
+				state:    string(boruta.WAIT),
 				priority: (req.Priority + 1).String(),
 			},
-			result: map[ReqID]bool{ReqID(2): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(2): true},
 		},
 		{
 			filter: reqFilter{
-				state:    string(DONE),
+				state:    string(boruta.DONE),
 				priority: req.Priority.String(),
 			},
-			result: map[ReqID]bool{ReqID(3): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(3): true},
 		},
 		{
 			filter: reqFilter{
-				state:    string(DONE),
+				state:    string(boruta.DONE),
 				priority: (req.Priority + 1).String(),
 			},
-			result: map[ReqID]bool{ReqID(4): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(4): true},
 		},
 		{
 			filter: reqFilter{
 				state:    "",
 				priority: req.Priority.String(),
 			},
-			result: map[ReqID]bool{ReqID(1): true, ReqID(3): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(1): true, boruta.ReqID(3): true},
 		},
 		{
 			filter: reqFilter{
 				state:    "",
 				priority: (req.Priority + 1).String(),
 			},
-			result: map[ReqID]bool{ReqID(2): true, ReqID(4): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(2): true, boruta.ReqID(4): true},
 		},
 		{
 			filter: reqFilter{
-				state:    string(WAIT),
+				state:    string(boruta.WAIT),
 				priority: "",
 			},
-			result: map[ReqID]bool{ReqID(1): true, ReqID(2): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(1): true, boruta.ReqID(2): true},
 		},
 		{
 			filter: reqFilter{
-				state:    string(DONE),
+				state:    string(boruta.DONE),
 				priority: "",
 			},
-			result: map[ReqID]bool{ReqID(3): true, ReqID(4): true},
+			result: map[boruta.ReqID]bool{boruta.ReqID(3): true, boruta.ReqID(4): true},
 		},
 		{
 			filter: reqFilter{
@@ -442,7 +481,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			filter: reqFilter{
-				state:    string(WAIT),
+				state:    string(boruta.WAIT),
 				priority: notFoundPrio.String(),
 			},
 			result: noReqs,
@@ -456,7 +495,7 @@ func TestListRequests(t *testing.T) {
 		},
 	}
 
-	checkReqs := func(reqs map[ReqID]bool, resp []ReqInfo) {
+	checkReqs := func(reqs map[boruta.ReqID]bool, resp []boruta.ReqInfo) {
 		assert.Equal(len(reqs), len(resp))
 		for _, req := range resp {
 			assert.True(reqs[req.ID])
@@ -486,14 +525,15 @@ func TestAcquireWorker(t *testing.T) {
 	assert, rqueue, ctrl, jm := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
-	empty := AccessInfo{}
+	empty := boruta.AccessInfo{}
 	testErr := errors.New("Test Error")
 
 	// Add valid request.
 	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
 	assert.Nil(err)
 
-	states := [...]ReqState{WAIT, INVALID, CANCEL, TIMEOUT, DONE, FAILED, INPROGRESS}
+	states := [...]boruta.ReqState{boruta.WAIT, boruta.INVALID, boruta.CANCEL, boruta.TIMEOUT,
+		boruta.DONE, boruta.FAILED, boruta.INPROGRESS}
 	for _, state := range states {
 		rqueue.mutex.Lock()
 		rqueue.requests[reqid].State = state
@@ -504,18 +544,18 @@ func TestAcquireWorker(t *testing.T) {
 	}
 
 	// Try to acquire worker for non-existing request.
-	ainfo, err := rqueue.AcquireWorker(ReqID(2))
-	assert.Equal(NotFoundError("Request"), err)
+	ainfo, err := rqueue.AcquireWorker(boruta.ReqID(2))
+	assert.Equal(boruta.NotFoundError("Request"), err)
 	assert.Equal(empty, ainfo)
 
 	// Try to acquire worker when jobs.Get() fails.
-	jobInfo := JobInfo{
+	jobInfo := boruta.JobInfo{
 		WorkerUUID: "Test WorkerUUID",
 	}
 	rqueue.mutex.Lock()
 	rqueue.requests[reqid].Job = &jobInfo
 	rqueue.mutex.Unlock()
-	ignoredJob := &workers.Job{Req: ReqID(0xBAD)}
+	ignoredJob := &workers.Job{Req: boruta.ReqID(0xBAD)}
 	jm.EXPECT().Get(jobInfo.WorkerUUID).Return(ignoredJob, testErr)
 	ainfo, err = rqueue.AcquireWorker(reqid)
 	assert.Equal(testErr, err)
@@ -524,7 +564,7 @@ func TestAcquireWorker(t *testing.T) {
 	// AcquireWorker to succeed needs JobInfo to be set. It also needs to be
 	// in INPROGRESS state, which was set in the loop.
 	job := &workers.Job{
-		Access: AccessInfo{Addr: &net.TCPAddr{IP: net.IPv4(1, 2, 3, 4)}},
+		Access: boruta.AccessInfo{Addr: &net.TCPAddr{IP: net.IPv4(1, 2, 3, 4)}},
 	}
 	rqueue.mutex.Lock()
 	rqueue.requests[reqid].Job = &jobInfo
@@ -544,7 +584,8 @@ func TestProlongAccess(t *testing.T) {
 	reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
 	assert.Nil(err)
 
-	states := [...]ReqState{WAIT, INVALID, CANCEL, TIMEOUT, DONE, FAILED, INPROGRESS}
+	states := [...]boruta.ReqState{boruta.WAIT, boruta.INVALID, boruta.CANCEL, boruta.TIMEOUT,
+		boruta.DONE, boruta.FAILED, boruta.INPROGRESS}
 	for _, state := range states {
 		rqueue.mutex.Lock()
 		rqueue.requests[reqid].State = state
@@ -554,13 +595,13 @@ func TestProlongAccess(t *testing.T) {
 	}
 
 	// Try to prolong access of job for non-existing request.
-	err = rqueue.ProlongAccess(ReqID(2))
-	assert.Equal(NotFoundError("Request"), err)
+	err = rqueue.ProlongAccess(boruta.ReqID(2))
+	assert.Equal(boruta.NotFoundError("Request"), err)
 
 	// ProlongAccess to succeed needs JobInfo to be set. It also needs to be
 	// in INPROGRESS state, which was set in the loop.
 	rqueue.mutex.Lock()
-	rqueue.requests[reqid].Job = new(JobInfo)
+	rqueue.requests[reqid].Job = new(boruta.JobInfo)
 	rqueue.mutex.Unlock()
 	err = rqueue.ProlongAccess(reqid)
 	assert.Nil(err)
