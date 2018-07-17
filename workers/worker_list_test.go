@@ -46,6 +46,12 @@ var _ = Describe("WorkerList", func() {
 		}
 	})
 
+	getUUID := func() string {
+		u, err := uuid.NewV4()
+		Expect(err).ToNot(HaveOccurred())
+		return u.String()
+	}
+
 	Describe("Register", func() {
 		var registeredWorkers []string
 
@@ -81,7 +87,7 @@ var _ = Describe("WorkerList", func() {
 
 		getRandomCaps := func() Capabilities {
 			return Capabilities{
-				UUID: uuid.NewV4().String(),
+				UUID: getUUID(),
 			}
 		}
 
@@ -161,12 +167,12 @@ var _ = Describe("WorkerList", func() {
 		randomUUID := func() WorkerUUID {
 			newUUID := worker
 			for newUUID == worker {
-				newUUID = WorkerUUID(uuid.NewV4().String())
+				newUUID = WorkerUUID(getUUID())
 			}
 			return newUUID
 		}
 		registerWorker := func() WorkerUUID {
-			capsUUID := uuid.NewV4().String()
+			capsUUID := getUUID()
 			err := wl.Register(Capabilities{UUID: capsUUID})
 			Expect(err).ToNot(HaveOccurred())
 			wl.mutex.RLock()
@@ -520,7 +526,7 @@ var _ = Describe("WorkerList", func() {
 			var refWorkerList []WorkerInfo
 
 			registerAndSetGroups := func(groups Groups, caps Capabilities) WorkerInfo {
-				capsUUID := uuid.NewV4().String()
+				capsUUID := getUUID()
 				caps[UUID] = capsUUID
 				err := wl.Register(caps)
 				Expect(err).ToNot(HaveOccurred())
@@ -920,7 +926,7 @@ var _ = Describe("WorkerList", func() {
 	})
 	Describe("TakeBestMatchingWorker", func() {
 		addWorker := func(groups Groups, caps Capabilities) *mapWorker {
-			capsUUID := uuid.NewV4().String()
+			capsUUID := getUUID()
 			workerUUID := WorkerUUID(capsUUID)
 
 			caps[UUID] = capsUUID

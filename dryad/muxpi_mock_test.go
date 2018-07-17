@@ -71,6 +71,31 @@ func (mr *MockInterfaceMockRecorder) GetCurrent() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrent", reflect.TypeOf((*MockInterface)(nil).GetCurrent))
 }
 
+// GetCurrentRecord mocks base method
+func (m *MockInterface) GetCurrentRecord() ([]int, error) {
+	ret := m.ctrl.Call(m, "GetCurrentRecord")
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCurrentRecord indicates an expected call of GetCurrentRecord
+func (mr *MockInterfaceMockRecorder) GetCurrentRecord() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentRecord", reflect.TypeOf((*MockInterface)(nil).GetCurrentRecord))
+}
+
+// HDMI mocks base method
+func (m *MockInterface) HDMI(arg0 bool) error {
+	ret := m.ctrl.Call(m, "HDMI", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HDMI indicates an expected call of HDMI
+func (mr *MockInterfaceMockRecorder) HDMI(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HDMI", reflect.TypeOf((*MockInterface)(nil).HDMI), arg0)
+}
+
 // PowerTick mocks base method
 func (m *MockInterface) PowerTick(arg0 time.Duration) error {
 	ret := m.ctrl.Call(m, "PowerTick", arg0)
@@ -95,6 +120,18 @@ func (mr *MockInterfaceMockRecorder) PrintText(arg0, arg1, arg2, arg3 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrintText", reflect.TypeOf((*MockInterface)(nil).PrintText), arg0, arg1, arg2, arg3)
 }
 
+// SetDyper mocks base method
+func (m *MockInterface) SetDyper(arg0 stm.Dyper, arg1 bool) error {
+	ret := m.ctrl.Call(m, "SetDyper", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDyper indicates an expected call of SetDyper
+func (mr *MockInterfaceMockRecorder) SetDyper(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDyper", reflect.TypeOf((*MockInterface)(nil).SetDyper), arg0, arg1)
+}
+
 // SetLED mocks base method
 func (m *MockInterface) SetLED(arg0 stm.LED, arg1, arg2, arg3 byte) error {
 	ret := m.ctrl.Call(m, "SetLED", arg0, arg1, arg2, arg3)
@@ -105,6 +142,30 @@ func (m *MockInterface) SetLED(arg0 stm.LED, arg1, arg2, arg3 byte) error {
 // SetLED indicates an expected call of SetLED
 func (mr *MockInterfaceMockRecorder) SetLED(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLED", reflect.TypeOf((*MockInterface)(nil).SetLED), arg0, arg1, arg2, arg3)
+}
+
+// StartCurrentRecord mocks base method
+func (m *MockInterface) StartCurrentRecord(arg0 int, arg1 time.Duration) error {
+	ret := m.ctrl.Call(m, "StartCurrentRecord", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartCurrentRecord indicates an expected call of StartCurrentRecord
+func (mr *MockInterfaceMockRecorder) StartCurrentRecord(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartCurrentRecord", reflect.TypeOf((*MockInterface)(nil).StartCurrentRecord), arg0, arg1)
+}
+
+// StopCurrentRecord mocks base method
+func (m *MockInterface) StopCurrentRecord() error {
+	ret := m.ctrl.Call(m, "StopCurrentRecord")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StopCurrentRecord indicates an expected call of StopCurrentRecord
+func (mr *MockInterfaceMockRecorder) StopCurrentRecord() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopCurrentRecord", reflect.TypeOf((*MockInterface)(nil).StopCurrentRecord))
 }
 
 // TS mocks base method

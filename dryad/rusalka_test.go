@@ -75,7 +75,9 @@ var _ = Describe("Rusalka", func() {
 
 	It("should prepare", func() {
 		u, err := user.Current()
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			Skip("failed to get user info")
+		}
 		if u.Uid != "0" {
 			Skip("must be run as root")
 		}
