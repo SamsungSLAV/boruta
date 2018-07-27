@@ -29,6 +29,7 @@ import (
 	dryad_rpc "git.tizen.org/tools/boruta/rpc/dryad"
 	superviser_rpc "git.tizen.org/tools/boruta/rpc/superviser"
 	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -52,6 +53,16 @@ func generateConfFile() {
 	f, err := os.Create(confPath)
 	exitOnErr("can't create configuration file:", err)
 	defer f.Close()
+
+	u, err := uuid.NewV4()
+	if err != nil {
+		// can't generate UUID so write config without it.
+		// TODO: log a warning.
+		goto end
+	}
+	configuration.Caps["UUID"] = u.String()
+
+end:
 	exitOnErr("can't generate new configuration:", configuration.Marshal(f))
 }
 
