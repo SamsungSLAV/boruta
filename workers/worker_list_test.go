@@ -392,7 +392,7 @@ var _ = Describe("WorkerList", func() {
 					It("should work to SetState", func() {
 						gomock.InOrder(
 							dcm.EXPECT().Create(info.dryad),
-							dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(nil),
+							dcm.EXPECT().Prepare(gomock.Any()).Return(nil),
 							dcm.EXPECT().Close(),
 						)
 
@@ -405,7 +405,7 @@ var _ = Describe("WorkerList", func() {
 					It("should fail to SetState if dryadClientManager fails to prepare client", func() {
 						gomock.InOrder(
 							dcm.EXPECT().Create(info.dryad),
-							dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(testerr),
+							dcm.EXPECT().Prepare(gomock.Any()).Return(testerr),
 							dcm.EXPECT().Close(),
 						)
 
@@ -785,10 +785,13 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			It("should work to set and get information", func() {
+				// There's only 1 setter and 3 getters, so only 1st getter is checked in loop.
 				for i, set := range setters {
 					get := getters[i]
 					get(wl, worker, set(wl, worker, nil), nil)
 				}
+				getDryad(wl, worker, *dryadAddr, nil)
+				getSSH(wl, worker, *sshdAddr, nil)
 			})
 		})
 		Describe("PrepareWorker", func() {
@@ -855,7 +858,7 @@ var _ = Describe("WorkerList", func() {
 				It("should set worker into IDLE state and prepare a key", func() {
 					gomock.InOrder(
 						dcm.EXPECT().Create(info.dryad),
-						dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(nil),
+						dcm.EXPECT().Prepare(gomock.Any()).Return(nil),
 						dcm.EXPECT().Close(),
 					)
 
@@ -868,7 +871,7 @@ var _ = Describe("WorkerList", func() {
 				It("should fail to prepare worker if dryadClientManager fails to prepare client", func() {
 					gomock.InOrder(
 						dcm.EXPECT().Create(info.dryad),
-						dcm.EXPECT().Prepare(gomock.AssignableToTypeOf(&rsa.PublicKey{})).Return(testerr),
+						dcm.EXPECT().Prepare(gomock.Any()).Return(testerr),
 						dcm.EXPECT().Close(),
 					)
 

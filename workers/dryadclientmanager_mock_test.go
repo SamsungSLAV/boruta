@@ -4,8 +4,8 @@
 package workers
 
 import (
-	rsa "crypto/rsa"
 	gomock "github.com/golang/mock/gomock"
+	ssh "golang.org/x/crypto/ssh"
 	net "net"
 	reflect "reflect"
 )
@@ -70,7 +70,7 @@ func (mr *MockDryadClientManagerMockRecorder) Healthcheck() *gomock.Call {
 }
 
 // Prepare mocks base method
-func (m *MockDryadClientManager) Prepare(arg0 *rsa.PublicKey) error {
+func (m *MockDryadClientManager) Prepare(arg0 *ssh.PublicKey) error {
 	ret := m.ctrl.Call(m, "Prepare", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

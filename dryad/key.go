@@ -17,6 +17,7 @@
 package dryad
 
 import (
+	"errors"
 	"os"
 	"path"
 	"strconv"
@@ -25,7 +26,10 @@ import (
 )
 
 // installPublicKey marshals and stores key in a proper location to be read by ssh daemon.
-func installPublicKey(key ssh.PublicKey, homedir, uid, gid string) error {
+func installPublicKey(key *ssh.PublicKey, homedir, uid, gid string) error {
+	if key == nil {
+		return errors.New("empty public key")
+	}
 	sshDir := path.Join(homedir, ".ssh")
 	err := os.MkdirAll(sshDir, 0755)
 	if err != nil {
@@ -41,7 +45,7 @@ func installPublicKey(key ssh.PublicKey, homedir, uid, gid string) error {
 	if err != nil {
 		return err
 	}
-	_, err = f.Write(ssh.MarshalAuthorizedKey(key))
+	_, err = f.Write(ssh.MarshalAuthorizedKey(*key))
 	return err
 }
 

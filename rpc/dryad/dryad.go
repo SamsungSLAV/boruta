@@ -3,8 +3,8 @@
 package dryad
 
 import (
-	"crypto/rsa"
 	. "git.tizen.org/tools/boruta"
+	"golang.org/x/crypto/ssh"
 	"net/rpc"
 )
 
@@ -40,7 +40,7 @@ func (s *DryadService) PutInMaintenance(request *DryadPutInMaintenanceRequest, r
 
 // DryadPrepareRequest is a helper structure for Prepare method.
 type DryadPrepareRequest struct {
-	Key *rsa.PublicKey
+	Key *ssh.PublicKey
 }
 
 // DryadPrepareResponse is a helper structure for Prepare method.
@@ -97,7 +97,7 @@ func (_c *DryadClient) PutInMaintenance(msg string) (err error) {
 }
 
 // Prepare is part of implementation of Dryad calling corresponding method on RPC server.
-func (_c *DryadClient) Prepare(key *rsa.PublicKey) (err error) {
+func (_c *DryadClient) Prepare(key *ssh.PublicKey) (err error) {
 	_request := &DryadPrepareRequest{key}
 	_response := &DryadPrepareResponse{}
 	err = _c.client.Call("Dryad.Prepare", _request, _response)

@@ -27,6 +27,7 @@ import (
 
 	. "git.tizen.org/tools/boruta"
 	"git.tizen.org/tools/boruta/rpc/dryad"
+	"golang.org/x/crypto/ssh"
 )
 
 // UUID denotes a key in Capabilities where WorkerUUID is stored.
@@ -461,7 +462,11 @@ func (wl *WorkerList) prepareKey(worker WorkerUUID) error {
 	if err != nil {
 		return err
 	}
-	err = client.Prepare(&key.PublicKey)
+	pubKey, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	err = client.Prepare(&pubKey)
 	if err != nil {
 		return err
 	}

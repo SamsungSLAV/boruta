@@ -119,15 +119,15 @@ func (m *MockSuperviser) EXPECT() *MockSuperviserMockRecorder {
 }
 
 // Register mocks base method
-func (m *MockSuperviser) Register(arg0 boruta.Capabilities) error {
-	ret := m.ctrl.Call(m, "Register", arg0)
+func (m *MockSuperviser) Register(arg0 boruta.Capabilities, arg1, arg2 string) error {
+	ret := m.ctrl.Call(m, "Register", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Register indicates an expected call of Register
-func (mr *MockSuperviserMockRecorder) Register(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockSuperviser)(nil).Register), arg0)
+func (mr *MockSuperviserMockRecorder) Register(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockSuperviser)(nil).Register), arg0, arg1, arg2)
 }
 
 // SetFail mocks base method

@@ -29,6 +29,8 @@ import (
 	"net"
 	"strconv"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 // ReqState denotes state of the Request.
@@ -229,10 +231,10 @@ type Dryad interface {
 	// PutInMaintenance prepares MuxPi for administrative action.
 	// It blinks LEDs, prints msg on the OLED display, etc.
 	PutInMaintenance(msg string) (err error)
-	// Prepare creates appropriate user, generates RSA key, installs public key
+	// Prepare creates appropriate user, generates SSH keypair, installs public key
 	// so that it can be used for SSH authentication and returns private key.
 	// It removes current instance of the user, etc.
-	Prepare(key *rsa.PublicKey) (err error)
+	Prepare(key *ssh.PublicKey) (err error)
 	// Healthcheck tests Dryad for system state, STM functions and state on MuxPi.
 	// It may cause Dryad to call SetFail of Worker interface if the problem detected is critical.
 	Healthcheck() (err error)

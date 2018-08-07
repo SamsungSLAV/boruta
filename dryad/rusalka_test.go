@@ -23,6 +23,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"os"
 	"os/user"
 	"time"
@@ -32,6 +33,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/crypto/ssh"
 )
 
 var _ = Describe("Rusalka", func() {
@@ -84,9 +86,13 @@ var _ = Describe("Rusalka", func() {
 			Skip("must be run as root")
 		}
 
+		err = d.Prepare(nil)
+		Expect(err).To(Equal(errors.New("empty public key")))
 		key, err := rsa.GenerateKey(rand.Reader, 1024)
 		Expect(err).ToNot(HaveOccurred())
-		err = d.Prepare(&key.PublicKey)
+		pubKey, err := ssh.NewPublicKey(&key.PublicKey)
+		Expect(err).ToNot(HaveOccurred())
+		err = d.Prepare(&pubKey)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sshDir).To(BeADirectory())
 		Expect(authorizedKeysFile).To(BeARegularFile())

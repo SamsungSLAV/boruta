@@ -137,8 +137,8 @@ func (bu *borutaUser) update() (err error) {
 	return
 }
 
-// generateAndInstallKey calls generateAndInstallKey with parameters retrieved from the user field
+// installKey calls installPublicKey with parameters retrieved from the user field
 // of borutaUser structure. This filed must be set before call to this function by update() method.
-func (bu *borutaUser) generateAndInstallKey(key ssh.PublicKey) error {
+func (bu *borutaUser) installKey(key *ssh.PublicKey) error {
 	return installPublicKey(key, bu.user.HomeDir, bu.user.Uid, bu.user.Gid)
 }

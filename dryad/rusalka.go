@@ -21,7 +21,6 @@ package dryad
 
 import (
 	"context"
-	"crypto/rsa"
 	"fmt"
 
 	. "git.tizen.org/tools/boruta"
@@ -62,7 +61,7 @@ func (r *Rusalka) PutInMaintenance(msg string) error {
 }
 
 // Prepare is part of implementation of Dryad interface. Call to Prepare stops LED blinking.
-func (r *Rusalka) Prepare(key *rsa.PublicKey) (err error) {
+func (r *Rusalka) Prepare(key *ssh.PublicKey) (err error) {
 	// Stop maintenance.
 	if r.cancelMaintenance != nil {
 		r.cancelMaintenance()
@@ -82,10 +81,7 @@ func (r *Rusalka) Prepare(key *rsa.PublicKey) (err error) {
 	if err != nil {
 		return fmt.Errorf("user information update failed: %s", err)
 	}
-	// Prepare SSH access (it can't fail as key is of type rsa.PublicKey).
-	sshPubKey, _ := ssh.NewPublicKey(key)
-	// TODO: use ssh.PublicKey instead.
-	return r.dryadUser.generateAndInstallKey(sshPubKey)
+	return r.dryadUser.installKey(key)
 }
 
 // Healthcheck is part of implementation of Dryad interface.
