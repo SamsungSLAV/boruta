@@ -169,12 +169,6 @@ type WorkerInfo struct {
 	Caps       Capabilities
 }
 
-// ListFilter is used to filter Requests in the Queue.
-type ListFilter interface {
-	// Match tells if request matches the filter.
-	Match(req *ReqInfo) bool
-}
-
 // Requests defines an interaction of a user with Requests Queue.
 type Requests interface {
 	// NewRequest creates a Request with given features and adds it to the Queue.
