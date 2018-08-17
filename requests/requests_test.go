@@ -35,8 +35,10 @@ var (
 	zeroTime  time.Time
 	caps      = make(boruta.Capabilities)
 	now       = time.Now().UTC()
+	lastWeek  = now.AddDate(0, 0, -7).UTC()
 	yesterday = now.AddDate(0, 0, -1).UTC()
 	tomorrow  = now.AddDate(0, 0, 1).UTC()
+	nextWeek  = now.AddDate(0, 0, 7).UTC()
 )
 
 var requestsTests = [...]struct {
@@ -382,6 +384,10 @@ func TestListRequests(t *testing.T) {
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
 	const reqsCnt = 4
+	si := &boruta.SortInfo{
+		Item:  "id",
+		Order: boruta.SortOrderAsc,
+	}
 
 	// Add few requests.
 	reqs := make(map[boruta.ReqID]bool, reqsCnt)
@@ -502,22 +508,31 @@ func TestListRequests(t *testing.T) {
 	}
 
 	for _, test := range filterTests {
-		resp, err := rqueue.ListRequests(&test.f)
+		resp, err := rqueue.ListRequests(&test.f, si)
 		assert.Nil(err)
 		checkReqs(test.result, resp)
 	}
 
-	// Nil filter should return all requests.
-
 	// Nil interface.
-	resp, err := rqueue.ListRequests(nil)
+	resp, err := rqueue.ListRequests(nil, si)
 	assert.Nil(err)
 	checkReqs(reqs, resp)
 	var flt *filter.Requests
 	// Concrete type is nil but interface isn't nil.
-	resp, err = rqueue.ListRequests(flt)
+	resp, err = rqueue.ListRequests(flt, si)
 	assert.Nil(err)
 	checkReqs(reqs, resp)
+
+	// Wrong sort item.
+	si.Item = "foobarbaz"
+	resp, err = rqueue.ListRequests(nil, si)
+	assert.Empty(resp)
+	assert.Equal(boruta.ErrWrongSortItem, err)
+
+	// Nil sort order.
+	resp, err = rqueue.ListRequests(nil, nil)
+	checkReqs(reqs, resp)
+	assert.Nil(err)
 }
 
 func TestAcquireWorker(t *testing.T) {

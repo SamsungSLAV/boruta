@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 )
 
 // DateFormat denotes layout of timestamps used by Boruta HTTP API.
@@ -37,6 +38,14 @@ const (
 	// removed in the future.
 	Deprecated = "deprecated"
 )
+
+// RequestsListSpec is intended for (un)marshaling ListRequests parameters in HTTP API.
+type RequestsListSpec struct {
+	// Filter contains information how to filter list of requests.
+	Filter *filter.Requests
+	// Sorter contains SortInfo data.
+	Sorter *boruta.SortInfo
+}
 
 // ReqIDPack is used for JSON (un)marshaller.
 type ReqIDPack struct {

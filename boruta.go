@@ -183,9 +183,9 @@ type Requests interface {
 	UpdateRequest(reqInfo *ReqInfo) error
 	// GetRequestInfo returns ReqInfo associated with ReqID.
 	GetRequestInfo(reqID ReqID) (ReqInfo, error)
-	// ListRequests returns ReqInfo matching the filter
-	// or all Requests if empty filter is given.
-	ListRequests(filter ListFilter) ([]ReqInfo, error)
+	// ListRequests returns ReqInfo matching the filter or all Requests if empty filter is
+	// given. Returned requests are sorted by given sorter.
+	ListRequests(filter ListFilter, sorter *SortInfo) ([]ReqInfo, error)
 	// AcquireWorker returns information necessary to access the Worker reserved by the Request
 	// and prolongs access to it. If the Request is in the WAIT state, call to this function
 	// will block until the state changes.

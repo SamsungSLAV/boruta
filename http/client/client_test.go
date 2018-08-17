@@ -53,12 +53,9 @@ type testCase struct {
 	header http.Header
 }
 
-// chanFilter is used to mock failure of JSON marshalling in ListRequests.
-type chanFilter chan bool
+type dummyListFilter bool
 
-func (f chanFilter) Match(_ *boruta.ReqInfo) bool {
-	return false
-}
+func (*dummyListFilter) Match(_ *boruta.ReqInfo) bool { return false }
 
 type dummyReadCloser int
 
@@ -155,13 +152,13 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 		r.Body.Close()
 		// Making operation like "req/id/close" - path must be unique.
 		if method == http.MethodPost && len(body) == 0 {
-			validateTestCase(tcasesMap[r.URL.Path])
+			validateTestCase(tcasesMap[r.URL.String()])
 		}
-		tlen := len(tcasesMap[r.URL.Path])
+		tlen := len(tcasesMap[r.URL.String()])
 		if tlen == 0 {
-			panic("No test cases for path: " + r.URL.Path)
+			panic("No test cases for path: " + r.URL.String())
 		}
-		for i, tcase := range tcasesMap[r.URL.Path] {
+		for i, tcase := range tcasesMap[r.URL.String()] {
 			// There may be many POST requests per one path.
 			// Differentiate by body.
 			if method == http.MethodPost {
@@ -655,12 +652,54 @@ func TestListRequests(t *testing.T) {
 	nilHeader := make(http.Header)
 	nilHeader.Set("Boruta-Request-Count", "4")
 
+	sorterDefault := new(boruta.SortInfo) // "", SortOrderAsc
+	sorterAsc := &boruta.SortInfo{
+		Item:  "priority",
+		Order: boruta.SortOrderAsc,
+	}
+	sorterDesc := &boruta.SortInfo{
+		Item:  "state",
+		Order: boruta.SortOrderDesc,
+	}
+	sorterBad := &boruta.SortInfo{
+		Item:  "foobarbaz",
+		Order: boruta.SortOrderDesc,
+	}
+
 	tests := []*testCase{
 		&testCase{
 			// valid filter
-			name:        prefix + "valid-filter",
-			path:        path,
-			json:        string(jsonMustMarshal(validFilter)),
+			name: prefix + "valid-filter",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterDefault,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      validHeader,
+		},
+		&testCase{
+			// Valid filter with sorter - list some requests sorted by priority (ascending).
+			name: prefix + "valid-filter-sort-asc",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterAsc,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      validHeader,
+		},
+		&testCase{
+			// Valid filter with sorter - list some requests sorted by state (descending).
+			// As state is equal - this will be sorted by ID.
+			name: prefix + "valid-filter-sort-desc",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterDesc,
+			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
 			header:      validHeader,
@@ -669,19 +708,33 @@ func TestListRequests(t *testing.T) {
 			// nil filter - list all
 			name:        prefix + "nil",
 			path:        path,
-			json:        string(jsonMustMarshal(nil)),
+			json:        string(jsonMustMarshal(&util.RequestsListSpec{})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
 			header:      nilHeader,
 		},
 		&testCase{
 			// no requests matched
-			name:        prefix + "nomatch-all",
-			path:        path,
-			json:        string(jsonMustMarshal(missingFilter)),
+			name: prefix + "nomatch-all",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: missingFilter,
+				Sorter: sorterDefault,
+			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
 			header:      missingHeader,
+		},
+		&testCase{
+			// Bad sort item.
+			name: prefix + "bad-sorter-item",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterBad,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
 		},
 	}
 
@@ -689,33 +742,52 @@ func TestListRequests(t *testing.T) {
 	defer srv.Close()
 	assert, client := initTest(t, srv.URL)
 
-	// nil filter
-	list, err := client.ListRequests(nil)
+	sorter := new(boruta.SortInfo)
+
+	// nil spec
+	list, err := client.ListRequests(nil, nil)
 	assert.Nil(err)
 	assert.Equal(reqs, list)
 
 	// valid filter
-	list, err = client.ListRequests(validFilter)
+	list, err = client.ListRequests(validFilter, sorter)
 	assert.Nil(err)
 	assert.Equal(reqs[:2], list)
 
 	// no requests matched
-	list, err = client.ListRequests(missingFilter)
+	list, err = client.ListRequests(missingFilter, sorter)
 	assert.Nil(err)
 	assert.Equal([]boruta.ReqInfo{}, list)
 
-	// json.Marshal failure
-	var typeError *json.UnsupportedTypeError
-	list, err = client.ListRequests(make(chanFilter))
+	// valid filter, sort by priority, ascending.
+	sorter.Item = "priority"
+	list, err = client.ListRequests(validFilter, sorter)
+	assert.Nil(err)
+	assert.Equal(reqs[:2], list)
+
+	// valid filter, sort by state, descending.
+	sorter.Item = "state"
+	sorter.Order = boruta.SortOrderDesc
+	list, err = client.ListRequests(validFilter, sorter)
+	assert.Nil(err)
+	assert.Equal([]boruta.ReqInfo{reqs[1], reqs[0]}, list)
+
+	// Bad sort item.
+	sorter.Item = "foobarbaz"
+	list, err = client.ListRequests(validFilter, sorter)
 	assert.Empty(list)
-	assert.IsType(typeError, err)
+	assert.NotNil(err)
+
+	// Wrong type of filter.
+	list, err = client.ListRequests(new(dummyListFilter), sorter)
+	assert.Empty(list)
+	assert.NotNil(err)
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	list, err = client.ListRequests(nil)
+	list, err = client.ListRequests(nil, sorter)
 	assert.Zero(list)
 	assert.NotNil(err)
-
 }
 
 func TestAcquireWorker(t *testing.T) {

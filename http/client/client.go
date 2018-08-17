@@ -249,15 +249,27 @@ func (client *BorutaClient) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, 
 	return reqInfo, err
 }
 
-// ListRequests queries Boruta server for list of requests that match given
-// filter. Filter may be empty or nil to get list of all requests.
-func (client *BorutaClient) ListRequests(filter boruta.ListFilter) ([]boruta.ReqInfo, error) {
-	req, err := json.Marshal(filter)
+// ListRequests queries Boruta server for list of requests that match given filter. Filter may be
+// empty or nil to get list of all requests. If sorter is nil then the default sorting is used
+// (ascending, by ID).
+func (client *BorutaClient) ListRequests(f boruta.ListFilter, s *boruta.SortInfo) ([]boruta.ReqInfo,
+	error) {
+
+	listSpec := &util.RequestsListSpec{}
+	listSpec.Sorter = s
+	if f != nil {
+		rfilter, ok := f.(*filter.Requests)
+		if !ok {
+			return nil, errors.New("only *filter.Requests type is supported")
+		}
+		listSpec.Filter = rfilter
+	}
+
+	req, err := json.Marshal(listSpec)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Post(client.url+"reqs/list", contentType,
-		bytes.NewReader(req))
+	resp, err := http.Post(client.url+"reqs/list", contentType, bytes.NewReader(req))
 	if err != nil {
 		return nil, err
 	}

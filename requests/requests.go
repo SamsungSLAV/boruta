@@ -262,9 +262,12 @@ func (reqs *ReqsCollection) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, 
 	return reqs.Get(reqID)
 }
 
-// ListRequests is part of implementation of Requests interface. It returns slice
-// of ReqInfo that matches ListFilter. Returned slice is sorted by request ids.
-func (reqs *ReqsCollection) ListRequests(filter boruta.ListFilter) ([]boruta.ReqInfo, error) {
+// ListRequests is part of implementation of Requests interface. It returns slice of ReqInfo that
+// matches ListFilter. Returned slice is sorted by SortInfo. It is possible to sort by following
+// items: ID (default), Priority, State, ValidAfter and Deadline dates in ascending (default) or
+// descending order.
+func (reqs *ReqsCollection) ListRequests(filter boruta.ListFilter, si *boruta.SortInfo,
+) ([]boruta.ReqInfo, error) {
 	reqs.mutex.RLock()
 	res := make([]boruta.ReqInfo, 0, len(reqs.requests))
 	for _, req := range reqs.requests {
@@ -274,9 +277,12 @@ func (reqs *ReqsCollection) ListRequests(filter boruta.ListFilter) ([]boruta.Req
 		}
 	}
 	reqs.mutex.RUnlock()
-	// TODO(mwereski): HTTP backend needs this to be sorted. This isn't best
-	// place to do it, rethink that when DB backend is implemented.
-	sort.Slice(res, func(i, j int) bool { return res[i].ID < res[j].ID })
+	sorter, err := newSorter(si)
+	if err != nil {
+		return nil, err
+	}
+	sorter.reqs = res
+	sort.Sort(sorter)
 	return res, nil
 }
 

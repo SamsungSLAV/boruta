@@ -111,20 +111,21 @@ func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) res
 // listRequestsHandler parses HTTP request for listing Boruta requests and calls
 // ListRequests().
 func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) responseData {
-	var rfilter *filter.Requests
 	defer r.Body.Close()
 
+	listSpec := &util.RequestsListSpec{}
+
 	if r.Method == http.MethodPost {
-		rfilter = new(filter.Requests)
-		if err := json.NewDecoder(r.Body).Decode(rfilter); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(listSpec); err != nil {
 			if err != io.EOF {
 				return util.NewServerError(err)
 			}
-			rfilter = nil
+			listSpec.Filter = nil
+			listSpec.Sorter = nil
 		}
 	}
 
-	reqs, err := api.reqs.ListRequests(rfilter)
+	reqs, err := api.reqs.ListRequests(listSpec.Filter, listSpec.Sorter)
 	if err != nil {
 		return util.NewServerError(err)
 	}

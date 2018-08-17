@@ -268,38 +268,91 @@ func TestListRequestsHandler(t *testing.T) {
 			Deadline: deadline, ValidAfter: validAfter},
 	}
 
+	defaultSorter := new(boruta.SortInfo) // "", SortOrderAsc
+
+	sorterAsc := &boruta.SortInfo{
+		Item:  "priority",
+		Order: boruta.SortOrderAsc,
+	}
+
+	sorterDesc := &boruta.SortInfo{
+		Item:  "state",
+		Order: boruta.SortOrderDesc,
+	}
+
+	sorterBad := &boruta.SortInfo{
+		Item:  "foobarbaz",
+		Order: boruta.SortOrderAsc,
+	}
+
 	methods := []string{http.MethodPost}
 	prefix := "filter-reqs-"
 	filterPath := "/api/v1/reqs/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
 	validFilter := filter.NewRequests("WAIT", "")
-	m.rq.EXPECT().ListRequests(validFilter).Return(reqs[:2], nil)
+	m.rq.EXPECT().ListRequests(validFilter, defaultSorter).Return(reqs[:2], nil)
+	m.rq.EXPECT().ListRequests(validFilter, sorterAsc).Return(reqs[:2], nil)
+	m.rq.EXPECT().ListRequests(validFilter, sorterDesc).Return([]boruta.ReqInfo{reqs[1],
+		reqs[0]}, nil)
+	m.rq.EXPECT().ListRequests(validFilter, sorterBad).Return([]boruta.ReqInfo{},
+		boruta.ErrWrongSortItem)
 	validHeader := make(http.Header)
 	validHeader.Set("Boruta-Request-Count", "2")
 
 	emptyFilter := filter.NewRequests("", "")
-	m.rq.EXPECT().ListRequests(emptyFilter).Return(reqs, nil).Times(2)
-	m.rq.EXPECT().ListRequests(nil).Return(reqs, nil).Times(3)
+	m.rq.EXPECT().ListRequests(emptyFilter, nil).Return(reqs, nil)
+	m.rq.EXPECT().ListRequests(nil, nil).Return(reqs, nil).Times(4)
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Request-Count", "4")
 
 	missingFilter := filter.NewRequests("INVALID", "")
-	m.rq.EXPECT().ListRequests(missingFilter).Return([]boruta.ReqInfo{}, nil)
+	m.rq.EXPECT().ListRequests(missingFilter, nil).Return([]boruta.ReqInfo{}, nil)
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Request-Count", "0")
 
 	// Currently ListRequests doesn't return any error hence the meaningless values.
 	badFilter := filter.NewRequests("FAIL", "-1")
-	m.rq.EXPECT().ListRequests(badFilter).Return([]boruta.ReqInfo{}, errors.New("foo bar: pizza failed"))
+	m.rq.EXPECT().ListRequests(badFilter, nil).Return([]boruta.ReqInfo{},
+		errors.New("foo bar: pizza failed"))
 
 	tests := []requestTest{
 		// Valid filter - list some requests.
 		{
-			name:        prefix + "valid-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(validFilter)),
+			name:    prefix + "valid-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: defaultSorter,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+			header:      validHeader,
+		},
+		// Valid filter with sorter - list some requests sorted by priority (ascending).
+		{
+			name:    prefix + "valid-filter-sort-asc",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterAsc,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+			header:      validHeader,
+		},
+		// Valid filter with sorter - list some requests sorted by state (descending).
+		// As state is equal - this will be sorted by ID.
+		{
+			name:    prefix + "valid-filter-sort-desc",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterDesc,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      validHeader,
@@ -336,30 +389,51 @@ func TestListRequestsHandler(t *testing.T) {
 		},
 		// Empty filter - list all requests.
 		{
-			name:        prefix + "empty",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(emptyFilter)),
+			name:    prefix + "empty",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: emptyFilter,
+				Sorter: nil,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
 		// No matches
 		{
-			name:        prefix + "nomatch-all",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(missingFilter)),
+			name:    prefix + "nomatch-all",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: missingFilter,
+				Sorter: nil,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      missingHeader,
 		},
-		// Error
+		// Error in filter.
 		{
-			name:        prefix + "bad-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(badFilter)),
+			name:    prefix + "bad-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: badFilter,
+				Sorter: nil,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		// Bad sort item.
+		{
+			name:    prefix + "bad-sorter-item",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterBad,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusBadRequest,
 		},

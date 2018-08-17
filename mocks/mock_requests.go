@@ -73,16 +73,16 @@ func (mr *MockRequestsMockRecorder) GetRequestInfo(arg0 interface{}) *gomock.Cal
 }
 
 // ListRequests mocks base method
-func (m *MockRequests) ListRequests(arg0 boruta.ListFilter) ([]boruta.ReqInfo, error) {
-	ret := m.ctrl.Call(m, "ListRequests", arg0)
+func (m *MockRequests) ListRequests(arg0 boruta.ListFilter, arg1 *boruta.SortInfo) ([]boruta.ReqInfo, error) {
+	ret := m.ctrl.Call(m, "ListRequests", arg0, arg1)
 	ret0, _ := ret[0].([]boruta.ReqInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListRequests indicates an expected call of ListRequests
-func (mr *MockRequestsMockRecorder) ListRequests(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRequests", reflect.TypeOf((*MockRequests)(nil).ListRequests), arg0)
+func (mr *MockRequestsMockRecorder) ListRequests(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRequests", reflect.TypeOf((*MockRequests)(nil).ListRequests), arg0, arg1)
 }
 
 // NewRequest mocks base method
