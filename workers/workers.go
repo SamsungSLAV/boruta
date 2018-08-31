@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sort"
 	"sync"
 
 	"github.com/SamsungSLAV/boruta"
@@ -235,6 +236,7 @@ func (wl *WorkerList) SetGroups(uuid boruta.WorkerUUID, groups boruta.Groups) er
 		return ErrWorkerNotFound
 	}
 	worker.Groups = groups
+	sort.Strings(worker.Groups)
 	if worker.State == boruta.IDLE && wl.changeListener != nil {
 		wl.changeListener.OnWorkerIdle(uuid)
 	}

@@ -146,7 +146,7 @@ type JobInfo struct {
 }
 
 // Group is a set of Workers.
-type Group string
+type Group = string
 
 // Groups is a superset of all instances of Group.
 type Groups []Group

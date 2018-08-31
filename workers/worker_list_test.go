@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 
 	"github.com/SamsungSLAV/boruta"
@@ -956,11 +957,28 @@ var _ = Describe("WorkerList", func() {
 					"group1",
 				}
 
+				var groups boruta.Groups = []boruta.Group{
+					"group1",
+					"group2",
+					"foobarbaz",
+				}
+
 				By("setting it")
 				err := wl.SetGroups(worker, group)
 				Expect(err).ToNot(HaveOccurred())
 				wl.mutex.RLock()
 				Expect(wl.workers[worker].Groups).To(Equal(group))
+				wl.mutex.RUnlock()
+
+				By("setting multiple groups")
+				err = wl.SetGroups(worker, groups)
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(sort.StringsAreSorted(wl.workers[worker].Groups)).To(BeTrue())
+				Expect(len(wl.workers[worker].Groups)).To(Equal(len(groups)))
+				for _, g := range groups {
+					Expect(wl.workers[worker].Groups).To(ContainElement(g))
+				}
 				wl.mutex.RUnlock()
 
 				By("setting it to nil")
