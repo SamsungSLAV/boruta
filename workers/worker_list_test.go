@@ -28,6 +28,7 @@ import (
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/rpc/dryad"
+	"github.com/SamsungSLAV/slav/logger"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -52,6 +53,7 @@ var _ = Describe("WorkerList", func() {
 	}
 	BeforeEach(func() {
 		sizeRSA = 256
+		logger.SetThreshold(logger.EmergLevel)
 		wl = NewWorkerList()
 	})
 

@@ -27,6 +27,7 @@ import (
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/rpc/dryad"
+	"github.com/SamsungSLAV/slav/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -118,33 +119,68 @@ func NewWorkerList() *WorkerList {
 // can not be ommited.
 func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
 	sshAddress string) error {
+
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+		WithProperty("Capabilities", caps).
+		Debug("Start.")
 	capsUUID, present := caps[UUID]
 	if !present {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			Error("No UUID field in Capabilities.")
 		return ErrMissingUUID
 	}
 	uuid := boruta.WorkerUUID(capsUUID)
 
 	dryad, err := net.ResolveTCPAddr("tcp", dryadAddress)
 	if err != nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			WithError(fmt.Errorf("invalid dryad address: %s", err)).Error("")
 		return fmt.Errorf("invalid dryad address: %s", err)
 	}
+
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+		WithProperty("DryadTCPAddr", dryad).
+		Debug("dryad addr resolved")
+
 	// dryad.IP is empty if dryadAddress provided port number only.
 	if dryad.IP == nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			WithError(ErrMissingIP).Error("")
 		return ErrMissingIP
 	}
 	if dryad.Port == 0 {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			Error(ErrMissingPort.Error())
 		return ErrMissingPort
 	}
 
 	sshd, err := net.ResolveTCPAddr("tcp", sshAddress)
 	if err != nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			Error(fmt.Sprintf("invalid sshd address: %s", err))
 		return fmt.Errorf("invalid sshd address: %s", err)
 	}
+
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+		WithProperty("DryadTCPAddr", sshd).
+		Debug("sshd addr resolved")
+
 	// same as with dryad.IP
 	if sshd.IP == nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			Error(ErrMissingIP.Error())
 		return ErrMissingIP
 	}
 	if sshd.Port == 0 {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).
+			Error("sshd port is 0" + ErrMissingPort.Error())
 		return ErrMissingPort
 	}
 
@@ -156,6 +192,9 @@ func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
 		worker.Caps = caps
 		worker.dryad = dryad
 		worker.sshd = sshd
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).WithProperty("WorkerID", uuid).
+			Notice("Worker's Capabilities updated.")
 	} else {
 		c := make(chan boruta.WorkerState, backgroundOperationsBufferSize)
 		wl.workers[uuid] = &mapWorker{
@@ -169,6 +208,9 @@ func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
 			backgroundOperation: c,
 		}
 		go wl.backgroundLoop(backgroundContext{c: c, uuid: uuid})
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Register").
+			WithProperty("Capabilities", caps).WithProperty("WorkerID", uuid).
+			Noticef("Worker registered with UUID: %s.", uuid)
 	}
 	return nil
 }
@@ -177,14 +219,24 @@ func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
 //
 // TODO(amistewicz): WorkerList should process the reason and store it.
 func (wl *WorkerList) SetFail(uuid boruta.WorkerUUID, reason string) error {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "SetFail").
+		WithProperty("WorkerId", uuid).WithProperty("reason", reason).
+		Debug("Start.")
+
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "SetFail").
+			WithProperty("WorkerId", uuid).WithProperty("reason", reason).
+			WithError(ErrWorkerNotFound).Error("Worker not found.")
 		return ErrWorkerNotFound
 	}
 	// Ignore entering FAIL state if administrator started maintenance already.
 	if worker.State == boruta.MAINTENANCE || worker.State == boruta.BUSY {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "SetFail").
+			WithProperty("WorkerId", uuid).WithProperty("reason", reason).
+			WithError(ErrInMaintenance).Error("Worker in MAINTENANCE state.")
 		return ErrInMaintenance
 	}
 	return wl.setState(uuid, boruta.FAIL)
@@ -197,12 +249,18 @@ func (wl *WorkerList) SetFail(uuid boruta.WorkerUUID, reason string) error {
 func (wl *WorkerList) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
 	// Only state transitions to IDLE or MAINTENANCE are allowed.
 	if state != boruta.MAINTENANCE && state != boruta.IDLE {
+		logger.
+			WithProperty("WorkerId", uuid).WithProperty("state", state).
+			WithError(ErrWrongStateArgument).Error("Wrong state.")
 		return ErrWrongStateArgument
 	}
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.
+			WithProperty("WorkerId", uuid).WithProperty("state", state).
+			WithError(ErrWorkerNotFound).Error("Worker not found.")
 		return ErrWorkerNotFound
 	}
 	// Do nothing if transition to MAINTENANCE state is already ongoing.
@@ -215,6 +273,10 @@ func (wl *WorkerList) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState)
 	}
 	// State transitions to IDLE are allowed from MAINTENANCE state only.
 	if state == boruta.IDLE && worker.State != boruta.MAINTENANCE {
+		logger.
+			WithProperty("WorkerId", uuid).WithProperty("state", state).
+			WithProperty("worker.State", worker.State).
+			WithError(ErrForbiddenStateChange).Error("Forbidden state change.")
 		return ErrForbiddenStateChange
 	}
 	switch state {
@@ -228,32 +290,53 @@ func (wl *WorkerList) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState)
 
 // SetGroups is an implementation of SetGroups from Workers interface.
 func (wl *WorkerList) SetGroups(uuid boruta.WorkerUUID, groups boruta.Groups) error {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "SetGroups").
+		WithProperty("WorkerId", uuid).WithProperty("groups", groups).
+		Debug("Start.")
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "SetGroups").
+			WithProperty("WorkerId", uuid).WithProperty("groups", groups).
+			WithError(ErrWorkerNotFound).Error("Worker not found.")
 		return ErrWorkerNotFound
 	}
 	worker.Groups = groups
 	if worker.State == boruta.IDLE && wl.changeListener != nil {
 		wl.changeListener.OnWorkerIdle(uuid)
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "SetGroups").
+		WithProperty("WorkerId", uuid).WithProperty("groups", groups).
+		Debug("Worker groups set.")
 	return nil
 }
 
 // Deregister is an implementation of Deregister from Workers interface.
 func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "Deregister").
+		WithProperty("WorkerId", uuid).
+		Debug("Start.")
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Deregister").
+			WithProperty("WorkerId", uuid).
+			WithError(ErrWorkerNotFound).Error("Worker not found.")
 		return ErrWorkerNotFound
 	}
 	if worker.State != boruta.MAINTENANCE && worker.State != boruta.FAIL {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "Deregister").
+			WithProperty("WorkerId", uuid).WithProperty("worker.State", worker.State).
+			WithError(ErrNotInFailOrMaintenance).Error("Worker's not in FAIL or MAINTENANCE state.")
 		return ErrNotInFailOrMaintenance
 	}
 	close(worker.backgroundOperation)
 	delete(wl.workers, uuid)
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "Deregister").
+		WithProperty("WorkerId", uuid).
+		Debug("Worker removed.")
 	return nil
 }
 
@@ -274,20 +357,35 @@ func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
 //
 // It is a helper function of ListWorkers.
 func isCapsMatching(worker boruta.WorkerInfo, caps boruta.Capabilities) bool {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "isCapsMatching").
+		WithProperty("Worker", worker).WithProperty("Capabilities", caps).
+		Debug("Start.")
 	if len(caps) == 0 {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "isCapsMatching").
+			WithProperty("Worker", worker).WithProperty("Capabilities", caps).
+			Debug("No caps.")
 		return true
 	}
 	for srcKey, srcValue := range caps {
 		destValue, found := worker.Caps[srcKey]
 		if !found {
 			// Key is not present in the worker's caps
+			logger.WithProperty("type", "WorkerList").WithProperty("method", "isCapsMatching").
+				WithProperty("Worker", worker).WithProperty("Capabilities", caps).
+				Debugf("Key (%s) not present in Worker's caps.", srcKey)
 			return false
 		}
 		if srcValue != destValue {
 			// Capability values do not match
+			logger.WithProperty("type", "WorkerList").WithProperty("method", "isCapsMatching").
+				WithProperty("Worker", worker).WithProperty("Capabilities", caps).
+				Debugf("Values src (%s) and dst (%s) of capability with key (%s) do not match.", srcValue, destValue, srcKey)
 			return false
 		}
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "isCapsMatching").
+		WithProperty("Worker", worker).WithProperty("Capabilities", caps).
+		Debug("Capabilities match.")
 	return true
 }
 
@@ -295,20 +393,35 @@ func isCapsMatching(worker boruta.WorkerInfo, caps boruta.Capabilities) bool {
 // Empty groupsMatcher is satisfied by every Worker.
 // It is a helper function of ListWorkers.
 func isGroupsMatching(worker boruta.WorkerInfo, groupsMatcher map[boruta.Group]interface{}) bool {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "isGroupsMatching").
+		WithProperty("Worker", worker).WithProperty("groupsMatcher", groupsMatcher).
+		Debug("Start.")
 	if len(groupsMatcher) == 0 {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "isGroupsMatching").
+			WithProperty("Worker", worker).WithProperty("groupsMatcher", groupsMatcher).
+			Debug("No groups.")
 		return true
 	}
 	for _, workerGroup := range worker.Groups {
 		_, match := groupsMatcher[workerGroup]
 		if match {
+			logger.WithProperty("type", "WorkerList").WithProperty("method", "isGroupsMatching").
+				WithProperty("Worker", worker).WithProperty("groupsMatcher", groupsMatcher).
+				Debugf("Matching group (%s) found.", workerGroup)
 			return true
 		}
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "isGroupsMatching").
+		WithProperty("Worker", worker).WithProperty("groupsMatcher", groupsMatcher).
+		Debug("No matching group found.")
 	return false
 }
 
 // ListWorkers is an implementation of ListWorkers from Workers interface.
 func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "ListWorkers").
+		WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+		Debug("Start.")
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 
@@ -320,6 +433,9 @@ func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities
 // * all of the caps is matching (or caps is nil)
 // Caller of this method should own the mutex.
 func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities, onlyIdle bool) ([]boruta.WorkerInfo, error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "listWorkers").
+		WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+		Debug("Start.")
 	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
 
 	groupsMatcher := make(map[boruta.Group]interface{})
@@ -336,65 +452,113 @@ func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities
 			matching = append(matching, worker.WorkerInfo)
 		}
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "listWorkers").
+		WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+		Debugf("Matching workers: %v", matching)
 	return matching, nil
 }
 
 // GetWorkerInfo is an implementation of GetWorkerInfo from Workers interface.
 func (wl *WorkerList) GetWorkerInfo(uuid boruta.WorkerUUID) (boruta.WorkerInfo, error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerInfo").
+		WithProperty("WorkerID", uuid).
+		Debug("Start.")
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerInfo").
+			WithProperty("WorkerID", uuid).
+			WithError(ErrWorkerNotFound).Warning("Worker not found.")
 		return boruta.WorkerInfo{}, ErrWorkerNotFound
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerInfo").
+		WithProperty("WorkerID", uuid).
+		Debugf("Return info: %v.", worker.WorkerInfo)
 	return worker.WorkerInfo, nil
 }
 
 // getWorkerAddr retrieves IP address from the internal structure.
 func (wl *WorkerList) getWorkerAddr(uuid boruta.WorkerUUID) (net.TCPAddr, error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerAddr").
+		WithProperty("WorkerID", uuid).
+		Debug("Start.")
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerIP").
+			WithProperty("WorkerID", uuid).
+			WithError(ErrWorkerNotFound).Warning("Worker not found.")
 		return net.TCPAddr{}, ErrWorkerNotFound
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerIP").
+		WithProperty("WorkerID", uuid).
+		Debugf("Return Addr: %v", worker.dryad)
 	return *worker.dryad, nil
 }
 
 // GetWorkerSSHAddr retrieves address of worker's ssh daemon from the internal structure.
 func (wl *WorkerList) GetWorkerSSHAddr(uuid boruta.WorkerUUID) (net.TCPAddr, error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerSSHAddr").
+		WithProperty("WorkerID", uuid).
+		Debug("Start.")
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerSSHAddr").
+			WithProperty("WorkerID", uuid).
+			WithError(ErrWorkerNotFound).Warning("Worker not found.")
 		return net.TCPAddr{}, ErrWorkerNotFound
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerIP").
+		WithProperty("WorkerID", uuid).
+		Debugf("Return SSH Addr: %v", worker.sshd)
 	return *worker.sshd, nil
 }
 
 // setWorkerKey stores private key in the worker structure referenced by uuid.
 // It is safe to modify key after call to this function.
 func (wl *WorkerList) setWorkerKey(uuid boruta.WorkerUUID, key *rsa.PrivateKey) error {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "SetWorkerKey").
+		WithProperty("WorkerID", uuid).WithProperty("key", *key).
+		Debug("Start.")
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "SetWorkerKey").
+			WithProperty("WorkerID", uuid).WithProperty("key", *key).
+			WithError(ErrWorkerNotFound).Warning("Worker not found.")
 		return ErrWorkerNotFound
 	}
 	// Copy key so that it couldn't be changed outside this function.
 	worker.key = new(rsa.PrivateKey)
 	*worker.key = *key
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "SetWorkerKey").
+		WithProperty("WorkerID", uuid).WithProperty("key", *key).WithProperty("Worker", worker).
+		Debug("Key set.")
 	return nil
 }
 
 // GetWorkerKey retrieves key from the internal structure.
 func (wl *WorkerList) GetWorkerKey(uuid boruta.WorkerUUID) (rsa.PrivateKey, error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerKey").
+		WithProperty("WorkerID", uuid).
+		Debug("Start.")
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerKey").
+			WithProperty("WorkerID", uuid).
+			WithError(ErrWorkerNotFound).Warning("Worker not found.")
 		return rsa.PrivateKey{}, ErrWorkerNotFound
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "GetWorkerKey").
+		WithProperty("WorkerID", uuid).
+		Debugf("Return key: %v", *worker.key)
 	return *worker.key, nil
 }
 
@@ -405,24 +569,48 @@ func (wl *WorkerList) GetWorkerKey(uuid boruta.WorkerUUID) (rsa.PrivateKey, erro
 // matching IDLE worker is found.
 // It is a part of WorkersManager interface implementation by WorkerList.
 func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.Capabilities) (bestWorker boruta.WorkerUUID, err error) {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+		WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+		Debug("Start.")
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 
 	var bestScore = math.MaxInt32
 
 	matching, _ := wl.listWorkers(groups, caps, true)
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+		WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+		Debugf("Matching workers are: %v.", matching)
 	for _, info := range matching {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+			WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+			Debugf("Verify worker with info: %v.", info)
+		if info.State != boruta.IDLE {
+			logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+				WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+				Debugf("State (%s) not IDLE.", info.State)
+			continue
+		}
 		score := len(info.Caps) + len(info.Groups)
 		if score < bestScore {
 			bestScore = score
 			bestWorker = info.WorkerUUID
 		}
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+			WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+			Debugf("Score (%d). Currently best score (%d)", score, bestScore)
 	}
 	if bestScore == math.MaxInt32 {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+			WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+			Debug("No matching worker found.")
 		err = ErrNoMatchingWorker
 		return
 	}
 
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "TakeBestMatchingWorker").
+		WithProperty("Groups", groups).WithProperty("Capabilities", caps).
+		Debugf("Setting RUN state on best worker (%v).", bestWorker)
 	err = wl.setState(bestWorker, boruta.RUN)
 	return
 }
@@ -437,6 +625,9 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.C
 // state might not be changed when it returns.
 // It is a part of WorkersManager interface implementation by WorkerList.
 func (wl *WorkerList) PrepareWorker(uuid boruta.WorkerUUID, withKeyGeneration bool) error {
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "PrepareWorker").
+		WithProperty("WorkerID", uuid).WithProperty("withKeyGeneration", withKeyGeneration).
+		Debug("Start.")
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 
@@ -449,6 +640,9 @@ func (wl *WorkerList) PrepareWorker(uuid boruta.WorkerUUID, withKeyGeneration bo
 	}
 
 	if !withKeyGeneration {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "PrepareWorker").
+			WithProperty("WorkerID", worker).WithProperty("withKeyGeneration", withKeyGeneration).
+			Debug("Setting state to IDLE.")
 		return wl.setState(uuid, boruta.IDLE)
 	}
 	return wl.setState(uuid, boruta.PREPARE)
@@ -460,6 +654,10 @@ func (wl *WorkerList) PrepareWorker(uuid boruta.WorkerUUID, withKeyGeneration bo
 func (wl *WorkerList) setState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
 	worker, ok := wl.workers[uuid]
 	if !ok {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "setState").
+			WithProperty("WorkerID", worker).
+			WithError(ErrWorkerNotFound).
+			Error("Worker not found.")
 		return ErrWorkerNotFound
 	}
 	// Send information about changing state to the background loop to possible break some operations.
@@ -467,14 +665,23 @@ func (wl *WorkerList) setState(uuid boruta.WorkerUUID, state boruta.WorkerState)
 
 	if wl.changeListener != nil {
 		if state == boruta.IDLE {
+			logger.WithProperty("type", "WorkerList").WithProperty("method", "setState").
+				WithProperty("WorkerID", uuid).
+				Debug("Notifying changeListener OnWorkerIdle.")
 			wl.changeListener.OnWorkerIdle(uuid)
 		}
 		// Inform that Job execution was possibly broken when changing RUN state
 		// to any other than IDLE or PREPARE.
 		if worker.State == boruta.RUN && state != boruta.IDLE && state != boruta.PREPARE {
+			logger.WithProperty("type", "WorkerList").WithProperty("method", "setState").
+				WithProperty("WorkerID", uuid).
+				Debug("Notifying changeListener OnWorkerFail.")
 			wl.changeListener.OnWorkerFail(uuid)
 		}
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "setState").
+		WithProperty("WorkerID", uuid).
+		Debugf("Setting Worker's state to (%s). Former state was (%s).", state, worker.State)
 	worker.State = state
 	return nil
 }
@@ -529,14 +736,28 @@ func (wl *WorkerList) prepareKey(bc backgroundContext) (op pendingOperation, err
 		return
 	}
 	pubKey, err := ssh.NewPublicKey(&key.PublicKey)
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "prepareKey").
+		Debugf("SSH Key: %+v", pubKey)
 	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "prepareKey").
+			WithError(err).
+			Error("Failed to generate Public SHH  Key.")
 		return
 	}
 	err = client.Prepare(&pubKey)
 	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "prepareKey").
+			WithProperty("Public Key:", &pubKey).
+			WithError(err).
+			Error("Failed to prepare Dryad.")
 		return
 	}
 	err = wl.setWorkerKey(bc.uuid, key)
+	if err != nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "prepareKey").
+			WithError(err).
+			Error("Failed to SetWorkerKey.")
+	}
 	op = checkPendingOperation(bc.c)
 	return
 }
@@ -559,10 +780,14 @@ func (wl *WorkerList) putInMaintenanceWorker(bc backgroundContext) (op pendingOp
 	}
 
 	if err != nil {
-		// TODO log error.
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "putInMaintenanceWorker").
+			WithError(err).
+			Error("Error putting Worker in maintenance. Setting Worker's state to FAIL.")
 		wl.setState(bc.uuid, boruta.FAIL)
 		return
 	}
+	logger.WithProperty("type", "WorkerList").WithProperty("method", "putInMaintenanceWorker").
+		Error("Setting Worker's state to MAINTENANCE.")
 	wl.setState(bc.uuid, boruta.MAINTENANCE)
 	return
 }
@@ -574,12 +799,18 @@ func (wl *WorkerList) putInMaintenance(bc backgroundContext) (op pendingOperatio
 	}
 	addr, err := wl.getWorkerAddr(bc.uuid)
 	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "putInMaintenance").
+			WithError(err).
+			Error("Failed to GetWorkerAddr.")
 		return
 	}
 	client := wl.newDryadClient()
 	err = client.Create(&addr)
 	if err != nil {
 		op = checkPendingOperation(bc.c)
+		logger.WithProperty("type", "WorkerList").WithProperty("method", "putInMaintenance").
+			WithError(err).
+			Error("Failed to create new RPC client to Dryad.")
 		return
 	}
 	defer client.Close()
