@@ -22,6 +22,7 @@ import (
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/workers"
+	"github.com/SamsungSLAV/slav/logger"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,7 @@ import (
 var _ = Describe("WorkerList", func() {
 	var wl *workers.WorkerList
 	BeforeEach(func() {
+		logger.SetThreshold(logger.EmergLevel)
 		wl = workers.NewWorkerList()
 	})
 
