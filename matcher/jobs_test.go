@@ -28,6 +28,7 @@ import (
 	. "github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/tunnels"
 	"github.com/SamsungSLAV/boruta/workers"
+	"github.com/SamsungSLAV/slav/logger"
 
 	gomock "github.com/golang/mock/gomock"
 
@@ -36,6 +37,9 @@ import (
 )
 
 var _ = Describe("Jobs", func() {
+	BeforeEach(func() {
+		logger.SetThreshold(logger.EmergLevel)
+	})
 	Describe("NewJobsManager", func() {
 		It("should init all fields", func() {
 			w := &MockWorkersManager{}

@@ -22,6 +22,7 @@ import (
 
 	. "github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/workers"
+	"github.com/SamsungSLAV/slav/logger"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -49,6 +50,7 @@ var _ = Describe("ValidMatcher", func() {
 	}
 
 	BeforeEach(func() {
+		logger.SetThreshold(logger.EmergLevel)
 		ctrl = gomock.NewController(GinkgoT())
 		r = NewMockRequestsManager(ctrl)
 		w = NewMockWorkersManager(ctrl)
