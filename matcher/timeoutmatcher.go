@@ -22,6 +22,7 @@ package matcher
 
 import (
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/slav/logger"
 )
 
 // TimeoutMatcher implements Matcher interface for handling running requests
@@ -44,6 +45,8 @@ func NewTimeoutMatcher(r RequestsManager) *TimeoutMatcher {
 // Some of the cases might be invalid, because the request's state has been changed
 // to DONE or FAILED. Verification of closing conditions is done inside Close method.
 func (m TimeoutMatcher) Notify(out []boruta.ReqID) {
+	logger.WithProperty("type", "TimeoutMatcher").WithProperty("method", "Notify").
+		Debugf("TimeoutMatcher notified about following requests: %v", out)
 	for _, r := range out {
 		m.requests.Close(r)
 	}

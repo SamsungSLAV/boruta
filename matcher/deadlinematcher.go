@@ -22,6 +22,7 @@ package matcher
 
 import (
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/slav/logger"
 )
 
 // DeadlineMatcher implements Matcher interface for handling pending requests
@@ -48,6 +49,8 @@ func NewDeadlineMatcher(r RequestsManager) *DeadlineMatcher {
 // Any errors are ignored as they are false negatives cases from DeadlineMatcher
 // point of view.
 func (m DeadlineMatcher) Notify(dead []boruta.ReqID) {
+	logger.WithProperty("type", "DeadlineMatcher").WithProperty("method", "Notify").
+		Debugf("DeadlineMatcher notified about following requests: %v", dead)
 	for _, r := range dead {
 		m.requests.Timeout(r)
 	}

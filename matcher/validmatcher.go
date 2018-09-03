@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/slav/logger"
 )
 
 // ValidMatcher implements Matcher interface for handling requests validation.
@@ -49,7 +50,9 @@ func NewValidMatcher(r RequestsManager, w WorkersManager, j JobsManager) *ValidM
 // Notify implements Matcher interface. This method reacts on events passed to
 // matcher. In this implementation requests' IDs are ignored as requests must be
 // matched in order they are placed in requests priority queue.
-func (m ValidMatcher) Notify([]boruta.ReqID) {
+func (m ValidMatcher) Notify(r []boruta.ReqID) {
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "Notify").
+		Debugf("ValidMatcher notified about following requests: %v", r)
 	// Repeat verification until iterateRequests() returns false indicating that
 	// there is no more job to be done.
 	for m.iterateRequests() {
@@ -61,11 +64,13 @@ func (m ValidMatcher) Notify([]boruta.ReqID) {
 // Method returns true if iteration should be repeated or false if there is
 // nothing more to be done.
 func (m ValidMatcher) iterateRequests() bool {
-
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").Debug("Start.")
 	err := m.requests.InitIteration()
 	if err != nil {
 		// TODO log critical logic error. InitIterations should return no error
 		// as no iterations should by run by any other goroutine.
+		logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").
+			Critical("Critical logic error. No iterations over requests collection should be running.")
 		panic("Critical logic error. No iterations over requests collection should be running.")
 	}
 	defer m.requests.TerminateIteration()
@@ -73,23 +78,37 @@ func (m ValidMatcher) iterateRequests() bool {
 	now := time.Now()
 	// Iterate on requests priority queue.
 	for rid, rok := m.requests.Next(); rok; rid, rok = m.requests.Next() {
+		logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").
+			WithProperty("requestID", rid.String()).
+			Debug("Iterate.")
 		// Verify if request is ready to be run.
 		if !m.requests.VerifyIfReady(rid, now) {
+			logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").
+				WithProperty("requestID", rid.String()).
+				Debug("VerifyIfReady failed.")
 			continue
 		}
 		// Request is ready to be run. Get full information about it.
 		req, err := m.requests.Get(rid)
 		if err != nil {
+			logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").
+				WithProperty("requestID", rid.String()).
+				Debug("Get failed.")
 			continue
 		}
 
 		// Try finding an idle worker matching requests requirements.
 		if m.matchWorkers(req) {
+			logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").
+				WithProperty("requestID", rid.String()).
+				Debug("Worker matched.")
 			// A match was made. Restarting iterations to process other requests.
 			return true
 		}
 	}
 	// All requests have been analyzed. No repetition is required.
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "iterateRequests").
+		Debug("Finish.")
 	return false
 }
 
@@ -97,27 +116,45 @@ func (m ValidMatcher) iterateRequests() bool {
 // and groups of the requests. Best worker is the one with least matching penalty.
 // If such worker is found a job is created and the request is processed.
 func (m ValidMatcher) matchWorkers(req boruta.ReqInfo) bool {
-
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+		WithProperty("requestID", req.ID.String()).
+		Debug("Start.")
 	worker, err := m.workers.TakeBestMatchingWorker(req.Owner.Groups, req.Caps)
 	if err != nil {
 		// No matching worker was found.
+		logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+			WithProperty("requestID", req.ID.String()).
+			Debug("No matching worker found.")
 		return false
 	}
 	// Match found.
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+		WithProperty("requestID", req.ID.String()).WithProperty("workerID", worker).
+		Info("Matching worker found.")
 	err = m.jobs.Create(req.ID, worker)
 	if err != nil {
-		// TODO log error.
+		logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+			WithProperty("requestID", req.ID.String()).WithProperty("workerID", worker).
+			WithError(err).Error("Job creation failed.")
 		goto fail
 	}
 	err = m.requests.Run(req.ID, worker)
 	if err != nil {
-		// TODO log error.
+		logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+			WithProperty("requestID", req.ID.String()).WithProperty("workerID", worker).
+			WithError(err).Error("Cannot run request.")
 		goto fail
 	}
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+		WithProperty("requestID", req.ID.String()).WithProperty("workerID", worker).
+		Debug("Job run successfully.")
 	return true
 
 fail:
 	// Creating job failed. Bringing worker back to IDLE state.
+	logger.WithProperty("type", "Validmatcher").WithProperty("method", "matchWorkers").
+		WithProperty("requestID", req.ID.String()).WithProperty("workerID", worker).
+		Debug("Prepare worker.")
 	m.workers.PrepareWorker(worker, false)
 	return false
 }
