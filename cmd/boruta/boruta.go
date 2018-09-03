@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/boruta/workers"
+	"github.com/SamsungSLAV/slav/logger"
 	"github.com/dimfeld/httptreemux"
 )
 
@@ -38,20 +38,26 @@ var (
 	version = flag.Bool("version", false, "print Boruta server version and exit.")
 )
 
+func exitOnErr(ctx string, err error) {
+	logger.IncDepth(1).WithError(err).Critical(ctx)
+	os.Exit(1)
+}
+
 func main() {
 	flag.Parse()
 	if *version {
 		fmt.Println("boruta version", boruta.Version)
 		os.Exit(0)
 	}
+	logger.SetThreshold(logger.DebugLevel)
 	w := workers.NewWorkerList()
 	r := requests.NewRequestQueue(w, matcher.NewJobsManager(w))
 	router := httptreemux.New()
 	_ = api.NewAPI(router, r, w)
 	err := superviser.StartSuperviserReception(w, *rpcAddr)
 	if err != nil {
-		log.Fatal("RPC register failed:", err)
+		exitOnErr("RPC register failed:", err)
 	}
 
-	log.Fatal(http.ListenAndServe(*apiAddr, router))
+	exitOnErr("HTTP server failed.", http.ListenAndServe(*apiAddr, router))
 }
