@@ -26,6 +26,7 @@ import (
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/tunnels"
 	"github.com/SamsungSLAV/boruta/workers"
+	"github.com/SamsungSLAV/slav/logger"
 )
 
 const defaultDryadUsername = "boruta-user"
@@ -67,25 +68,36 @@ func NewJobsManager(w WorkersManager) JobsManager {
 // communication to Dryad by creating a tunnel. It is a part of JobsManager
 // interface implementation.
 func (m *JobsManagerImpl) Create(req boruta.ReqID, worker boruta.WorkerUUID) error {
+	logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+		Debug("Creation of new Job started.")
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	_, present := m.jobs[worker]
+	j, present := m.jobs[worker]
 	if present {
+		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+			Errorf("Worker is already processing another job: %v.", j)
 		return ErrJobAlreadyExists
 	}
 
 	addr, err := m.workers.GetWorkerSSHAddr(worker)
 	if err != nil {
+		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+			Error("Cannot get Worker's SSH address.")
 		return err
 	}
 	key, err := m.workers.GetWorkerKey(worker)
 	if err != nil {
+		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+			Error("Cannot get Worker's key.")
 		return err
 	}
 	t := m.newTunnel()
 	err = t.Create(nil, addr)
 	if err != nil {
+		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+			Error("Cannot create a new tunnel.")
 		return err
 	}
 
@@ -100,7 +112,9 @@ func (m *JobsManagerImpl) Create(req boruta.ReqID, worker boruta.WorkerUUID) err
 		Req:    req,
 	}
 	m.jobs[worker] = job
-
+	logger.WithProperties(logger.Properties{
+		"requestID": req.String(), "workerID": worker, "job": job}).
+		Info("New Job created.")
 	return nil
 }
 
@@ -112,8 +126,10 @@ func (m *JobsManagerImpl) Get(worker boruta.WorkerUUID) (*workers.Job, error) {
 
 	job, present := m.jobs[worker]
 	if !present {
+		logger.WithProperty("workerID", worker).Warning("No Job found for Worker.")
 		return nil, boruta.NotFoundError("Job")
 	}
+	logger.WithProperty("workerID", worker).WithProperty("Job", job).Debug("Worker's Job found.")
 	return job, nil
 }
 
@@ -133,10 +149,15 @@ func (m *JobsManagerImpl) Finish(worker boruta.WorkerUUID, prepare bool) error {
 
 	job, present := m.jobs[worker]
 	if !present {
+		logger.WithProperty("workerID", worker).Warning("No Job found for Worker.")
 		return boruta.NotFoundError("Job")
 	}
-	job.Tunnel.Close()
-	// TODO log an error in case of tunnel closing failure. Nothing more can be done.
+	err := job.Tunnel.Close()
+	if err != nil {
+		logger.WithProperty("workerID", worker).WithError(err).Error("Cannot close Jobs' tunnel.")
+	}
+
 	delete(m.jobs, worker)
+	logger.WithProperty("workerID", worker).Debug("Job removed.")
 	return nil
 }
