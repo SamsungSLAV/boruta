@@ -47,7 +47,7 @@ var _ = Describe("superviserReception", func() {
 
 	It("should get IP from connection", func() {
 		uuid := boruta.WorkerUUID(uuidStr)
-		conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)}, addr.(*net.TCPAddr))
+		conn, err := net.Dial(addr.Network(), addr.String())
 		Expect(err).ToNot(HaveOccurred())
 		c := NewSuperviserClient(rpc.NewClient(conn))
 
@@ -56,7 +56,8 @@ var _ = Describe("superviserReception", func() {
 
 		addr, err := wl.GetWorkerAddr(uuid)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(addr).To(Equal(refAddr))
+		Expect(addr.Port).To(Equal(refAddr.Port))
+		Expect(addr.IP.IsLoopback()).To(BeTrue())
 	})
 
 	It("should get IP from argument", func() {
