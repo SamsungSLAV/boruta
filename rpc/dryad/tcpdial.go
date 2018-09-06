@@ -22,6 +22,8 @@ package dryad
 import (
 	"net"
 	"net/rpc"
+
+	"github.com/SamsungSLAV/slav/logger"
 )
 
 // Create sets up new TCP dialled RPC client in DryadClient structure.
@@ -29,6 +31,8 @@ import (
 func (_c *DryadClient) Create(addr *net.TCPAddr) error {
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
+		logger.WithError(err).WithProperty("address", addr.String()).
+			Error("Failed to connect.")
 		return err
 	}
 	_c.client = rpc.NewClient(conn)

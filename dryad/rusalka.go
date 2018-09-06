@@ -25,6 +25,7 @@ import (
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/slav/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -52,11 +53,14 @@ func NewRusalka(stmConn stm.Interface, username string, groups []string) boruta.
 func (r *Rusalka) PutInMaintenance(msg string) error {
 	err := r.stm.printMessage(msg)
 	if err != nil {
+		logger.WithProperty("type", "Rusalka").WithError(err).
+			Error("Failed to print on stm display.")
 		return err
 	}
 	var ctx context.Context
 	ctx, r.cancelMaintenance = context.WithCancel(context.Background())
 	go r.stm.blinkMaintenanceLED(ctx)
+	logger.Info("Dryad changed state to MAINTENANCE")
 	return nil
 }
 
@@ -70,15 +74,20 @@ func (r *Rusalka) Prepare(key *ssh.PublicKey) (err error) {
 	// Remove/Add user.
 	err = r.dryadUser.delete()
 	if err != nil {
+		logger.WithError(err).Error("User removal failed")
 		return fmt.Errorf("user removal failed: %s", err)
 	}
 	err = r.dryadUser.add()
 	if err != nil {
+		logger.WithError(err).Error("User creation failed")
 		return fmt.Errorf("user creation failed: %s", err)
 	}
 	// Verify user's existance.
 	err = r.dryadUser.update()
 	if err != nil {
+		logger.WithProperty("type", "Rusalka").WithProperty("method", "Prepare").
+			WithProperty("SSH public key", key).WithError(err).
+			Error("user information update failed")
 		return fmt.Errorf("user information update failed: %s", err)
 	}
 	return r.dryadUser.installKey(key)

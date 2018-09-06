@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/rpc"
 	"os"
@@ -31,6 +30,7 @@ import (
 	dryad_rpc "github.com/SamsungSLAV/boruta/rpc/dryad"
 	superviser_rpc "github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/slav/logger"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -49,8 +49,14 @@ func init() {
 
 func exitOnErr(ctx string, err error) {
 	if err != nil {
-		log.Fatal(ctx, err)
+		logger.Critical(ctx, err)
+		os.Exit(1)
 	}
+}
+
+func exitAlways(ctx string) {
+	logger.Critical(ctx)
+	os.Exit(1)
 }
 
 func generateConfFile() {
@@ -61,7 +67,7 @@ func generateConfFile() {
 	u, err := uuid.NewV4()
 	if err != nil {
 		// can't generate UUID so write config without it.
-		// TODO: log a warning.
+		logger.Warningf("failed to generate UUID: %s, continuing...", err)
 		goto end
 	}
 	configuration.Caps["UUID"] = u.String()
@@ -84,17 +90,17 @@ func main() {
 		os.Exit(0)
 	}
 
+	logger.SetThreshold(logger.DebugLevel)
 	// Read configuration.
 	_, err := os.Stat(confPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			generateConfFile()
-			log.Fatal("configuration file generated. Please edit it first")
+			exitAlways("configuration file generated. Please edit it first")
 		}
-		log.Fatal("can't access file:", err)
+		exitOnErr("can't access file:", err)
 	}
 	readConfFile()
-
 	var dev stm.InterfaceCloser
 	if configuration.STMsocket != "" {
 		cl, err := rpc.Dial("unix", configuration.STMsocket)
@@ -117,16 +123,15 @@ func main() {
 	srv := rpc.NewServer()
 	err = dryad_rpc.RegisterDryadService(srv, rusalka)
 	exitOnErr("can't start RPC service:", err)
-
 	go srv.Accept(l)
 
 	boruta, err := superviser_rpc.DialSuperviserClient(configuration.BorutaAddress)
 	exitOnErr("failed to initialize connection to boruta:", err)
 	defer boruta.Close()
-
 	err = boruta.Register(configuration.Caps, configuration.Address, configuration.SSHAdress)
 	exitOnErr("failed to register to boruta:", err)
 
+	logger.Info("Registered in Boruta")
 	// Wait for interrupt.
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
