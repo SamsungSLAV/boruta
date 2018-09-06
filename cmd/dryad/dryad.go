@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/rpc"
 	"os"
@@ -31,6 +30,7 @@ import (
 	dryad_rpc "github.com/SamsungSLAV/boruta/rpc/dryad"
 	superviser_rpc "github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/slav/logger"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -49,7 +49,8 @@ func init() {
 
 func exitOnErr(ctx string, err error) {
 	if err != nil {
-		log.Fatal(ctx, err)
+		logger.IncDepth(1).WithError(err).Critical(ctx)
+		os.Exit(1)
 	}
 }
 
@@ -60,8 +61,7 @@ func generateConfFile() {
 
 	u, err := uuid.NewV4()
 	if err != nil {
-		// can't generate UUID so write config without it.
-		// TODO: log a warning.
+		logger.Warning("Failed to generate UUID, writing config without it.")
 		goto end
 	}
 	configuration.Caps["UUID"] = u.String()
@@ -84,14 +84,16 @@ func main() {
 		os.Exit(0)
 	}
 
+	logger.SetThreshold(logger.DebugLevel)
 	// Read configuration.
 	_, err := os.Stat(confPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			generateConfFile()
-			log.Fatal("configuration file generated. Please edit it first")
+			logger.Info("Configuration file generated. Please edit it first")
+			os.Exit(0)
 		}
-		log.Fatal("can't access file:", err)
+		exitOnErr("can't access file:", err)
 	}
 	readConfFile()
 
