@@ -31,6 +31,7 @@ import (
 	dryad_rpc "github.com/SamsungSLAV/boruta/rpc/dryad"
 	superviser_rpc "github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/slav/logger"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -84,6 +85,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	logger.SetThreshold(logger.DebugLevel)
 	// Read configuration.
 	_, err := os.Stat(confPath)
 	if err != nil {
