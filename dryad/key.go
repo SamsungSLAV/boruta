@@ -23,26 +23,46 @@ import (
 	"strconv"
 
 	"golang.org/x/crypto/ssh"
+
+	"github.com/SamsungSLAV/slav/logger"
 )
 
 // installPublicKey marshals and stores key in a proper location to be read by ssh daemon.
 func installPublicKey(key *ssh.PublicKey, homedir, uid, gid string) error {
+	logger.WithProperty("method", "installPublicKey").
+		WithProperty("PublicKey", key).
+		WithProperty("homedir", homedir).
+		WithProperty("uid", uid).
+		WithProperty("gid", gid).
+		Debug("Start.")
 	if key == nil {
+		logger.WithProperty("method", "installPublicKey").
+			WithProperty("PublicKey", key).
+			Error("Empty public ssh key provided.")
 		return errors.New("empty public key")
 	}
 	sshDir := path.Join(homedir, ".ssh")
 	err := os.MkdirAll(sshDir, 0755)
 	if err != nil {
+		logger.WithProperty("method", "installPublicKey").
+			WithProperty("PublicKey", key).
+			Error("Failed to create ssh directory.")
 		return err
 	}
 	f, err := os.OpenFile(path.Join(sshDir, "authorized_keys"),
 		os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
+		logger.WithProperty("method", "installPublicKey").
+			WithProperty("PublicKey", key).
+			Errorf("Failed to open %v/authorized_keys file.", sshDir)
 		return err
 	}
 	defer f.Close()
 	err = updateOwnership(f, sshDir, uid, gid)
 	if err != nil {
+		logger.WithProperty("method", "installPublicKey").
+			WithProperty("PublicKey", key).
+			Error("Failed to update ownership of authorized_keys file.")
 		return err
 	}
 	_, err = f.Write(ssh.MarshalAuthorizedKey(*key))

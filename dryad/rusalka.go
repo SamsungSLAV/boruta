@@ -25,6 +25,7 @@ import (
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/slav/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -50,8 +51,14 @@ func NewRusalka(stmConn stm.Interface, username string, groups []string) boruta.
 // Otherwise it may make it unusable for other STM users. It is closed
 // when blinkMaintenanceLED exits.
 func (r *Rusalka) PutInMaintenance(msg string) error {
+	logger.WithProperty("type", "Rusalka").WithProperty("method", "PutInMaintenance").
+		WithProperty("Message", msg).
+		Debug("Start.")
 	err := r.stm.printMessage(msg)
 	if err != nil {
+		logger.WithProperty("type", "Rusalka").WithProperty("method", "PutInMaintenance").
+			WithProperty("Message", msg).WithError(err).
+			Error("Failed to print on stm display.")
 		return err
 	}
 	var ctx context.Context
@@ -62,6 +69,9 @@ func (r *Rusalka) PutInMaintenance(msg string) error {
 
 // Prepare is part of implementation of Dryad interface. Call to Prepare stops LED blinking.
 func (r *Rusalka) Prepare(key *ssh.PublicKey) (err error) {
+	logger.WithProperty("type", "Rusalka").WithProperty("method", "Prepare").
+		WithProperty("SSH public key", key).
+		Debug("Start.")
 	// Stop maintenance.
 	if r.cancelMaintenance != nil {
 		r.cancelMaintenance()
@@ -70,15 +80,24 @@ func (r *Rusalka) Prepare(key *ssh.PublicKey) (err error) {
 	// Remove/Add user.
 	err = r.dryadUser.delete()
 	if err != nil {
+		logger.WithProperty("type", "Rusalka").WithProperty("method", "Prepare").
+			WithProperty("SSH public key", key).WithError(err).
+			Error("User removal failed")
 		return fmt.Errorf("user removal failed: %s", err)
 	}
 	err = r.dryadUser.add()
 	if err != nil {
+		logger.WithProperty("type", "Rusalka").WithProperty("method", "Prepare").
+			WithProperty("SSH public key", key).WithError(err).
+			Error("User creation failed")
 		return fmt.Errorf("user creation failed: %s", err)
 	}
 	// Verify user's existance.
 	err = r.dryadUser.update()
 	if err != nil {
+		logger.WithProperty("type", "Rusalka").WithProperty("method", "Prepare").
+			WithProperty("SSH public key", key).WithError(err).
+			Error("user information update failed")
 		return fmt.Errorf("user information update failed: %s", err)
 	}
 	return r.dryadUser.installKey(key)
