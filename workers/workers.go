@@ -189,6 +189,9 @@ func (wl *WorkerList) SetGroups(uuid boruta.WorkerUUID, groups boruta.Groups) er
 		return ErrWorkerNotFound
 	}
 	worker.Groups = groups
+	if worker.State == boruta.IDLE && wl.changeListener != nil {
+		wl.changeListener.OnWorkerIdle(uuid)
+	}
 	return nil
 }
 

@@ -552,6 +552,54 @@ var _ = Describe("WorkerList", func() {
 				Expect(wl.workers[worker].Groups).To(BeNil())
 				wl.mutex.RUnlock()
 			})
+			Describe("SetGroup with ChangeListener", func() {
+				var ctrl *gomock.Controller
+				var wc *MockWorkerChange
+
+				BeforeEach(func() {
+					ctrl = gomock.NewController(GinkgoT())
+					wc = NewMockWorkerChange(ctrl)
+					wl.SetChangeListener(wc)
+					Expect(wl.changeListener).To(Equal(wc))
+				})
+				AfterEach(func() {
+					ctrl.Finish()
+				})
+
+				It("should notify changeListener if set and worker's state is IDLE", func() {
+					wl.mutex.RLock()
+					wl.workers[worker].State = boruta.IDLE
+					wl.mutex.RUnlock()
+
+					wc.EXPECT().OnWorkerIdle(worker)
+					err := wl.SetGroups(worker, nil)
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should not notify changeListener if set and worker's state is other than IDLE", func() {
+					for _, state := range []boruta.WorkerState{boruta.MAINTENANCE, boruta.FAIL, boruta.RUN} {
+						By(string(state))
+
+						wl.mutex.RLock()
+						wl.workers[worker].State = state
+						wl.mutex.RUnlock()
+
+						err := wl.SetGroups(worker, nil)
+						Expect(err).ToNot(HaveOccurred())
+					}
+				})
+			})
+			It("should not notify changeListener if not set", func() {
+				for _, state := range []boruta.WorkerState{boruta.MAINTENANCE, boruta.FAIL, boruta.RUN, boruta.IDLE} {
+					By(string(state))
+
+					wl.mutex.RLock()
+					wl.workers[worker].State = state
+					wl.mutex.RUnlock()
+
+					err := wl.SetGroups(worker, nil)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
 		})
 
 		Describe("ListWorkers", func() {
