@@ -17,70 +17,139 @@
 package superviser
 
 import (
+	"errors"
 	"net"
 	"net/rpc"
 
 	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/workers"
-
+	"git.tizen.org/tools/boruta/mocks"
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("superviserReception", func() {
-	var i *superviserReception
-	var wl *workers.WorkerList
-	var addr net.Addr
-	uuidStr := "test-uuid"
-	refAddr := net.TCPAddr{
-		IP:   net.IPv4(127, 0, 0, 1),
-		Port: 7175,
-	}
+	var ctrl *gomock.Controller
+	var msv *mocks.MockSuperviser
+
+	const badAddr = "500.100.900"
 
 	BeforeEach(func() {
-		var err error
-		wl = workers.NewWorkerList()
-		i, err = startSuperviserReception(wl, "")
-		Expect(err).ToNot(HaveOccurred())
-		addr = i.listener.Addr()
+		ctrl = gomock.NewController(GinkgoT())
+		msv = mocks.NewMockSuperviser(ctrl)
+	})
+	AfterEach(func() {
+		ctrl.Finish()
 	})
 
-	It("should get IP from connection", func() {
-		uuid := boruta.WorkerUUID(uuidStr)
-		conn, err := net.Dial(addr.Network(), addr.String())
+	It("should start superviserReception", func() {
+		i, err := startSuperviserReception(msv, "")
 		Expect(err).ToNot(HaveOccurred())
-		c := NewSuperviserClient(rpc.NewClient(conn))
-
-		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, ":7175", ":22")
+		Expect(i).NotTo(BeNil())
+		Expect(i.listener.Addr().Network()).To(Equal("tcp"))
+		sshd, err := net.ResolveTCPAddr("tcp", i.listener.Addr().String())
 		Expect(err).ToNot(HaveOccurred())
-
-		addr, err := wl.GetWorkerAddr(uuid)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(addr.Port).To(Equal(refAddr.Port))
-		Expect(addr.IP.IsLoopback()).To(BeTrue())
+		Expect(sshd.IP.IsLoopback())
 	})
 
-	It("should get IP from argument", func() {
-		uuid := boruta.WorkerUUID(uuidStr)
-		c, err := DialSuperviserClient(addr.String())
-		Expect(err).ToNot(HaveOccurred())
-
-		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, refAddr.String(), refAddr.IP.String()+":22")
-		Expect(err).ToNot(HaveOccurred())
-
-		addr, err := wl.GetWorkerAddr(uuid)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(addr).To(Equal(refAddr))
-	})
-
-	It("should fail to call with either address empty", func() {
-		c, err := DialSuperviserClient(addr.String())
-		Expect(err).ToNot(HaveOccurred())
-
-		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, "", refAddr.IP.String()+":22")
+	It("should fail to superviserReception if address is bad", func() {
+		_, err := startSuperviserReception(msv, badAddr)
 		Expect(err).To(HaveOccurred())
+	})
 
-		err = c.Register(boruta.Capabilities{"UUID": uuidStr}, refAddr.String(), "")
+	It("should pass StartSuperviserReception call to superviserReception and return error", func() {
+		err := StartSuperviserReception(msv, badAddr)
 		Expect(err).To(HaveOccurred())
+	})
+
+	Describe("with Superviser reception started", func() {
+		var i *superviserReception
+		var addr net.Addr
+		uuidStr := "test-uuid"
+		uuid := boruta.WorkerUUID(uuidStr)
+		caps := boruta.Capabilities{"UUID": uuidStr}
+		dryadRefAddr := net.TCPAddr{Port: 7175}
+		sshRefAddr := net.TCPAddr{Port: 22}
+		testErr := errors.New("test error")
+
+		BeforeEach(func() {
+			var err error
+			i, err = startSuperviserReception(msv, "")
+			Expect(err).ToNot(HaveOccurred())
+			addr = i.listener.Addr()
+		})
+
+		It("should get IP from connection", func() {
+			conn, err := net.Dial(addr.Network(), addr.String())
+			Expect(err).ToNot(HaveOccurred())
+			c := NewSuperviserClient(rpc.NewClient(conn))
+
+			msv.EXPECT().Register(caps, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(c boruta.Capabilities, dryad string, ssh string) (err error) {
+					dryadAddr, err0 := net.ResolveTCPAddr("tcp", dryad)
+					Expect(err0).NotTo(HaveOccurred())
+					Expect(dryadAddr.IP.IsLoopback()).To(BeTrue())
+					Expect(dryadAddr.Port).To(Equal(dryadRefAddr.Port))
+					sshAddr, err0 := net.ResolveTCPAddr("tcp", ssh)
+					Expect(err0).NotTo(HaveOccurred())
+					Expect(sshAddr.IP.IsLoopback()).To(BeTrue())
+					Expect(sshAddr.Port).To(Equal(sshRefAddr.Port))
+					return testErr
+				})
+			err = c.Register(caps, dryadRefAddr.String(), sshRefAddr.String())
+			Expect(err).To(Equal(rpc.ServerError(testErr.Error())))
+		})
+
+		It("should get IP from argument", func() {
+			c, err := DialSuperviserClient(addr.String())
+			Expect(err).ToNot(HaveOccurred())
+
+			msv.EXPECT().Register(caps, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(c boruta.Capabilities, dryad string, ssh string) (err error) {
+					dryadAddr, err0 := net.ResolveTCPAddr("tcp", dryad)
+					Expect(err0).NotTo(HaveOccurred())
+					Expect(dryadAddr.IP.IsLoopback()).To(BeTrue())
+					Expect(dryadAddr.Port).To(Equal(dryadRefAddr.Port))
+					sshAddr, err0 := net.ResolveTCPAddr("tcp", ssh)
+					Expect(err0).NotTo(HaveOccurred())
+					Expect(sshAddr.IP.IsLoopback()).To(BeTrue())
+					Expect(sshAddr.Port).To(Equal(sshRefAddr.Port))
+					return testErr
+				})
+			ip := net.IPv4(127, 0, 0, 1)
+			da := net.TCPAddr{IP: ip, Port: dryadRefAddr.Port}
+			sa := net.TCPAddr{IP: ip, Port: sshRefAddr.Port}
+			err = c.Register(caps, da.String(), sa.String())
+			Expect(err).To(Equal(rpc.ServerError(testErr.Error())))
+		})
+
+		It("should fail to call with either address empty", func() {
+			c, err := DialSuperviserClient(addr.String())
+			Expect(err).ToNot(HaveOccurred())
+
+			err = c.Register(boruta.Capabilities{"UUID": uuidStr}, "", sshRefAddr.String())
+			Expect(err).To(HaveOccurred())
+
+			err = c.Register(boruta.Capabilities{"UUID": uuidStr}, dryadRefAddr.String(), "")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should call superviser's SetFail method", func() {
+			testReason := "test reason"
+
+			c, err := DialSuperviserClient(addr.String())
+			Expect(err).ToNot(HaveOccurred())
+
+			msv.EXPECT().SetFail(uuid, testReason).Return(testErr)
+			err = c.SetFail(uuid, testReason)
+			Expect(err).To(Equal(rpc.ServerError(testErr.Error())))
+		})
+
+		It("should properly close connection", func() {
+			c, err := DialSuperviserClient(addr.String())
+			Expect(err).ToNot(HaveOccurred())
+
+			c.Close()
+		})
 	})
 })

@@ -726,7 +726,7 @@ var _ = Describe("WorkerList", func() {
 		Describe("Setters and Getters", func() {
 			type genericGet func(wl *WorkerList, uuid boruta.WorkerUUID, expectedItem interface{}, expectedErr error)
 			getDryad := genericGet(func(wl *WorkerList, uuid boruta.WorkerUUID, expectedItem interface{}, expectedErr error) {
-				item, err := wl.GetWorkerAddr(uuid)
+				item, err := wl.getWorkerAddr(uuid)
 				if expectedErr != nil {
 					Expect(item).To(Equal(net.TCPAddr{}))
 					Expect(err).To(Equal(expectedErr))
@@ -760,7 +760,7 @@ var _ = Describe("WorkerList", func() {
 			setKey := genericSet(func(wl *WorkerList, uuid boruta.WorkerUUID, expectedErr error) interface{} {
 				key, err := rsa.GenerateKey(rand.Reader, 128)
 				Expect(err).ToNot(HaveOccurred())
-				err = wl.SetWorkerKey(uuid, key)
+				err = wl.setWorkerKey(uuid, key)
 				if expectedErr != nil {
 					Expect(err).To(Equal(expectedErr))
 					return nil

@@ -297,8 +297,8 @@ func (wl *WorkerList) GetWorkerInfo(uuid boruta.WorkerUUID) (boruta.WorkerInfo, 
 	return worker.WorkerInfo, nil
 }
 
-// GetWorkerAddr retrieves IP address from the internal structure.
-func (wl *WorkerList) GetWorkerAddr(uuid boruta.WorkerUUID) (net.TCPAddr, error) {
+// getWorkerAddr retrieves IP address from the internal structure.
+func (wl *WorkerList) getWorkerAddr(uuid boruta.WorkerUUID) (net.TCPAddr, error) {
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 	worker, ok := wl.workers[uuid]
@@ -319,9 +319,9 @@ func (wl *WorkerList) GetWorkerSSHAddr(uuid boruta.WorkerUUID) (net.TCPAddr, err
 	return *worker.sshd, nil
 }
 
-// SetWorkerKey stores private key in the worker structure referenced by uuid.
+// setWorkerKey stores private key in the worker structure referenced by uuid.
 // It is safe to modify key after call to this function.
-func (wl *WorkerList) SetWorkerKey(uuid boruta.WorkerUUID, key *rsa.PrivateKey) error {
+func (wl *WorkerList) setWorkerKey(uuid boruta.WorkerUUID, key *rsa.PrivateKey) error {
 	wl.mutex.Lock()
 	defer wl.mutex.Unlock()
 	worker, ok := wl.workers[uuid]
@@ -450,7 +450,7 @@ func (wl *WorkerList) setState(worker boruta.WorkerUUID, state boruta.WorkerStat
 
 // prepareKey generates key, installs public part on worker and stores private part in WorkerList.
 func (wl *WorkerList) prepareKey(worker boruta.WorkerUUID) error {
-	addr, err := wl.GetWorkerAddr(worker)
+	addr, err := wl.getWorkerAddr(worker)
 	if err != nil {
 		return err
 	}
@@ -472,13 +472,13 @@ func (wl *WorkerList) prepareKey(worker boruta.WorkerUUID) error {
 	if err != nil {
 		return err
 	}
-	err = wl.SetWorkerKey(worker, key)
+	err = wl.setWorkerKey(worker, key)
 	return err
 }
 
 // putInMaintenance orders Dryad to enter maintenance mode.
 func (wl *WorkerList) putInMaintenance(worker boruta.WorkerUUID) error {
-	addr, err := wl.GetWorkerAddr(worker)
+	addr, err := wl.getWorkerAddr(worker)
 	if err != nil {
 		return err
 	}

@@ -28,26 +28,25 @@ import (
 	"net/rpc"
 
 	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/workers"
 )
 
 type superviserReception struct {
-	wl       *workers.WorkerList
+	sv       boruta.Superviser
 	listener net.Listener
 }
 
 type addressBook struct {
 	ip net.IP
-	wl *workers.WorkerList
+	sv boruta.Superviser
 }
 
-func startSuperviserReception(wl *workers.WorkerList, addr string) (sr *superviserReception, err error) {
+func startSuperviserReception(sv boruta.Superviser, addr string) (sr *superviserReception, err error) {
 	sr = new(superviserReception)
 	sr.listener, err = net.Listen("tcp", addr)
 	if err != nil {
 		return
 	}
-	sr.wl = wl
+	sr.sv = sv
 	go sr.listenAndServe()
 	return
 }
@@ -58,8 +57,8 @@ func startSuperviserReception(wl *workers.WorkerList, addr string) (sr *supervis
 //
 // SetFail is unchanged, i.e. it calls SetFail of WorkerList without modification of arguments and
 // return values.
-func StartSuperviserReception(wl *workers.WorkerList, addr string) (err error) {
-	_, err = startSuperviserReception(wl, addr)
+func StartSuperviserReception(sv boruta.Superviser, addr string) (err error) {
+	_, err = startSuperviserReception(sv, addr)
 	return err
 }
 
@@ -81,7 +80,7 @@ func (sr *superviserReception) serve(conn net.Conn) {
 
 	sub := &addressBook{
 		ip: ip,
-		wl: sr.wl,
+		sv: sr.sv,
 	}
 
 	srv := rpc.NewServer()
@@ -118,10 +117,10 @@ func (ab *addressBook) Register(caps boruta.Capabilities, dryadAddress string, s
 	if sshd.IP == nil {
 		sshd.IP = ab.ip
 	}
-	return ab.wl.Register(caps, dryad.String(), sshd.String())
+	return ab.sv.Register(caps, dryad.String(), sshd.String())
 }
 
 // SetFail calls SetFail of WorkerList.
 func (ab *addressBook) SetFail(uuid boruta.WorkerUUID, reason string) (err error) {
-	return ab.wl.SetFail(uuid, reason)
+	return ab.sv.SetFail(uuid, reason)
 }
