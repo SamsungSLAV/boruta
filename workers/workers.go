@@ -37,14 +37,46 @@ const UUID string = "UUID"
 // It is a variable for test purposes.
 var sizeRSA = 4096
 
+// backgroundOperationsBufferSize defines buffer size of the channel
+// used for communication with background goroutine launched for every
+// registered worker. The goroutine processes long operations like:
+// preparation of Dryad to work or putting it into maintenance state.
+// Goroutines related with API calls use channel to initiate background
+// operations. Only one operation is run at the same time. The buffer
+// on channel allows non-blocking delegation of these operations.
+const backgroundOperationsBufferSize int = 32
+
+// pendingOperation describes status of reader's end of the channel used by
+// background routine.
+// The got flag indicates if there is any operation pending on channel.
+// Only if got is set to true, other fields should be analyzed.
+// The open flag indicates if channel is still open. It is set to false
+// when channel was closed on writer side (during deregistration of worker).
+// The state field contains new state that worker was switched to.
+type pendingOperation struct {
+	state boruta.WorkerState
+	open  bool
+	got   bool
+}
+
+// backgroundContext aggregates data required by functions running in background
+// goroutine to identify context of proper worker. The context is build of:
+// c - a reader's end of channel;
+// uuid - identificator of worker.
+type backgroundContext struct {
+	c    <-chan boruta.WorkerState
+	uuid boruta.WorkerUUID
+}
+
 // mapWorker is used by WorkerList to store all
 // (public and private) structures representing Worker.
 type mapWorker struct {
 	boruta.WorkerInfo
-	dryad *net.TCPAddr
-	sshd  *net.TCPAddr
-	ip    net.IP
-	key   *rsa.PrivateKey
+	dryad               *net.TCPAddr
+	sshd                *net.TCPAddr
+	ip                  net.IP
+	key                 *rsa.PrivateKey
+	backgroundOperation chan boruta.WorkerState
 }
 
 // WorkerList implements Superviser and Workers interfaces.
@@ -126,15 +158,18 @@ func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
 		worker.dryad = dryad
 		worker.sshd = sshd
 	} else {
+		c := make(chan boruta.WorkerState, backgroundOperationsBufferSize)
 		wl.workers[uuid] = &mapWorker{
 			WorkerInfo: boruta.WorkerInfo{
 				WorkerUUID: uuid,
 				State:      boruta.MAINTENANCE,
 				Caps:       caps,
 			},
-			dryad: dryad,
-			sshd:  sshd,
+			dryad:               dryad,
+			sshd:                sshd,
+			backgroundOperation: c,
 		}
+		go wl.backgroundLoop(backgroundContext{c: c, uuid: uuid})
 	}
 	return nil
 }
@@ -149,7 +184,8 @@ func (wl *WorkerList) SetFail(uuid boruta.WorkerUUID, reason string) error {
 	if !ok {
 		return ErrWorkerNotFound
 	}
-	if worker.State == boruta.MAINTENANCE {
+	// Ignore entering FAIL state if administrator started maintenance already.
+	if worker.State == boruta.MAINTENANCE || worker.State == boruta.BUSY {
 		return ErrInMaintenance
 	}
 	return wl.setState(uuid, boruta.FAIL)
@@ -167,15 +203,23 @@ func (wl *WorkerList) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState)
 	if !ok {
 		return ErrWorkerNotFound
 	}
+	// Do nothing if transition to MAINTENANCE state is already ongoing.
+	if state == boruta.MAINTENANCE && worker.State == boruta.BUSY {
+		return nil
+	}
+	// Do nothing if transition to IDLE state is already ongoing.
+	if state == boruta.IDLE && worker.State == boruta.PREPARE {
+		return nil
+	}
 	// State transitions to IDLE are allowed from MAINTENANCE state only.
 	if state == boruta.IDLE && worker.State != boruta.MAINTENANCE {
 		return ErrForbiddenStateChange
 	}
 	switch state {
 	case boruta.IDLE:
-		go wl.prepareKeyAndSetState(uuid)
+		wl.setState(uuid, boruta.PREPARE)
 	case boruta.MAINTENANCE:
-		go wl.putInMaintenanceWorker(uuid)
+		wl.setState(uuid, boruta.BUSY)
 	}
 	return nil
 }
@@ -206,6 +250,7 @@ func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
 	if worker.State != boruta.MAINTENANCE {
 		return ErrNotInMaintenance
 	}
+	close(worker.backgroundOperation)
 	delete(wl.workers, uuid)
 	return nil
 }
@@ -265,14 +310,14 @@ func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 
-	return wl.listWorkers(groups, caps)
+	return wl.listWorkers(groups, caps, false)
 }
 
 // listWorkers lists all workers when both:
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
 // Caller of this method should own the mutex.
-func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
+func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities, onlyIdle bool) ([]boruta.WorkerInfo, error) {
 	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
 
 	groupsMatcher := make(map[boruta.Group]interface{})
@@ -283,6 +328,9 @@ func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities
 	for _, worker := range wl.workers {
 		if isGroupsMatching(worker.WorkerInfo, groupsMatcher) &&
 			isCapsMatching(worker.WorkerInfo, caps) {
+			if onlyIdle && (worker.State != boruta.IDLE) {
+				continue
+			}
 			matching = append(matching, worker.WorkerInfo)
 		}
 	}
@@ -360,11 +408,8 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.C
 
 	var bestScore = math.MaxInt32
 
-	matching, _ := wl.listWorkers(groups, caps)
+	matching, _ := wl.listWorkers(groups, caps, true)
 	for _, info := range matching {
-		if info.State != boruta.IDLE {
-			continue
-		}
 		score := len(info.Caps) + len(info.Groups)
 		if score < bestScore {
 			bestScore = score
@@ -389,109 +434,159 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.C
 // As key creation can take some time, the method is asynchronous and the worker's
 // state might not be changed when it returns.
 // It is a part of WorkersManager interface implementation by WorkerList.
-func (wl *WorkerList) PrepareWorker(worker boruta.WorkerUUID, withKeyGeneration bool) error {
-	if !withKeyGeneration {
-		wl.mutex.Lock()
-		defer wl.mutex.Unlock()
-		return wl.setState(worker, boruta.IDLE)
+func (wl *WorkerList) PrepareWorker(uuid boruta.WorkerUUID, withKeyGeneration bool) error {
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
+
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	if worker.State != boruta.RUN {
+		return ErrForbiddenStateChange
 	}
 
-	go wl.prepareKeyAndSetState(worker)
+	if !withKeyGeneration {
+		return wl.setState(uuid, boruta.IDLE)
+	}
+	return wl.setState(uuid, boruta.PREPARE)
+}
 
+// setState changes state of worker. It does not contain any verification if change
+// is feasible. It should be used only for internal boruta purposes. It must be
+// called inside WorkerList critical section guarded by WorkerList.mutex.
+func (wl *WorkerList) setState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
+	worker, ok := wl.workers[uuid]
+	if !ok {
+		return ErrWorkerNotFound
+	}
+	// Send information about changing state to the background loop to possible break some operations.
+	worker.backgroundOperation <- state
+
+	if wl.changeListener != nil {
+		if state == boruta.IDLE {
+			wl.changeListener.OnWorkerIdle(uuid)
+		}
+		// Inform that Job execution was possibly broken when changing RUN state
+		// to any other than IDLE or PREPARE.
+		if worker.State == boruta.RUN && state != boruta.IDLE && state != boruta.PREPARE {
+			wl.changeListener.OnWorkerFail(uuid)
+		}
+	}
+	worker.State = state
 	return nil
 }
 
 // prepareKeyAndSetState prepares private RSA key for the worker and sets worker
 // into IDLE state in case of success. In case of failure of key preparation,
 // worker is put into FAIL state instead.
-func (wl *WorkerList) prepareKeyAndSetState(worker boruta.WorkerUUID) {
-	err := wl.prepareKey(worker)
-	wl.mutex.Lock()
-	defer wl.mutex.Unlock()
-	if err != nil {
-		// TODO log error.
-		wl.setState(worker, boruta.FAIL)
+func (wl *WorkerList) prepareKeyAndSetState(bc backgroundContext) (op pendingOperation) {
+	var err error
+	op, err = wl.prepareKey(bc)
+	if op.got {
 		return
 	}
-	wl.setState(worker, boruta.IDLE)
+
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
+
+	if op = checkPendingOperation(bc.c); op.got {
+		return
+	}
+
+	if err != nil {
+		// TODO log error.
+		wl.setState(bc.uuid, boruta.FAIL)
+		return
+	}
+	wl.setState(bc.uuid, boruta.IDLE)
+	return
+}
+
+// prepareKey generates key, installs public part on worker and stores private part in WorkerList.
+func (wl *WorkerList) prepareKey(bc backgroundContext) (op pendingOperation, err error) {
+	if op = checkPendingOperation(bc.c); op.got {
+		return
+	}
+	addr, err := wl.getWorkerAddr(bc.uuid)
+	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		return
+	}
+	client := wl.newDryadClient()
+	err = client.Create(&addr)
+	if err != nil {
+		op = checkPendingOperation(bc.c)
+		return
+	}
+	defer client.Close()
+	if op = checkPendingOperation(bc.c); op.got {
+		return
+	}
+	key, err := rsa.GenerateKey(rand.Reader, sizeRSA)
+	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		return
+	}
+	pubKey, err := ssh.NewPublicKey(&key.PublicKey)
+	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		return
+	}
+	err = client.Prepare(&pubKey)
+	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		return
+	}
+	err = wl.setWorkerKey(bc.uuid, key)
+	op = checkPendingOperation(bc.c)
+	return
 }
 
 // putInMaintenanceWorker puts Dryad into maintenance mode and sets worker
 // into MAINTENANCE state in case of success. In case of failure of entering
 // maintenance mode, worker is put into FAIL state instead.
-func (wl *WorkerList) putInMaintenanceWorker(worker boruta.WorkerUUID) {
-	err := wl.putInMaintenance(worker)
-	wl.mutex.Lock()
-	defer wl.mutex.Unlock()
-	if err != nil {
-		wl.setState(worker, boruta.FAIL)
+func (wl *WorkerList) putInMaintenanceWorker(bc backgroundContext) (op pendingOperation) {
+	var err error
+	op, err = wl.putInMaintenance(bc)
+	if op.got {
 		return
 	}
-	wl.setState(worker, boruta.MAINTENANCE)
-}
 
-// setState changes state of worker. It does not contain any verification if change
-// is feasible. It should be used only for internal boruta purposes. It must be
-// called inside WorkerList critical section guarded by WorkerList.mutex.
-func (wl *WorkerList) setState(worker boruta.WorkerUUID, state boruta.WorkerState) error {
-	w, ok := wl.workers[worker]
-	if !ok {
-		return ErrWorkerNotFound
-	}
-	if wl.changeListener != nil {
-		if state == boruta.IDLE {
-			wl.changeListener.OnWorkerIdle(worker)
-		} else {
-			if w.State == boruta.RUN {
-				wl.changeListener.OnWorkerFail(worker)
-			}
-		}
-	}
-	w.State = state
-	return nil
-}
+	wl.mutex.Lock()
+	defer wl.mutex.Unlock()
 
-// prepareKey generates key, installs public part on worker and stores private part in WorkerList.
-func (wl *WorkerList) prepareKey(worker boruta.WorkerUUID) error {
-	addr, err := wl.getWorkerAddr(worker)
-	if err != nil {
-		return err
+	if op = checkPendingOperation(bc.c); op.got {
+		return
 	}
-	client := wl.newDryadClient()
-	err = client.Create(&addr)
+
 	if err != nil {
-		return err
+		// TODO log error.
+		wl.setState(bc.uuid, boruta.FAIL)
+		return
 	}
-	defer client.Close()
-	key, err := rsa.GenerateKey(rand.Reader, sizeRSA)
-	if err != nil {
-		return err
-	}
-	pubKey, err := ssh.NewPublicKey(&key.PublicKey)
-	if err != nil {
-		return err
-	}
-	err = client.Prepare(&pubKey)
-	if err != nil {
-		return err
-	}
-	err = wl.setWorkerKey(worker, key)
-	return err
+	wl.setState(bc.uuid, boruta.MAINTENANCE)
+	return
 }
 
 // putInMaintenance orders Dryad to enter maintenance mode.
-func (wl *WorkerList) putInMaintenance(worker boruta.WorkerUUID) error {
-	addr, err := wl.getWorkerAddr(worker)
-	if err != nil {
-		return err
+func (wl *WorkerList) putInMaintenance(bc backgroundContext) (op pendingOperation, err error) {
+	if op = checkPendingOperation(bc.c); op.got {
+		return
+	}
+	addr, err := wl.getWorkerAddr(bc.uuid)
+	if op = checkPendingOperation(bc.c); op.got || err != nil {
+		return
 	}
 	client := wl.newDryadClient()
 	err = client.Create(&addr)
 	if err != nil {
-		return err
+		op = checkPendingOperation(bc.c)
+		return
 	}
 	defer client.Close()
-	return client.PutInMaintenance("maintenance")
+	if op = checkPendingOperation(bc.c); op.got {
+		return
+	}
+	err = client.PutInMaintenance("maintenance")
+	op = checkPendingOperation(bc.c)
+	return
 }
 
 // SetChangeListener sets change listener object in WorkerList. Listener should be
@@ -500,4 +595,49 @@ func (wl *WorkerList) putInMaintenance(worker boruta.WorkerUUID) error {
 // It is a part of WorkersManager interface implementation by WorkerList.
 func (wl *WorkerList) SetChangeListener(listener WorkerChange) {
 	wl.changeListener = listener
+}
+
+// checkPendingOperation verifies status of the communication channel in a non-blocking way.
+// It returns pendingOperation structure containing status of the channel.
+func checkPendingOperation(c <-chan boruta.WorkerState) (op pendingOperation) {
+	for {
+		select {
+		case op.state, op.open = <-c:
+			op.got = true
+			if !op.open {
+				return
+			}
+		default:
+			return
+		}
+	}
+}
+
+// backgroundLoop is the main procedure of a background goroutine launched for every registered
+// worker. It hangs on channel, waiting for new worker state to be processed or for close
+// of the channel (when worker was deregistered).
+// If new state is received, proper long operation is launched.
+// If long operation has been broken by appearance of the new state on channel or channel closure,
+// new state is processed immediately.
+// Procedure ends, when channel is closed.
+func (wl *WorkerList) backgroundLoop(bc backgroundContext) {
+	var op pendingOperation
+
+	for {
+		if !op.got {
+			op.state, op.open = <-bc.c
+		}
+		if !op.open {
+			// Worker has been deregistered. Ending background loop.
+			return
+		}
+		// Clear op.got flag as we consume received state.
+		op.got = false
+		switch op.state {
+		case boruta.PREPARE:
+			op = wl.prepareKeyAndSetState(bc)
+		case boruta.BUSY:
+			op = wl.putInMaintenanceWorker(bc)
+		}
+	}
 }

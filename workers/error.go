@@ -50,4 +50,8 @@ var (
 	// ErrMissingPort is returned when Register is called with either dryad or sshd
 	// address missing Port value.
 	ErrMissingPort = errors.New("Port is missing from address")
+	// ErrWorkerBusy is returned when worker is preparing to enter IDLE or MAINTENANCE state
+	// which requires time consuming operations to be run on Dryad. During this preparations
+	// Worker is blocked and cannot change state.
+	ErrWorkerBusy = errors.New("worker is busy")
 )

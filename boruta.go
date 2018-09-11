@@ -66,6 +66,10 @@ const (
 	RUN WorkerState = "RUNNING"
 	// FAIL - An error occured, reported by the Worker itself or the Server.
 	FAIL WorkerState = "FAILED"
+	// PREPARE - Worker is being prepared to enter IDLE state.
+	PREPARE WorkerState = "PREPARE"
+	// BUSY - Worker is being prepared to enter MAINTENANCE state.
+	BUSY WorkerState = "BUSY"
 )
 
 // Capabilities describe the features provided by the Worker and required by the Request.
