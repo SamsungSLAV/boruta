@@ -1,0 +1,145 @@
+######
+Boruta
+######
+
+
+********
+Overview
+********
+
+**Boruta** is part of SLAV stack. It is used to manage a device farm. Each
+device in farm is expected to be connected to a supervisor (MuxPi_ board) which
+runs **Dryad** - an agent communicating with **Boruta** server. **D**\evice
+**U**\nder **T**\est with a supervisor running Dryad is called worker. To
+denote connected DUT, each worker has a set of capabilites.
+
+Boruta performs following:
+
+* maintains list of registered workers, each with capabilities of connected
+  DUTs and current status.
+* manages requests for DUT access with attention to:
+
+  * priorities
+  * time scheduling
+  * requested capabilities (e.g. hardware interfaces)
+
+* creates tunnel to acquired worker
+
+All of the above information can be accessed via HTTP API.
+
+.. _MuxPi: https://github.com/SamsungSLAV/muxpi
+
+
+**********
+Deployment
+**********
+
+Docker
+======
+
+#. Prerequisites:
+
+   * git_
+   * Make_
+   * Docker_
+
+   .. _git: https://git-scm.com/
+   .. _Make: https://www.gnu.org/software/make/
+   .. _Docker: https://www.docker.com/
+
+#. Clone Boruta and go to that directory::
+
+     $ git clone https://github.com/SamsungSLAV/boruta.git & cd boruta
+
+#. Now just invoke make and enjoy your binaries in the bin directory::
+
+     $ make
+
+   .. note:: Keep in mind that dockerized Boruta build downloads clean source
+      from current master, rather than use from local sources.
+
+Local
+=====
+
+#. Prerequisites:
+
+   * `go (1.10+)`_
+
+   .. _`go (1.10+)`: https://golang.org/doc/install
+
+#. Go get it::
+
+     $ go get github.com/SamsungSLAV/boruta
+
+#. Go to repository directory::
+
+     $ cd $GOPATH/src/github.com/SamsungSLAV/boruta
+
+#. Download dependencies::
+
+     $ go get ./...
+
+#. And finally build Boruta server and Dryad agent::
+
+     $ go build -o boruta cmd/boruta/boruta.go
+     $ GOARCH=arm GOARM=7 GOOS=linux go build -o dryad_armv7 cmd/dryad/dryad.go
+
+
+************
+Using Boruta
+************
+
+#. Run the server with -h flag::
+
+     $ ./boruta -h
+
+   to receive full list of parameters.
+
+#. Start Boruta server substituting your addresses and ports::
+
+      $ ./boruta --api-address=127.0.0.1:8487 --rpc-address=192.168.0.1:7175
+
+#. Connect to your MuxPi_ and create directory for Dryad agent settings
+   on the MuxPi_::
+
+      $ mkdir -p /etc/boruta/
+
+#. Start Dryad agent on MuxPi. It should create dryad.conf file in the
+   directory specifed earlier.
+
+   Adjust the file with your deployment specifics such as:
+
+   * Boruta server address
+   * sdcard location (/dev/sda on MuxPi_)
+   * DUT capabilities
+   * User groups.
+
+   For the user to be able to connect to the DUT following groups should be
+   added::
+
+     groups = ["disk", "dialout", "stm", "uucp"]
+
+#. Start Dryad agent with filled config. Worker should register in the Boruta.
+
+#. Use your freshly configured worker!
+
+Contact information
+===================
+
++----------------------+----------------------------------+
+|         Name         |              E-mail              |
++======================+==================================+
+| Maciej Wereski       | m.wereski@partner.samsung.com    |
++----------------------+----------------------------------+
+| Łukasz Wojciechowski | l.wojciechow@partner.samsung.com |
++----------------------+----------------------------------+
+
+
+*******
+License
+*******
+
+Boruta is distributed under `Apache 2.0 License`_
+
+.. _`Apache 2.0 License`: LICENSE
+
