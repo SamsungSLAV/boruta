@@ -93,11 +93,9 @@ var _ = Describe("Requests as WorkerChange", func() {
 		})
 	})
 	Describe("OnWorkerFail", func() {
-		It("should panic if jobs.Get fails", func() {
+		It("should return if jobs.Get fails", func() {
 			jm.EXPECT().Get(testWorker).Return(nil, testErr)
-			Expect(func() {
-				R.OnWorkerFail(testWorker)
-			}).To(Panic())
+			R.OnWorkerFail(testWorker)
 		})
 		It("should panic if failing worker was processing unknown Job", func() {
 			noReq := boruta.ReqID(0)

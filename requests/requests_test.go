@@ -207,12 +207,32 @@ func TestCloseRequest(t *testing.T) {
 	assert.Equal(boruta.ReqState(boruta.DONE), rqueue.requests[reqid].State)
 	rqueue.mutex.RUnlock()
 
+	// Add another another valid request.
+	reqid, err = rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
+	assert.Nil(err)
+	assert.EqualValues(3, reqid)
+	// Simulate situation where request is in PROGRESS state, but no job for it exists.
+	reqinfo, err = rqueue.GetRequestInfo(reqid)
+	assert.Nil(err)
+	rqueue.mutex.Lock()
+	rqueue.requests[reqid].State = boruta.INPROGRESS
+	rqueue.requests[reqid].Job = nil
+	rqueue.queue.removeRequest(&reqinfo)
+	rqueue.mutex.Unlock()
+	// Close request.
+	err = rqueue.CloseRequest(reqid)
+	assert.Nil(err)
+	rqueue.mutex.RLock()
+	assert.EqualValues(3, len(rqueue.requests))
+	assert.Equal(boruta.ReqState(boruta.DONE), rqueue.requests[reqid].State)
+	rqueue.mutex.RUnlock()
+
 	// Simulation for the rest of states.
 	states := [...]boruta.ReqState{boruta.INVALID, boruta.CANCEL, boruta.TIMEOUT, boruta.DONE,
 		boruta.FAILED}
 	reqid, err = rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
 	assert.Nil(err)
-	assert.EqualValues(3, reqid)
+	assert.EqualValues(4, reqid)
 	reqinfo, err = rqueue.GetRequestInfo(reqid)
 	assert.Nil(err)
 	rqueue.mutex.Lock()
@@ -228,7 +248,7 @@ func TestCloseRequest(t *testing.T) {
 
 	rqueue.mutex.RLock()
 	defer rqueue.mutex.RUnlock()
-	assert.EqualValues(3, len(rqueue.requests))
+	assert.EqualValues(4, len(rqueue.requests))
 	assert.EqualValues(0, rqueue.queue.length)
 }
 

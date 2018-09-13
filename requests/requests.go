@@ -136,9 +136,13 @@ func (reqs *ReqsCollection) NewRequest(caps boruta.Capabilities,
 // all required conditions to close request are met.
 // The method must be called in reqs.mutex critical section.
 func (reqs *ReqsCollection) closeRequest(req *boruta.ReqInfo) {
+	req.State = boruta.DONE
+	if req.Job == nil {
+		// TODO log logic error, but continue service.
+		return
+	}
 	worker := req.Job.WorkerUUID
 	reqs.jobs.Finish(worker)
-	req.State = boruta.DONE
 }
 
 // CloseRequest is part of implementation of Requests interface.
@@ -459,7 +463,13 @@ func (reqs *ReqsCollection) OnWorkerFail(worker boruta.WorkerUUID) {
 
 	job, err := reqs.jobs.Get(worker)
 	if err != nil {
-		panic("no job related to running worker")
+		// Nothing to be done on requests or jobs level, when worker had no job assigned.
+		// It is not an error situation if Worker state transition:
+		// RUN->MAINTENANCE or RUN->FAIL happens and a request is not run
+		// by any Job. It can occur e.g. when worker is already booked for
+		// a Job (in RUN state) and creation of Job is not yet completed
+		// or failed.
+		return
 	}
 
 	reqID := job.Req
