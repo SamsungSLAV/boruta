@@ -31,6 +31,7 @@ type JobsManager interface {
 	// Get returns pointer to a Job from JobsManager or error if no job for
 	// the worker is found.
 	Get(boruta.WorkerUUID) (*workers.Job, error)
-	// Finish cleans up after job is done.
-	Finish(boruta.WorkerUUID) error
+	// Finish cleans up after job is done. The second parameter defines
+	// if worker should be prepared for next job.
+	Finish(boruta.WorkerUUID, bool) error
 }

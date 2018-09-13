@@ -17,6 +17,7 @@
 package requests
 
 //go:generate mockgen -package requests -destination=workersmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher WorkersManager
+//go:generate mockgen -package requests -destination=requests/jobsmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher JobsManager
 
 import (
 	"errors"
@@ -305,7 +306,7 @@ var _ = Describe("Requests as RequestsManager", func() {
 					}
 					R.mutex.Unlock()
 					gomock.InOrder(
-						jm.EXPECT().Finish(testWorker),
+						jm.EXPECT().Finish(testWorker, true),
 					)
 					err := R.Close(req)
 					Expect(err).NotTo(HaveOccurred())

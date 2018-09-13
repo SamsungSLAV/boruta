@@ -118,7 +118,7 @@ var _ = Describe("Requests as WorkerChange", func() {
 			// Test.
 			job := workers.Job{Req: reqid}
 			jm.EXPECT().Get(testWorker).Return(&job, nil)
-			jm.EXPECT().Finish(testWorker)
+			jm.EXPECT().Finish(testWorker, false)
 			R.OnWorkerFail(testWorker)
 			eventuallyState(reqid, boruta.FAILED)
 		})

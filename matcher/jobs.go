@@ -119,10 +119,15 @@ func (m *JobsManagerImpl) Get(worker boruta.WorkerUUID) (*workers.Job, error) {
 
 // Finish closes the job execution, breaks the tunnel to Dryad and removes job
 // from jobs collection.
-// The Dryad should be notified and prepared for next job with key regeneration.
+// The Dryad should be notified and prepared for next job with key regeneration
+// if prepare is true.
+// If prepare is false, Dryad should not be prepared. This can happen when Dryad
+// failed or is brought to MAINTENANCE state.
 // It is a part of JobsManager interface implementation.
-func (m *JobsManagerImpl) Finish(worker boruta.WorkerUUID) error {
-	defer m.workers.PrepareWorker(worker, true)
+func (m *JobsManagerImpl) Finish(worker boruta.WorkerUUID, prepare bool) error {
+	if prepare {
+		defer m.workers.PrepareWorker(worker, true)
+	}
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

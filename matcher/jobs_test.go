@@ -18,6 +18,7 @@ package matcher
 
 //go:generate mockgen -package matcher -destination=workersmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher WorkersManager
 //go:generate mockgen -package matcher -destination=tunneler_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/tunnels Tunneler
+//go:generate mockgen -package matcher -destination=jobsmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher JobsManager
 
 import (
 	"crypto/rsa"
@@ -167,7 +168,7 @@ var _ = Describe("Jobs", func() {
 			})
 		})
 		Describe("Finish", func() {
-			It("should finish existing job", func() {
+			It("should finish existing job and prepare worker", func() {
 				gomock.InOrder(
 					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
 					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
@@ -180,14 +181,35 @@ var _ = Describe("Jobs", func() {
 				err := jm.Create(req, worker)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = jm.Finish(worker)
+				err = jm.Finish(worker, true)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(jm.(*JobsManagerImpl).jobs).To(BeEmpty())
 			})
-			It("should fail to finish nonexistent job", func() {
+			It("should fail to finish nonexistent job but prepare worker", func() {
 				w.EXPECT().PrepareWorker(worker, true)
-				err := jm.Finish(worker)
+				err := jm.Finish(worker, true)
+				Expect(err).To(Equal(NotFoundError("Job")))
+			})
+			It("should finish existing job and not prepare worker", func() {
+				gomock.InOrder(
+					w.EXPECT().GetWorkerSSHAddr(worker).Return(workerAddr, nil),
+					w.EXPECT().GetWorkerKey(worker).Return(key, nil),
+					ttm.EXPECT().Create(nil, workerAddr).Return(nil),
+					ttm.EXPECT().Addr().Return(addr),
+					ttm.EXPECT().Close(),
+				)
+
+				err := jm.Create(req, worker)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = jm.Finish(worker, false)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(jm.(*JobsManagerImpl).jobs).To(BeEmpty())
+			})
+			It("should fail to finish nonexistent job and not prepare worker", func() {
+				err := jm.Finish(worker, false)
 				Expect(err).To(Equal(NotFoundError("Job")))
 			})
 		})

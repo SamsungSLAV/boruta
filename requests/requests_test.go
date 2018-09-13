@@ -198,7 +198,7 @@ func TestCloseRequest(t *testing.T) {
 	rqueue.mutex.Unlock()
 	// Close request.
 	gomock.InOrder(
-		jm.EXPECT().Finish(jobInfo.WorkerUUID),
+		jm.EXPECT().Finish(jobInfo.WorkerUUID, true),
 	)
 	err = rqueue.CloseRequest(reqid)
 	assert.Nil(err)

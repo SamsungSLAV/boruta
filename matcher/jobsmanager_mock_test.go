@@ -46,15 +46,15 @@ func (mr *MockJobsManagerMockRecorder) Create(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // Finish mocks base method
-func (m *MockJobsManager) Finish(arg0 boruta.WorkerUUID) error {
-	ret := m.ctrl.Call(m, "Finish", arg0)
+func (m *MockJobsManager) Finish(arg0 boruta.WorkerUUID, arg1 bool) error {
+	ret := m.ctrl.Call(m, "Finish", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Finish indicates an expected call of Finish
-func (mr *MockJobsManagerMockRecorder) Finish(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finish", reflect.TypeOf((*MockJobsManager)(nil).Finish), arg0)
+func (mr *MockJobsManagerMockRecorder) Finish(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finish", reflect.TypeOf((*MockJobsManager)(nil).Finish), arg0, arg1)
 }
 
 // Get mocks base method
