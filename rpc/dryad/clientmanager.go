@@ -25,6 +25,8 @@ import (
 	"net"
 
 	"git.tizen.org/tools/boruta"
+	// Needed for SSH public key serialization.
+	_ "git.tizen.org/tools/boruta/rpc/types"
 )
 
 // ClientManager defines API for managing client RPC calls to Dryad.

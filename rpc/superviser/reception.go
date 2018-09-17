@@ -28,6 +28,8 @@ import (
 	"net/rpc"
 
 	"git.tizen.org/tools/boruta"
+	// Needed for SSH public key serialization.
+	_ "git.tizen.org/tools/boruta/rpc/types"
 )
 
 type superviserReception struct {
