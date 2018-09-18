@@ -191,7 +191,10 @@ func (wl *WorkerList) SetFail(uuid boruta.WorkerUUID, reason string) error {
 	return wl.setState(uuid, boruta.FAIL)
 }
 
-// SetState is an implementation of SetState from Workers interface.
+// SetState is an implementation of SetState from Workers interface. Nil return means that there
+// were no formal issues to change the state of the worker. Error may occur while communicating
+// with Dryad via RPC. In such case state of the worker will be changed to FAIL. It's
+// responsibility of the caller to check if state was changed to requested value.
 func (wl *WorkerList) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
 	// Only state transitions to IDLE or MAINTENANCE are allowed.
 	if state != boruta.MAINTENANCE && state != boruta.IDLE {

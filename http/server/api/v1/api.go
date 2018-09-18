@@ -146,7 +146,7 @@ func NewAPI(router *httptreemux.Group, requestsAPI boruta.Requests,
 
 	// Workers API - Admin part
 	routerSetHandler(workers, "/:id/setstate", api.setWorkerStateHandler,
-		http.StatusNoContent, http.MethodPost)
+		http.StatusAccepted, http.MethodPost)
 	routerSetHandler(workers, "/:id/setgroups", api.setWorkerGroupsHandler,
 		http.StatusNoContent, http.MethodPost)
 	routerSetHandler(workers, "/:id/deregister", api.workerDeregister,

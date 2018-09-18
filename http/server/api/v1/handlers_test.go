@@ -637,7 +637,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 			methods:     methods,
 			json:        string(jsonMustMarshal(util.WorkerStatePack{WorkerState: IDLE})),
 			contentType: contentTypeJSON,
-			status:      http.StatusNoContent,
+			status:      http.StatusAccepted,
 		},
 		{
 			name:        prefix + "bad-uuid",
