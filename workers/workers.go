@@ -250,8 +250,8 @@ func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
 	if !ok {
 		return ErrWorkerNotFound
 	}
-	if worker.State != boruta.MAINTENANCE {
-		return ErrNotInMaintenance
+	if worker.State != boruta.MAINTENANCE && worker.State != boruta.FAIL {
+		return ErrNotInFailOrMaintenance
 	}
 	close(worker.backgroundOperation)
 	delete(wl.workers, uuid)

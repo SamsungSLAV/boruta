@@ -267,7 +267,18 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).To(Equal(ErrWorkerNotFound))
 			})
 
-			It("should work to deregister", func() {
+			It("should work to deregister worker in MAINTENANCE state", func() {
+				err := wl.Deregister(worker)
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(wl.workers).ToNot(HaveKey(worker))
+				wl.mutex.RUnlock()
+			})
+
+			It("should work to deregister worker in FAIL state", func() {
+				wl.mutex.Lock()
+				wl.workers[worker].State = boruta.FAIL
+				wl.mutex.Unlock()
 				err := wl.Deregister(worker)
 				Expect(err).ToNot(HaveOccurred())
 				wl.mutex.RLock()
@@ -286,13 +297,13 @@ var _ = Describe("WorkerList", func() {
 				Expect(err).To(Equal(ErrWorkerNotFound))
 			})
 
-			It("should fail to deregister worker not in MAINTENANCE state", func() {
-				for _, state := range []boruta.WorkerState{boruta.IDLE, boruta.RUN, boruta.FAIL, boruta.PREPARE, boruta.BUSY} {
+			It("should fail to deregister worker not in FAIL or MAINTENANCE state", func() {
+				for _, state := range []boruta.WorkerState{boruta.IDLE, boruta.RUN, boruta.PREPARE, boruta.BUSY} {
 					wl.mutex.Lock()
 					wl.workers[worker].State = state
 					wl.mutex.Unlock()
 					err := wl.Deregister(worker)
-					Expect(err).To(Equal(ErrNotInMaintenance))
+					Expect(err).To(Equal(ErrNotInFailOrMaintenance))
 					wl.mutex.RLock()
 					Expect(wl.workers).To(HaveKey(worker))
 					wl.mutex.RUnlock()

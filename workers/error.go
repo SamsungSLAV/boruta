@@ -32,9 +32,9 @@ var (
 	ErrWorkerNotFound = boruta.NotFoundError("Worker")
 	// ErrInMaintenance is returned when SetFail has been called for Worker in MAINTENANCE state.
 	ErrInMaintenance = errors.New("It is forbidden to set FAIL state when Worker is in MAINTENANCE state")
-	// ErrNotInMaintenance is returned when Deregister is called for a worker not in MAINTENANCE state.
-	// Only workers in MAINTENANCE state can be removed from the list.
-	ErrNotInMaintenance = errors.New("Worker is not in MAINTENANCE state")
+	// ErrNotInFailOrMaintenance is returned when Deregister is called for a worker not in FAIL or MAINTENANCE state.
+	// Only workers in FAIL or MAINTENANCE state can be removed from the list.
+	ErrNotInFailOrMaintenance = errors.New("Worker is not in FAIL or MAINTENANCE state")
 	// ErrWrongStateArgument is returned when SetState is called with incorrect state argument.
 	// Worker state can be changed by Admin to IDLE or MAINTENANCE only.
 	ErrWrongStateArgument = errors.New("Only state changes to IDLE and MAINTENANCE are allowed")
