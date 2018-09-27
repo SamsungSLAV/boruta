@@ -47,6 +47,14 @@ type RequestsListSpec struct {
 	Sorter *boruta.SortInfo
 }
 
+// WorkersListSpec is intended for (un)marshaling ListWorkers parameters in HTTP API.
+type WorkersListSpec struct {
+	// Filter contains information how to filter list of workers.
+	Filter *filter.Workers
+	// Sorter contains SortInfo data.
+	Sorter *boruta.SortInfo
+}
+
 // ReqIDPack is used for JSON (un)marshaller.
 type ReqIDPack struct {
 	boruta.ReqID

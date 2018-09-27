@@ -32,6 +32,15 @@ import (
 	"github.com/SamsungSLAV/boruta/requests"
 )
 
+var (
+	defaultSorter = &boruta.SortInfo{} // "", SortOrderAsc
+
+	sorterBad = &boruta.SortInfo{
+		Item:  "foobarbaz",
+		Order: boruta.SortOrderAsc,
+	}
+)
+
 func TestNewRequestHandler(t *testing.T) {
 	assert, m, r := initTest(t)
 	defer m.finish()
@@ -268,8 +277,6 @@ func TestListRequestsHandler(t *testing.T) {
 			Deadline: deadline, ValidAfter: validAfter},
 	}
 
-	defaultSorter := new(boruta.SortInfo) // "", SortOrderAsc
-
 	sorterAsc := &boruta.SortInfo{
 		Item:  "priority",
 		Order: boruta.SortOrderAsc,
@@ -278,11 +285,6 @@ func TestListRequestsHandler(t *testing.T) {
 	sorterDesc := &boruta.SortInfo{
 		Item:  "state",
 		Order: boruta.SortOrderDesc,
-	}
-
-	sorterBad := &boruta.SortInfo{
-		Item:  "foobarbaz",
-		Order: boruta.SortOrderAsc,
 	}
 
 	methods := []string{http.MethodPost}
@@ -524,10 +526,21 @@ func TestListWorkersHandler(t *testing.T) {
 	riscvCaps := make(boruta.Capabilities)
 	riscvCaps["architecture"] = "RISC-V"
 
+	sorterAsc := &boruta.SortInfo{
+		Item:  "uuid",
+		Order: boruta.SortOrderAsc,
+	}
+
+	sorterDesc := &boruta.SortInfo{
+		Item:  "state",
+		Order: boruta.SortOrderDesc,
+	}
+
 	workers := []boruta.WorkerInfo{
 		newWorker("0", boruta.IDLE, boruta.Groups{"Lędzianie"}, armCaps),
 		newWorker("1", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, armCaps),
-		newWorker("2", boruta.IDLE, boruta.Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
+		newWorker("2", boruta.IDLE, boruta.Groups{"Malinowy Chruśniak", "Lędzianie"},
+			riscvCaps),
 		newWorker("3", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, riscvCaps),
 	}
 
@@ -536,45 +549,55 @@ func TestListWorkersHandler(t *testing.T) {
 	filterPath := "/api/v1/workers/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := filter.Workers{
+	validFilter := &filter.Workers{
 		Groups:       boruta.Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
-	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities).Return(workers[:2], nil)
+	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities, defaultSorter).Return(workers[:2], nil)
+	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities,
+		sorterBad).Return([]boruta.WorkerInfo{}, boruta.ErrWrongSortItem)
 	validHeader := make(http.Header)
 	validHeader.Set("Boruta-Worker-Count", "2")
 
-	m.wm.EXPECT().ListWorkers(nil, nil).Return(workers, nil).MinTimes(1)
-	m.wm.EXPECT().ListWorkers(boruta.Groups{}, nil).Return(workers, nil)
-	m.wm.EXPECT().ListWorkers(nil, make(boruta.Capabilities)).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(nil, nil, nil).Return(workers, nil).MinTimes(1)
+	m.wm.EXPECT().ListWorkers(nil, nil, sorterAsc).Return(workers, nil)
+	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
+	m.wm.EXPECT().ListWorkers(nil, nil, sorterDesc).Return(w2, nil)
+	m.wm.EXPECT().ListWorkers(boruta.Groups{}, nil, nil).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(nil, make(boruta.Capabilities), nil).Return(workers, nil)
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Worker-Count", "4")
 
-	missingFilter := filter.Workers{
+	missingFilter := &filter.Workers{
 		Groups: boruta.Groups{"Fern Flower"},
 	}
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Worker-Count", "0")
-	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities).Return([]boruta.WorkerInfo{}, nil)
+	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities,
+		nil).Return([]boruta.WorkerInfo{}, nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
-	badFilter := filter.Workers{
+	badFilter := &filter.Workers{
 		Groups: boruta.Groups{"Oops"},
 	}
-	m.wm.EXPECT().ListWorkers(badFilter.Groups, badFilter.Capabilities).Return([]boruta.WorkerInfo{}, errors.New("foo bar: pizza failed"))
+	m.wm.EXPECT().ListWorkers(badFilter.Groups, badFilter.Capabilities,
+		nil).Return([]boruta.WorkerInfo{}, errors.New("foo bar: pizza failed"))
 
 	tests := []requestTest{
-		// Valid filter - list some requests.
+		// Valid filter - list some workers.
 		{
-			name:        prefix + "valid-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(validFilter)),
+			name:    prefix + "valid-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: validFilter,
+				Sorter: defaultSorter,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      validHeader,
 		},
-		// List all requests.
+		// List all workers.
 		{
 			name:        "list-workers-all",
 			path:        "/api/v1/workers/",
@@ -584,7 +607,7 @@ func TestListWorkersHandler(t *testing.T) {
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
-		// Empty body - list all requests.
+		// Empty body - list all workers.
 		{
 			name:        prefix + "empty-body",
 			path:        filterPath,
@@ -594,58 +617,108 @@ func TestListWorkersHandler(t *testing.T) {
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
-		// Empty filter (all nil) - list all requests.
+		// Empty filter (all nil) - list all workers.
 		{
 			name:    prefix + "empty-filter",
 			path:    filterPath,
 			methods: methods,
-			json: string(jsonMustMarshal(filter.Workers{
-				Groups:       nil,
-				Capabilities: nil})),
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: &filter.Workers{Groups: nil, Capabilities: nil},
+				Sorter: nil,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
-		// Empty filter (nil groups) - list all requests.
+		// Empty filter - list all workers sorted by uuid (ascending).
+		{
+			name:    prefix + "empty-filter-sort-asc",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: &filter.Workers{Groups: nil, Capabilities: nil},
+				Sorter: sorterAsc,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+			header:      allHeader,
+		},
+		// Empty filter - list all workers sorted by state (descending).
+		{
+			name:    prefix + "empty-filter-sort-desc",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: &filter.Workers{Groups: nil, Capabilities: nil},
+				Sorter: sorterDesc,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+			header:      allHeader,
+		},
+		// Empty filter (nil groups) - list all workers.
 		{
 			name:    prefix + "empty2-filter",
 			path:    filterPath,
 			methods: methods,
-			json: string(jsonMustMarshal(filter.Workers{
-				Groups:       nil,
-				Capabilities: make(boruta.Capabilities)})),
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: &filter.Workers{
+					Groups:       nil,
+					Capabilities: make(boruta.Capabilities),
+				},
+				Sorter: nil,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
-		// Empty filter (nil caps) - list all requests.
+		// Empty filter (nil caps) - list all workers.
 		{
 			name:    prefix + "empty3-filter",
 			path:    filterPath,
 			methods: methods,
-			json: string(jsonMustMarshal(filter.Workers{
-				Groups:       boruta.Groups{},
-				Capabilities: nil})),
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: &filter.Workers{Groups: boruta.Groups{}, Capabilities: nil},
+				Sorter: nil,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
 		// No matches.
 		{
-			name:        prefix + "nomatch",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(missingFilter)),
+			name:    prefix + "nomatch",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: missingFilter,
+				Sorter: nil,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      missingHeader,
 		},
-		// Error.
+		// Error in filter.
 		{
-			name:        prefix + "bad-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(badFilter)),
+			name:    prefix + "bad-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: badFilter,
+				Sorter: nil,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusBadRequest,
+		},
+		// Bad sort item.
+		{
+			name:    prefix + "bad-sorter-item",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: validFilter,
+				Sorter: sorterBad,
+			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusBadRequest,
 		},

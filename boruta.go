@@ -212,8 +212,9 @@ type Superviser interface {
 // Users (and admins) can also call methods from Requests interface.
 type Workers interface {
 	// ListWorkers returns a list of all Workers matching Groups and Capabilities
-	// or all registered Workers if both arguments are empty.
-	ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error)
+	// or all registered Workers if all arguments are nil. The list is sorted according to
+	// passed sorter (using default sorting when it's nil).
+	ListWorkers(groups Groups, caps Capabilities, sorter *SortInfo) ([]WorkerInfo, error)
 	// GetWorkerInfo returns WorkerInfo of specified worker.
 	GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error)
 

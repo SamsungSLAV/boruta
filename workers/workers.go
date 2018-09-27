@@ -310,20 +310,28 @@ func isGroupsMatching(worker boruta.WorkerInfo, groupsMatcher map[boruta.Group]i
 }
 
 // ListWorkers is an implementation of ListWorkers from Workers interface.
-func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
+func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities,
+	info *boruta.SortInfo) ([]boruta.WorkerInfo, error) {
+
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 
-	return wl.listWorkers(groups, caps, false)
+	return wl.listWorkers(groups, caps, info, false)
 }
 
 // listWorkers lists all workers when both:
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
 // Caller of this method should own the mutex.
-func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities, onlyIdle bool) ([]boruta.WorkerInfo, error) {
-	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
+func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities,
+	info *boruta.SortInfo, onlyIdle bool) ([]boruta.WorkerInfo, error) {
 
+	sorter, err := newSorter(info)
+	if err != nil {
+		return nil, err
+	}
+
+	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
 	groupsMatcher := make(map[boruta.Group]interface{})
 	for _, group := range groups {
 		groupsMatcher[group] = nil
@@ -338,6 +346,9 @@ func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities
 			matching = append(matching, worker.WorkerInfo)
 		}
 	}
+
+	sorter.list = matching
+	sort.Sort(sorter)
 	return matching, nil
 }
 
@@ -412,7 +423,10 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.C
 
 	var bestScore = math.MaxInt32
 
-	matching, _ := wl.listWorkers(groups, caps, true)
+	matching, err := wl.listWorkers(groups, caps, nil, true)
+	if err != nil {
+		panic("listing workers failed: " + err.Error())
+	}
 	for _, info := range matching {
 		score := len(info.Caps) + len(info.Groups)
 		if score < bestScore {

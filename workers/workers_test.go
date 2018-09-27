@@ -80,27 +80,30 @@ var _ = Describe("WorkerList", func() {
 		}
 		b.Time("list all", func() {
 			for i := 0; i < maximumListTests; i++ {
-				_, err := wl.ListWorkers(nil, nil)
+				_, err := wl.ListWorkers(nil, nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		b.Time("list with caps matching", func() {
 			for i := 0; i < maximumListTests; i++ {
 				_, err := wl.ListWorkers(nil,
-					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])})
+					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])},
+					nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		b.Time("list with groups matching", func() {
 			for i := 0; i < maximumListTests; i++ {
-				_, err := wl.ListWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])}, nil)
+				_, err := wl.ListWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])},
+					nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		b.Time("list with both groups and caps matching", func() {
 			for i := 0; i < maximumListTests; i++ {
 				_, err := wl.ListWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])},
-					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])})
+					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])},
+					nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})

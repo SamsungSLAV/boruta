@@ -1041,6 +1041,7 @@ var _ = Describe("WorkerList", func() {
 
 		Describe("ListWorkers", func() {
 			var refWorkerList []boruta.WorkerInfo
+			var si boruta.SortInfo
 
 			registerAndSetGroups := func(groups boruta.Groups, caps boruta.Capabilities) boruta.WorkerInfo {
 				capsUUID := getUUID()
@@ -1060,6 +1061,7 @@ var _ = Describe("WorkerList", func() {
 			}
 
 			BeforeEach(func() {
+				si = boruta.SortInfo{}
 				refWorkerList = make([]boruta.WorkerInfo, 1)
 				// Add worker with minimal caps and empty groups.
 				wl.mutex.RLock()
@@ -1101,8 +1103,8 @@ var _ = Describe("WorkerList", func() {
 			})
 
 			testWorkerList := func(groups boruta.Groups, caps boruta.Capabilities,
-				present, absent []boruta.WorkerInfo) {
-				workers, err := wl.ListWorkers(groups, caps)
+				si *boruta.SortInfo, present, absent []boruta.WorkerInfo) {
+				workers, err := wl.ListWorkers(groups, caps, si)
 				Expect(err).ToNot(HaveOccurred())
 				for _, workerInfo := range present {
 					Expect(workers).To(ContainElement(workerInfo))
@@ -1112,25 +1114,36 @@ var _ = Describe("WorkerList", func() {
 				}
 			}
 
-			It("should return all workers when parameters are nil", func() {
-				testWorkerList(nil, nil, refWorkerList, nil)
+			It("should return all workers when only SortInfo is set", func() {
+				testWorkerList(nil, nil, &si, refWorkerList, nil)
 			})
 
 			It("should return all workers when parameters are empty", func() {
-				testWorkerList(boruta.Groups{}, boruta.Capabilities{}, refWorkerList, nil)
+				testWorkerList(boruta.Groups{}, boruta.Capabilities{}, &si, refWorkerList, nil)
+			})
+
+			It("should return all workers when parameters are nil", func() {
+				testWorkerList(nil, nil, nil, refWorkerList, nil)
+			})
+
+			It("should return an error when SortInfo has unknown item", func() {
+				sortinfo := &boruta.SortInfo{Item: "foobar"}
+				workers, err := wl.ListWorkers(nil, nil, sortinfo)
+				Expect(len(workers)).To(Equal(0))
+				Expect(err).To(Equal(boruta.ErrWrongSortItem))
 			})
 
 			Describe("filterCaps", func() {
 				It("should return all workers satisfying defined caps", func() {
 					By("Returning all workers with display")
 					testWorkerList(boruta.Groups{},
-						boruta.Capabilities{"display": "yes"},
+						boruta.Capabilities{"display": "yes"}, &si,
 						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[3], refWorkerList[5]},
 						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[2], refWorkerList[4]})
 
 					By("Returning all workers without display")
 					testWorkerList(boruta.Groups{},
-						boruta.Capabilities{"display": "no"},
+						boruta.Capabilities{"display": "no"}, &si,
 						[]boruta.WorkerInfo{refWorkerList[4]},
 						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[1],
 							refWorkerList[2], refWorkerList[3], refWorkerList[5]})
@@ -1140,7 +1153,7 @@ var _ = Describe("WorkerList", func() {
 					workers, err := wl.ListWorkers(boruta.Groups{},
 						boruta.Capabilities{
 							"non-existing-caps": "",
-						})
+						}, &si)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
 				})
@@ -1150,20 +1163,20 @@ var _ = Describe("WorkerList", func() {
 				It("should return all workers satisfying defined groups", func() {
 					By("Returning all workers in group all")
 					testWorkerList(boruta.Groups{"all"},
-						nil,
+						nil, &si,
 						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[2],
 							refWorkerList[4], refWorkerList[5]},
 						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[3]})
 
 					By("Returning all workers in group small_1")
 					testWorkerList(boruta.Groups{"small_1"},
-						nil,
+						nil, &si,
 						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[2], refWorkerList[4]},
 						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[3], refWorkerList[5]})
 				})
 
 				It("should return empty list if no worker matches the group", func() {
-					workers, err := wl.ListWorkers(boruta.Groups{"non-existing-group"}, nil)
+					workers, err := wl.ListWorkers(boruta.Groups{"non-existing-group"}, nil, &si)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
 				})
@@ -1175,7 +1188,7 @@ var _ = Describe("WorkerList", func() {
 					boruta.Capabilities{
 						"target":  "yes",
 						"display": "yes",
-					},
+					}, &si,
 					[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[5]},
 					[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[2],
 						refWorkerList[3], refWorkerList[4]})
@@ -1185,7 +1198,7 @@ var _ = Describe("WorkerList", func() {
 					boruta.Capabilities{
 						"target":  "yes",
 						"display": "no",
-					},
+					}, &si,
 					[]boruta.WorkerInfo{refWorkerList[4]},
 					[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[1],
 						refWorkerList[2], refWorkerList[3], refWorkerList[5]})
