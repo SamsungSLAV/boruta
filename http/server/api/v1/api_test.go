@@ -192,7 +192,8 @@ func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []request
 			tdata := filepath.Join("testdata", test.name+"-"+method+".json")
 			body, err := ioutil.ReadAll(resp.Body)
 			assert.Nil(err)
-			if update && method != http.MethodHead {
+			if update && resp.StatusCode != http.StatusNoContent &&
+				method != http.MethodHead {
 				err = ioutil.WriteFile(tdata, body, 0644)
 				assert.Nil(err)
 			}
