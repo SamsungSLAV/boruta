@@ -37,4 +37,6 @@ var (
 	ErrWrongSortItem = errors.New("unknown name of item by which list should be sorted")
 	// ErrWrongSortOrder is returned when user provided unknown order.
 	ErrWrongSortOrder = errors.New("unknown sort order (valid: ascending or descending)")
+	// ErrWrongListDirection is returned when user provided unknown order.
+	ErrWrongListDirection = errors.New("unknown direction (valid: forward or backward)")
 )

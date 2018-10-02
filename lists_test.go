@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMarshalText(t *testing.T) {
+func TestSortOrderMarshalText(t *testing.T) {
 	assert := assert.New(t)
 
 	order := new(SortOrder)
@@ -41,7 +41,7 @@ func TestMarshalText(t *testing.T) {
 	assert.Equal(SortOrderAsc.String(), string(text))
 }
 
-func TestUnmarshalText(t *testing.T) {
+func TestSortOrderUnmarshalText(t *testing.T) {
 	assert := assert.New(t)
 
 	order := new(SortOrder)
@@ -60,4 +60,44 @@ func TestUnmarshalText(t *testing.T) {
 
 	err = order.UnmarshalText([]byte("foo"))
 	assert.Equal(ErrWrongSortOrder, err)
+}
+
+func TestListDirectionMarshalText(t *testing.T) {
+	assert := assert.New(t)
+
+	direction := new(ListDirection)
+	text, err := direction.MarshalText()
+	assert.Nil(err)
+	assert.Equal(DirectionForward.String(), string(text))
+
+	*direction = DirectionBackward
+	text, err = direction.MarshalText()
+	assert.Nil(err)
+	assert.Equal(DirectionBackward.String(), string(text))
+
+	*direction = DirectionForward
+	text, err = direction.MarshalText()
+	assert.Nil(err)
+	assert.Equal(DirectionForward.String(), string(text))
+}
+
+func TestListDirectionUnmarshalText(t *testing.T) {
+	assert := assert.New(t)
+
+	direction := new(ListDirection)
+	err := direction.UnmarshalText([]byte(DirectionBackward.String()))
+	assert.Nil(err)
+	assert.Equal(DirectionBackward, *direction)
+
+	err = direction.UnmarshalText([]byte(DirectionForward.String()))
+	assert.Nil(err)
+	assert.Equal(DirectionForward, *direction)
+
+	*direction = DirectionBackward
+	err = direction.UnmarshalText([]byte(""))
+	assert.Nil(err)
+	assert.Equal(DirectionForward, *direction)
+
+	err = direction.UnmarshalText([]byte("foo"))
+	assert.Equal(ErrWrongListDirection, err)
 }
