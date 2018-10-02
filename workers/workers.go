@@ -74,7 +74,6 @@ type mapWorker struct {
 	boruta.WorkerInfo
 	dryad               *net.TCPAddr
 	sshd                *net.TCPAddr
-	ip                  net.IP
 	key                 *rsa.PrivateKey
 	backgroundOperation chan boruta.WorkerState
 }
