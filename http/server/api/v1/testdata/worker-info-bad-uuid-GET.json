@@ -1,1 +1,1 @@
-{"error":"invalid request: ID provided in URL isn't valid UUID"}
+{"message":"invalid request: ID provided in URL isn't valid UUID"}

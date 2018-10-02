@@ -293,7 +293,7 @@ func TestGetServerError(t *testing.T) {
 
 	missing := `
 	{
-		  "error": "Request not found"
+		  "message": "Request not found"
 	}
 	`
 	resp.Body = ioutil.NopCloser(strings.NewReader(missing))
@@ -323,7 +323,7 @@ func TestProcessResponse(t *testing.T) {
 	var srvErr *util.ServerError
 	missing := `
 	{
-		"error": "Request not found"
+		"message": "Request not found"
 	}
 	`
 

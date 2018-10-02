@@ -30,7 +30,7 @@ import (
 // ServerError represents error that occured while creating response.
 type ServerError struct {
 	// Err contains general error string.
-	Err string `json:"error"`
+	Err string `json:"message"`
 	// Status contains HTTP error code that should be returned with the error.
 	Status int `json:"-"`
 }
