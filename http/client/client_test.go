@@ -873,7 +873,7 @@ func TestListWorkers(t *testing.T) {
 			// list all
 			name:        prefix + "empty-filter",
 			path:        path,
-			json:        string(jsonMustMarshal(util.WorkersFilter{nil, nil})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: nil})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
@@ -970,7 +970,7 @@ func TestSetState(t *testing.T) {
 			// valid
 			name:        prefix + "valid",
 			path:        path + validUUID + "/setstate",
-			json:        string(jsonMustMarshal(&util.WorkerStatePack{IDLE})),
+			json:        string(jsonMustMarshal(&util.WorkerStatePack{WorkerState: IDLE})),
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
@@ -978,7 +978,7 @@ func TestSetState(t *testing.T) {
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID + "/setstate",
-			json:        string(jsonMustMarshal(&util.WorkerStatePack{FAIL})),
+			json:        string(jsonMustMarshal(&util.WorkerStatePack{WorkerState: FAIL})),
 			contentType: contentJSON,
 			status:      http.StatusBadRequest,
 		},

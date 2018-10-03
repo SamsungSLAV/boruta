@@ -47,7 +47,7 @@ func (api *API) newRequestHandler(r *http.Request, ps map[string]string) respons
 		return util.NewServerError(err)
 	}
 
-	return util.ReqIDPack{rid}
+	return util.ReqIDPack{ReqID: rid}
 }
 
 // closeRequestHandler parses HTTP request for closing existing Boruta request

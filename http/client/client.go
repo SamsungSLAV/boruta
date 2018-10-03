@@ -337,7 +337,7 @@ func (client *BorutaClient) GetWorkerInfo(uuid boruta.WorkerUUID) (boruta.Worker
 // SetState is intended only for Boruta server administrators.
 func (client *BorutaClient) SetState(uuid boruta.WorkerUUID, state boruta.WorkerState) error {
 	path := client.url + "workers/" + string(uuid) + "/setstate"
-	req, err := json.Marshal(&util.WorkerStatePack{state})
+	req, err := json.Marshal(&util.WorkerStatePack{WorkerState: state})
 	if err != nil {
 		return err
 	}

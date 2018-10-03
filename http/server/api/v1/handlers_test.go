@@ -524,7 +524,7 @@ func TestListWorkersHandler(t *testing.T) {
 			name:        prefix + "empty-filter",
 			path:        filterPath,
 			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkersFilter{nil, nil})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
@@ -534,7 +534,7 @@ func TestListWorkersHandler(t *testing.T) {
 			name:        prefix + "empty2-filter",
 			path:        filterPath,
 			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkersFilter{nil, make(Capabilities)})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: make(Capabilities)})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
@@ -544,7 +544,7 @@ func TestListWorkersHandler(t *testing.T) {
 			name:        prefix + "empty3-filter",
 			path:        filterPath,
 			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkersFilter{Groups{}, nil})),
+			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: Groups{}, Capabilities: nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
@@ -623,7 +623,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 	methods := []string{http.MethodPost}
 
 	notFoundTest := testFromTempl(notFoundTestTempl, prefix, fmt.Sprintf(path, missingUUID), methods...)
-	notFoundTest.json = string(jsonMustMarshal(util.WorkerStatePack{IDLE}))
+	notFoundTest.json = string(jsonMustMarshal(util.WorkerStatePack{WorkerState: IDLE}))
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, fmt.Sprintf(path, validUUID), methods...)
 	missingErr := NotFoundError("Worker")
 
@@ -635,7 +635,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 			name:        prefix + "valid",
 			path:        fmt.Sprintf(path, validUUID),
 			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkerStatePack{IDLE})),
+			json:        string(jsonMustMarshal(util.WorkerStatePack{WorkerState: IDLE})),
 			contentType: contentTypeJSON,
 			status:      http.StatusNoContent,
 		},
@@ -643,7 +643,7 @@ func TestSetWorkerStateHandler(t *testing.T) {
 			name:        prefix + "bad-uuid",
 			path:        fmt.Sprintf(path, invalidID),
 			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkerStatePack{IDLE})),
+			json:        string(jsonMustMarshal(util.WorkerStatePack{WorkerState: IDLE})),
 			contentType: contentTypeJSON,
 			status:      http.StatusBadRequest,
 		},
