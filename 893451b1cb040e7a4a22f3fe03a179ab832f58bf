@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0c2c3ff6_bbfda0b0",
+        "filename": "rpc/dryad/dryad_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2018-10-04T15:27:54Z",
+      "side": 1,
+      "message": "test comment!",
+      "range": {
+        "startLine": 17,
+        "startChar": 8,
+        "endLine": 17,
+        "endChar": 13
+      },
+      "revId": "893451b1cb040e7a4a22f3fe03a179ab832f58bf",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    }
+  ]
+}
