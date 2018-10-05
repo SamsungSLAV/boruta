@@ -29,6 +29,7 @@ import (
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/boruta/workers"
+	"github.com/SamsungSLAV/slav/logger"
 	"github.com/dimfeld/httptreemux"
 )
 
@@ -39,6 +40,7 @@ var (
 )
 
 func main() {
+	logger.SetThreshold(logger.DebugLevel)
 	flag.Parse()
 	if *version {
 		fmt.Println("boruta version", boruta.Version)
@@ -50,8 +52,9 @@ func main() {
 	_ = api.NewAPI(router, r, w)
 	err := superviser.StartSuperviserReception(w, *rpcAddr)
 	if err != nil {
-		log.Fatal("RPC register failed:", err)
+		loggger.WithError(err).Critical("RPC register failed:", err)
+		os.Exit(1)
 	}
-
-	log.Fatal(http.ListenAndServe(*apiAddr, router))
+	err = http.ListenAndServe(*apiAddr, router)
+	logger.Critical("Failed serving Boruta at %s: %v", *apiAddr, err)
 }
