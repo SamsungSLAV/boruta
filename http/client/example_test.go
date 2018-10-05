@@ -21,8 +21,8 @@ import (
 	"os"
 	"time"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/http/client"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/http/client"
 )
 
 func Example() {

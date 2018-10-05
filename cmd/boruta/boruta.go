@@ -21,11 +21,11 @@ import (
 	"log"
 	"net/http"
 
-	"git.tizen.org/tools/boruta/http/server/api"
-	"git.tizen.org/tools/boruta/matcher"
-	"git.tizen.org/tools/boruta/requests"
-	"git.tizen.org/tools/boruta/rpc/superviser"
-	"git.tizen.org/tools/boruta/workers"
+	"github.com/SamsungSLAV/boruta/http/server/api"
+	"github.com/SamsungSLAV/boruta/matcher"
+	"github.com/SamsungSLAV/boruta/requests"
+	"github.com/SamsungSLAV/boruta/rpc/superviser"
+	"github.com/SamsungSLAV/boruta/workers"
 	"github.com/dimfeld/httptreemux"
 )
 

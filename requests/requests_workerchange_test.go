@@ -20,8 +20,8 @@ import (
 	"errors"
 	"time"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/workers"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/workers"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"

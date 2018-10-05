@@ -22,7 +22,7 @@ package matcher
 import (
 	"time"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // RequestsManager interface defines API for internal boruta management of requests.

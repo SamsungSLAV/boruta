@@ -23,7 +23,7 @@ import (
 	"container/list"
 	"sync"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // prioQueue is priority queue that stores request IDs.

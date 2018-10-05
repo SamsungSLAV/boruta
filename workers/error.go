@@ -19,7 +19,7 @@ package workers
 import (
 	"errors"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 var (

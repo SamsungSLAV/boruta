@@ -3,7 +3,7 @@
 package dryad
 
 import (
-	. "git.tizen.org/tools/boruta"
+	. "github.com/SamsungSLAV/boruta"
 	"golang.org/x/crypto/ssh"
 	"net/rpc"
 )

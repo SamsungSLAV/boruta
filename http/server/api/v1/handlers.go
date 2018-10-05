@@ -26,8 +26,8 @@ import (
 	"net"
 	"net/http"
 
-	"git.tizen.org/tools/boruta"
-	util "git.tizen.org/tools/boruta/http"
+	"github.com/SamsungSLAV/boruta"
+	util "github.com/SamsungSLAV/boruta/http"
 )
 
 // newRequestHandler parses HTTP request for creating new Boruta request and

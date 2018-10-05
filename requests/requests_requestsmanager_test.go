@@ -16,14 +16,14 @@
 
 package requests
 
-//go:generate mockgen -package requests -destination=workersmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher WorkersManager
-//go:generate mockgen -package requests -destination=requests/jobsmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher JobsManager
+//go:generate mockgen -package requests -destination=workersmanager_mock_test.go -write_package_comment=false github.com/SamsungSLAV/boruta/matcher WorkersManager
+//go:generate mockgen -package requests -destination=jobsmanager_mock_test.go -write_package_comment=false github.com/SamsungSLAV/boruta/matcher JobsManager
 
 import (
 	"errors"
 	"time"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"

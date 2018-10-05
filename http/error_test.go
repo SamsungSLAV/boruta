@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"testing"
 
-	. "git.tizen.org/tools/boruta"
+	. "github.com/SamsungSLAV/boruta"
 	"github.com/stretchr/testify/assert"
 )
 

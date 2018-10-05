@@ -24,7 +24,7 @@ import (
 	"io"
 	"net/http"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // ServerError represents error that occured while creating response.

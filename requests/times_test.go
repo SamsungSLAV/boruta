@@ -21,7 +21,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -40,7 +40,7 @@ func (m *TestMatcher) Notify(reqs []boruta.ReqID) {
 }
 
 var _ = Describe("Times", func() {
-	loopRoutineName := "git.tizen.org/tools/boruta/requests.(*requestTimes).loop"
+	loopRoutineName := "github.com/SamsungSLAV/boruta/requests.(*requestTimes).loop"
 	debug.SetGCPercent(1)
 	var t *requestTimes
 	var baseCount int

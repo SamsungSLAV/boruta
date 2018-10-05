@@ -20,7 +20,7 @@
 package workers
 
 import (
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // WorkerChange defines API for implementation to be informed about

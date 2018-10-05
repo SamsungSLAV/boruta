@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/matcher"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/matcher"
 )
 
 // ReqsCollection contains information (also historical) about handled requests.

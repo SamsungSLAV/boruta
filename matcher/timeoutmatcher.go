@@ -21,7 +21,7 @@
 package matcher
 
 import (
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // TimeoutMatcher implements Matcher interface for handling running requests

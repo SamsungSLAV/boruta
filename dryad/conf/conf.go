@@ -24,7 +24,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // DefaultRPCPort is a port that should be used as default parameter

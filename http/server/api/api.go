@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"git.tizen.org/tools/boruta"
-	util "git.tizen.org/tools/boruta/http"
-	"git.tizen.org/tools/boruta/http/server/api/v1"
+	"github.com/SamsungSLAV/boruta"
+	util "github.com/SamsungSLAV/boruta/http"
+	"github.com/SamsungSLAV/boruta/http/server/api/v1"
 	"github.com/dimfeld/httptreemux"
 )
 

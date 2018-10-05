@@ -19,7 +19,7 @@
 package matcher
 
 import (
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // Matcher defines interface for objects that can be notified about events.
