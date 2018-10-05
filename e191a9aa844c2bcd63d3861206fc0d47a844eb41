@@ -1,0 +1,84 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "facd4a12_56da3b59",
+        "filename": "Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-05T12:06:15Z",
+      "side": 1,
+      "message": "duplication\nabove go get without parameters will do the job",
+      "revId": "e191a9aa844c2bcd63d3861206fc0d47a844eb41",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "b6c0e206_f0e015c2",
+        "filename": "Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-05T12:06:15Z",
+      "side": 1,
+      "message": "${GOPATH}\n\nthe whole WORKID can be defined as:\n$GOPATH/src/$PROJECT\nwith PROJECT define in one place as github.com/SamsungSLAV/boruta",
+      "range": {
+        "startLine": 7,
+        "startChar": 8,
+        "endLine": 7,
+        "endChar": 11
+      },
+      "revId": "e191a9aa844c2bcd63d3861206fc0d47a844eb41",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "a49f14e3_3745e0cb",
+        "filename": "Makefile",
+        "patchSetId": 1
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-05T12:06:15Z",
+      "side": 1,
+      "message": "make creates:\n* docker image\n* docker container\n* BUILD_DIR folder\n* boruta\u0027s binaries\n\nclean removes:\n* docker container\n* docker image\n\nIMO it should remove also binaries and BUILD_DIR if it is empty",
+      "revId": "e191a9aa844c2bcd63d3861206fc0d47a844eb41",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "c9d02a3c_72538762",
+        "filename": "Makefile",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-05T12:06:15Z",
+      "side": 1,
+      "message": "Consider creating a list of binaries in variable and use it here.\nIt will be also useful for cleaning up",
+      "range": {
+        "startLine": 15,
+        "startChar": 0,
+        "endLine": 17,
+        "endChar": 78
+      },
+      "revId": "e191a9aa844c2bcd63d3861206fc0d47a844eb41",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    }
+  ]
+}
