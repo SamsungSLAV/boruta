@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "89bc67a8_ecafb536",
+        "filename": "Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2018-10-05T15:58:41Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "facd4a12_56da3b59",
+      "revId": "e191a9aa844c2bcd63d3861206fc0d47a844eb41",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b6c0e206_f0e015c2",
         "filename": "Dockerfile",
         "patchSetId": 1
@@ -30,6 +48,30 @@
       "writtenOn": "2018-10-05T12:06:15Z",
       "side": 1,
       "message": "${GOPATH}\n\nthe whole WORKID can be defined as:\n$GOPATH/src/$PROJECT\nwith PROJECT define in one place as github.com/SamsungSLAV/boruta",
+      "range": {
+        "startLine": 7,
+        "startChar": 8,
+        "endLine": 7,
+        "endChar": 11
+      },
+      "revId": "e191a9aa844c2bcd63d3861206fc0d47a844eb41",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "96f973b9_e17061ec",
+        "filename": "Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2018-10-05T15:58:41Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "b6c0e206_f0e015c2",
       "range": {
         "startLine": 7,
         "startChar": 8,
