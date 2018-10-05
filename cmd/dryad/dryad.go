@@ -24,11 +24,11 @@ import (
 	"os"
 	"os/signal"
 
-	"git.tizen.org/tools/boruta/dryad"
-	"git.tizen.org/tools/boruta/dryad/conf"
-	dryad_rpc "git.tizen.org/tools/boruta/rpc/dryad"
-	superviser_rpc "git.tizen.org/tools/boruta/rpc/superviser"
-	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/boruta/dryad"
+	"github.com/SamsungSLAV/boruta/dryad/conf"
+	dryad_rpc "github.com/SamsungSLAV/boruta/rpc/dryad"
+	superviser_rpc "github.com/SamsungSLAV/boruta/rpc/superviser"
+	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
 	uuid "github.com/satori/go.uuid"
 )
 

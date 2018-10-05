@@ -3,7 +3,7 @@
 package superviser
 
 import (
-	. "git.tizen.org/tools/boruta"
+	. "github.com/SamsungSLAV/boruta"
 	"net/rpc"
 )
 

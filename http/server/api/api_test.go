@@ -27,11 +27,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "git.tizen.org/tools/boruta"
-	util "git.tizen.org/tools/boruta/http"
-	"git.tizen.org/tools/boruta/matcher"
-	"git.tizen.org/tools/boruta/requests"
-	"git.tizen.org/tools/boruta/workers"
+	. "github.com/SamsungSLAV/boruta"
+	util "github.com/SamsungSLAV/boruta/http"
+	"github.com/SamsungSLAV/boruta/matcher"
+	"github.com/SamsungSLAV/boruta/requests"
+	"github.com/SamsungSLAV/boruta/workers"
 	"github.com/dimfeld/httptreemux"
 	"github.com/stretchr/testify/assert"
 )

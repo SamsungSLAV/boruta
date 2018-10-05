@@ -23,8 +23,8 @@ import (
 	"context"
 	"fmt"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
 	"golang.org/x/crypto/ssh"
 )
 

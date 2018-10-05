@@ -21,8 +21,8 @@ import (
 	"net"
 	"net/rpc"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/mocks"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/mocks"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

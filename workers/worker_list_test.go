@@ -16,7 +16,7 @@
 
 package workers
 
-//go:generate mockgen -package workers -destination=dryadclientmanager_mock_test.go -write_package_comment=false -mock_names ClientManager=MockDryadClientManager git.tizen.org/tools/boruta/rpc/dryad ClientManager
+//go:generate mockgen -package workers -destination=dryadclientmanager_mock_test.go -write_package_comment=false -mock_names ClientManager=MockDryadClientManager github.com/SamsungSLAV/boruta/rpc/dryad ClientManager
 
 import (
 	"crypto/rand"
@@ -26,8 +26,8 @@ import (
 	"net"
 	"sync"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/rpc/dryad"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/rpc/dryad"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"

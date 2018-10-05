@@ -17,8 +17,8 @@
 package workers
 
 import (
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/tunnels"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/tunnels"
 )
 
 // Job describes worker job.

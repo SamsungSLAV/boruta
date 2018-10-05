@@ -21,7 +21,7 @@ import (
 	"net"
 	"time"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // DateFormat denotes layout of timestamps used by Boruta HTTP API.

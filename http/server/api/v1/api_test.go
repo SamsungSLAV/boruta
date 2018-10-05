@@ -26,8 +26,8 @@ import (
 	"strings"
 	"testing"
 
-	. "git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/mocks"
+	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

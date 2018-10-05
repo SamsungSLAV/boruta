@@ -20,8 +20,8 @@
 package matcher
 
 import (
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/workers"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/workers"
 )
 
 // JobsManager defines API for internal boruta management of jobs.

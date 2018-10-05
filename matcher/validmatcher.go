@@ -23,7 +23,7 @@ package matcher
 import (
 	"time"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // ValidMatcher implements Matcher interface for handling requests validation.

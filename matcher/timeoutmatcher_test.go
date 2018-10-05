@@ -17,7 +17,7 @@
 package matcher
 
 import (
-	. "git.tizen.org/tools/boruta"
+	. "github.com/SamsungSLAV/boruta"
 
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"

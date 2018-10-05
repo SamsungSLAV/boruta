@@ -21,7 +21,7 @@
 package matcher
 
 import (
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // DeadlineMatcher implements Matcher interface for handling pending requests

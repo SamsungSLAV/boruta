@@ -16,18 +16,18 @@
 
 package matcher
 
-//go:generate mockgen -package matcher -destination=workersmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher WorkersManager
-//go:generate mockgen -package matcher -destination=tunneler_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/tunnels Tunneler
-//go:generate mockgen -package matcher -destination=jobsmanager_mock_test.go -write_package_comment=false git.tizen.org/tools/boruta/matcher JobsManager
+//go:generate mockgen -package matcher -destination=workersmanager_mock_test.go -write_package_comment=false github.com/SamsungSLAV/boruta/matcher WorkersManager
+//go:generate mockgen -package matcher -destination=tunneler_mock_test.go -write_package_comment=false github.com/SamsungSLAV/boruta/tunnels Tunneler
+//go:generate mockgen -package matcher -destination=jobsmanager_mock_test.go -write_package_comment=false github.com/SamsungSLAV/boruta/matcher JobsManager
 
 import (
 	"crypto/rsa"
 	"errors"
 	"net"
 
-	. "git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/tunnels"
-	"git.tizen.org/tools/boruta/workers"
+	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/tunnels"
+	"github.com/SamsungSLAV/boruta/workers"
 
 	gomock "github.com/golang/mock/gomock"
 

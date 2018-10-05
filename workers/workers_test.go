@@ -19,8 +19,8 @@ package workers_test
 import (
 	"math/rand"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/workers"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/workers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

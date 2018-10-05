@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"strings"
 
-	"git.tizen.org/tools/boruta"
-	. "git.tizen.org/tools/boruta/dryad/conf"
+	"github.com/SamsungSLAV/boruta"
+	. "github.com/SamsungSLAV/boruta/dryad/conf"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

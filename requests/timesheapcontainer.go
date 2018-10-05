@@ -23,7 +23,7 @@ package requests
 import (
 	"time"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // requestTime combines ReqID with time.Time.

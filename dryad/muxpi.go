@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
 )
 
 type colorLED struct {

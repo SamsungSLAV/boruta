@@ -16,7 +16,7 @@
 
 package dryad
 
-//go:generate mockgen -destination=muxpi_mock_test.go -package dryad git.tizen.org/tools/muxpi/sw/nanopi/stm Interface
+//go:generate mockgen -destination=muxpi_mock_test.go -package dryad github.com/SamsungSLAV/muxpi/sw/nanopi/stm Interface
 
 import (
 	"crypto/rand"
@@ -28,8 +28,8 @@ import (
 	"os/user"
 	"time"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/muxpi/sw/nanopi/stm"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

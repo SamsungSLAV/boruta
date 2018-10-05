@@ -23,9 +23,9 @@ package matcher
 import (
 	"sync"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/tunnels"
-	"git.tizen.org/tools/boruta/workers"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/tunnels"
+	"github.com/SamsungSLAV/boruta/workers"
 )
 
 const defaultDryadUsername = "boruta-user"

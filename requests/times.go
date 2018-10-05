@@ -26,8 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/matcher"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/matcher"
 )
 
 // requestTimes collects requestTime entities and notifies registered

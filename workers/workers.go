@@ -25,8 +25,8 @@ import (
 	"net"
 	"sync"
 
-	"git.tizen.org/tools/boruta"
-	"git.tizen.org/tools/boruta/rpc/dryad"
+	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/rpc/dryad"
 	"golang.org/x/crypto/ssh"
 )
 

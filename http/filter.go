@@ -21,7 +21,7 @@ package http
 import (
 	"strings"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 )
 
 // WorkersFilter contains Groups and Capabilities to be used to filter workers.

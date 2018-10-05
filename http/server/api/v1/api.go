@@ -25,8 +25,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"git.tizen.org/tools/boruta"
-	util "git.tizen.org/tools/boruta/http"
+	"github.com/SamsungSLAV/boruta"
+	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/dimfeld/httptreemux"
 )
 

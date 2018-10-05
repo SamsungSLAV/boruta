@@ -20,16 +20,16 @@
 // address of the client and call SetWorkerIP.
 package superviser
 
-//go:generate go-rpcgen --source=../../boruta.go --type=Superviser --target=superviser.go --package=superviser --imports net/rpc,.=git.tizen.org/tools/boruta
+//go:generate go-rpcgen --source=../../boruta.go --type=Superviser --target=superviser.go --package=superviser --imports net/rpc,.=github.com/SamsungSLAV/boruta
 
 import (
 	"errors"
 	"net"
 	"net/rpc"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 	// Needed for SSH public key serialization.
-	_ "git.tizen.org/tools/boruta/rpc/types"
+	_ "github.com/SamsungSLAV/boruta/rpc/types"
 )
 
 type superviserReception struct {

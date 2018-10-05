@@ -19,14 +19,14 @@
 
 package dryad
 
-//go:generate go-rpcgen --source=../../boruta.go --type=Dryad --target=dryad.go --package dryad --imports net/rpc,.=git.tizen.org/tools/boruta
+//go:generate go-rpcgen --source=../../boruta.go --type=Dryad --target=dryad.go --package dryad --imports net/rpc,.=github.com/SamsungSLAV/boruta
 
 import (
 	"net"
 
-	"git.tizen.org/tools/boruta"
+	"github.com/SamsungSLAV/boruta"
 	// Needed for SSH public key serialization.
-	_ "git.tizen.org/tools/boruta/rpc/types"
+	_ "github.com/SamsungSLAV/boruta/rpc/types"
 )
 
 // ClientManager defines API for managing client RPC calls to Dryad.
