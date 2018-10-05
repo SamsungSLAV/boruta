@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1a674a75_f1f37324",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2018-10-05T10:32:07Z",
+      "side": 1,
+      "message": "How did you manage to push a patch set without Change-Id?\n\nI thought it was mandatory with current project settings",
+      "revId": "0bf89d2cf71bfe5a7a170f00c58d22c2622c1df2",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    }
+  ]
+}
