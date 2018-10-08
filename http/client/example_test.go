@@ -28,6 +28,13 @@ import (
 func Example() {
 	cl := client.NewBorutaClient("http://localhost:1234")
 
+	v, err := cl.Version()
+	if err != nil {
+		log.Fatalln("unable to check Boruta server version")
+	}
+	log.Printf("client package version: %s\nserver version: %s\nAPI version: %s (%s)\n",
+		v.Client, v.Server, v.API, v.State)
+
 	caps := make(boruta.Capabilities)
 	caps["arch"] = "armv7l"
 	validAfter := time.Now()

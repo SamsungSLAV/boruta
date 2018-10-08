@@ -44,6 +44,14 @@ type BorutaClient struct {
 	boruta.Workers
 }
 
+// Version provides information about version of Boruta client package, server, REST API and state
+// of the REST API (devel, stable, deprecated).
+type Version struct {
+	// Client contains version string of client package.
+	Client string
+	util.BorutaVersion
+}
+
 const (
 	// contentType denotes format in which we talk with Boruta server.
 	contentType = "application/json"
@@ -410,4 +418,23 @@ func (client *BorutaClient) GetJobTimeout(reqID boruta.ReqID) (time.Time, error)
 		return t, errors.New(`request must be in "IN PROGRESS" state`)
 	}
 	return time.Parse(util.DateFormat, headers.Get("Boruta-Job-Timeout"))
+}
+
+// Version provides information about version of Boruta client package, server, REST API version
+// and REST API state.
+func (client *BorutaClient) Version() (*Version, error) {
+	path := client.url + "/version"
+	headers, err := getHeaders(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Version{
+		Client: boruta.Version,
+		BorutaVersion: util.BorutaVersion{
+			Server: headers.Get("Boruta-Server-Version"),
+			API:    headers.Get("Boruta-API-Version"),
+			State:  headers.Get("Boruta-API-State"),
+		},
+	}, nil
+	return nil, nil
 }

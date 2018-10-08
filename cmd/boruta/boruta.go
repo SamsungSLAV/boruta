@@ -18,9 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 
+	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/http/server/api"
 	"github.com/SamsungSLAV/boruta/matcher"
 	"github.com/SamsungSLAV/boruta/requests"
@@ -32,10 +35,15 @@ import (
 var (
 	apiAddr = flag.String("api-addr", ":8487", "ip:port address of REST API server.")
 	rpcAddr = flag.String("rpc-addr", ":7175", "ip:port address of Dryad RPC server.")
+	version = flag.Bool("version", false, "print Boruta server version and exit.")
 )
 
 func main() {
 	flag.Parse()
+	if *version {
+		fmt.Println("boruta version", boruta.Version)
+		os.Exit(0)
+	}
 	w := workers.NewWorkerList()
 	r := requests.NewRequestQueue(w, matcher.NewJobsManager(w))
 	router := httptreemux.New()

@@ -27,6 +27,17 @@ import (
 // DateFormat denotes layout of timestamps used by Boruta HTTP API.
 const DateFormat = time.RFC3339
 
+// API possible states.
+const (
+	// Devel means that API is in active development and changes may occur.
+	Devel = "devel"
+	// Stable means that there won't be any changes in the API.
+	Stable = "stable"
+	// Deprecated means that there is newer stable version of API and this version may be
+	// removed in the future.
+	Deprecated = "deprecated"
+)
+
 // ReqIDPack is used for JSON (un)marshaller.
 type ReqIDPack struct {
 	boruta.ReqID
@@ -48,4 +59,11 @@ type AccessInfo2 struct {
 	Key string
 	// Username is a login name for the job session.
 	Username string
+}
+
+// BorutaVersion contains information about server and API version.
+type BorutaVersion struct {
+	Server string
+	API    string `json:"API_Version"`
+	State  string `json:"API_State"`
 }

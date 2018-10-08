@@ -18,12 +18,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/rpc"
 	"os"
 	"os/signal"
 
+	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/dryad"
 	"github.com/SamsungSLAV/boruta/dryad/conf"
 	dryad_rpc "github.com/SamsungSLAV/boruta/rpc/dryad"
@@ -35,12 +37,14 @@ import (
 var (
 	confPath      string
 	configuration *conf.General
+	version       bool
 )
 
 func init() {
 	configuration = conf.NewConf()
 
 	flag.StringVar(&confPath, "conf", "/etc/boruta/dryad.conf", "path to the configuration file")
+	flag.BoolVar(&version, "version", false, "print Dryad version and exit.")
 }
 
 func exitOnErr(ctx string, err error) {
@@ -75,6 +79,10 @@ func readConfFile() {
 
 func main() {
 	flag.Parse()
+	if version {
+		fmt.Println("drayd version", boruta.Version)
+		os.Exit(0)
+	}
 
 	// Read configuration.
 	_, err := os.Stat(confPath)
