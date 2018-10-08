@@ -34,6 +34,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const Version string = "0.1.0"
+
 // ReqState denotes state of the Request.
 type ReqState string
 

@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
@@ -147,13 +147,13 @@ func testFromTempl(templ *requestTest, name string, path string,
 	return
 }
 
-func newWorker(uuid string, state WorkerState, groups Groups, caps Capabilities) (w WorkerInfo) {
+func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups, caps boruta.Capabilities) (w boruta.WorkerInfo) {
 	if caps == nil {
-		caps = make(Capabilities)
+		caps = make(boruta.Capabilities)
 	}
 	caps["UUID"] = uuid
-	w = WorkerInfo{
-		WorkerUUID: WorkerUUID(uuid),
+	w = boruta.WorkerInfo{
+		WorkerUUID: boruta.WorkerUUID(uuid),
 		State:      state,
 		Caps:       caps,
 	}
@@ -245,7 +245,7 @@ func TestParseReqID(t *testing.T) {
 	assert := assert.New(t)
 	reqid, err := parseReqID("1")
 	assert.Nil(err)
-	assert.Equal(ReqID(1), reqid)
+	assert.Equal(boruta.ReqID(1), reqid)
 	_, err = parseReqID(invalidID)
 	assert.NotNil(err)
 }
