@@ -1,0 +1,16 @@
+Release 0.1 - Mon Oct. 08 2018 - Maciej Wereski <m.wereski@partner.samsung.com>
+================================================================================
+* Dryad support:
+  - dryad binary that runs on controller (e.g. MuxPi)
+  - communication with server via RPC
+  - storing information about capabilities, groups and states
+* Priority queue of requests:
+* Matching requests with dryad
+* SSH access to dryad via port-forwarding (to be tunnel).
+* HTTP API v1:
+  - requests: create new, update, cancel/close, list with filtering, get access information of
+  assigned worker, get informatin about a request, prolong access to dryad
+  - workers: list (with filter), get information about a dryad, change groups, change state,
+  deregister.
+  - server
+  - client package
