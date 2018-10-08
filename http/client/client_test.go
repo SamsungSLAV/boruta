@@ -1223,3 +1223,45 @@ func TestGetJobTimeout(t *testing.T) {
 	var parseErr *time.ParseError
 	assert.IsType(parseErr, err)
 }
+
+func TestVersion(t *testing.T) {
+	name := "get-api-version"
+	path := "/api/v1/version"
+
+	valid := &Version{
+		Client: boruta.Version,
+		BorutaVersion: util.BorutaVersion{
+			Server: boruta.Version,
+			API:    "v1",
+			State:  util.Devel,
+		},
+	}
+
+	header := make(http.Header)
+	header.Set("Boruta-Server-Version", valid.Server)
+	header.Set("Boruta-API-Version", valid.API)
+	header.Set("Boruta-API-State", valid.State)
+
+	tests := []*testCase{
+		&testCase{
+			// valid request
+			name:   name,
+			path:   path,
+			status: http.StatusNoContent,
+			header: header,
+		},
+	}
+
+	srv := prepareServer(http.MethodHead, tests)
+	defer srv.Close()
+	assert, client := initTest(t, srv.URL)
+
+	version, err := client.Version()
+	assert.Nil(err)
+	assert.Equal(valid, version)
+
+	client.url = "http://nosuchaddress.fail"
+	version, err = client.Version()
+	assert.Nil(version)
+	assert.NotNil(err)
+}
