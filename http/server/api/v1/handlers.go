@@ -251,3 +251,11 @@ func (api *API) workerDeregister(r *http.Request, ps map[string]string) response
 
 	return util.NewServerError(api.workers.Deregister(boruta.WorkerUUID(ps["id"])))
 }
+
+func (api *API) versionHandler(r *http.Request, ps map[string]string) responseData {
+	return &util.BorutaVersion{
+		Server: boruta.Version,
+		API:    Version,
+		State:  State,
+	}
+}

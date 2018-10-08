@@ -731,3 +731,26 @@ func TestDeregisterWorkerHandler(t *testing.T) {
 
 	runTests(assert, r, tests)
 }
+
+func TestVersionHandler(t *testing.T) {
+	assert, m, r := initTest(t)
+	defer m.finish()
+	header := make(http.Header)
+	header.Set("Boruta-Server-Version", boruta.Version)
+	header.Set("Boruta-API-Version", Version)
+	header.Set("Boruta-API-State", State)
+
+	tests := []requestTest{
+		{
+			name:        "api-version",
+			path:        "/api/v1/version",
+			methods:     []string{http.MethodGet, http.MethodGet},
+			json:        ``,
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+			header:      header,
+		},
+	}
+
+	runTests(assert, r, tests)
+}
