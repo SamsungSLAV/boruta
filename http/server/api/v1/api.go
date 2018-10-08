@@ -40,6 +40,9 @@ type reqHandler func(*http.Request, map[string]string) responseData
 // Version contains version string of the API.
 const Version = "v1"
 
+// State contains information about state of the API (devel, stable or obsolete).
+const State = util.Devel
+
 // API provides HTTP API handlers.
 type API struct {
 	r       *httptreemux.Group
@@ -89,6 +92,10 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 				w.Header().Add("Boruta-Worker-State", string(data.State))
 			case []boruta.WorkerInfo:
 				w.Header().Add("Boruta-Worker-Count", strconv.Itoa(len(data)))
+			case *util.BorutaVersion:
+				w.Header().Add("Boruta-Server-Version", data.Server)
+				w.Header().Add("Boruta-API-Version", data.API)
+				w.Header().Add("Boruta-API-State", data.State)
 			}
 			if status != http.StatusNoContent {
 				w.Header().Set("Content-Type", "application/json")
@@ -115,6 +122,7 @@ func NewAPI(router *httptreemux.Group, requestsAPI boruta.Requests,
 
 	api.r = router
 
+	main := api.r.NewGroup("/")
 	reqs := api.r.NewGroup("/reqs")
 	workers := api.r.NewGroup("/workers")
 
@@ -151,6 +159,10 @@ func NewAPI(router *httptreemux.Group, requestsAPI boruta.Requests,
 		http.StatusNoContent, http.MethodPost)
 	routerSetHandler(workers, "/:id/deregister", api.workerDeregister,
 		http.StatusNoContent, http.MethodPost)
+
+	// other functions
+	routerSetHandler(main, "/version", api.versionHandler, http.StatusOK, http.MethodGet,
+		http.MethodHead)
 
 	return
 }
