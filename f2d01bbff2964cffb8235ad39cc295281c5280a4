@@ -1,0 +1,90 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "32111d32_908a7800",
+        "filename": "ChangeLog",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-09T08:56:09Z",
+      "side": 1,
+      "message": "as you will make new patchset anyway, please update the date",
+      "range": {
+        "startLine": 1,
+        "startChar": 16,
+        "endLine": 1,
+        "endChar": 28
+      },
+      "revId": "f2d01bbff2964cffb8235ad39cc295281c5280a4",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "deb3ac3c_096944ba",
+        "filename": "ChangeLog",
+        "patchSetId": 4
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-09T08:56:09Z",
+      "side": 1,
+      "message": "typo information",
+      "range": {
+        "startLine": 12,
+        "startChar": 23,
+        "endLine": 12,
+        "endChar": 33
+      },
+      "revId": "f2d01bbff2964cffb8235ad39cc295281c5280a4",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "104e4e48_fb48fad2",
+        "filename": "http/client/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-09T08:56:09Z",
+      "side": 1,
+      "message": "please break the line.",
+      "revId": "f2d01bbff2964cffb8235ad39cc295281c5280a4",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "00d00ccd_11bd4fb4",
+        "filename": "http/client/client_test.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2018-10-09T08:56:09Z",
+      "side": 1,
+      "message": "removing dot imports for boruta package is not related to release patch",
+      "range": {
+        "startLine": 96,
+        "startChar": 7,
+        "endLine": 96,
+        "endChar": 13
+      },
+      "revId": "f2d01bbff2964cffb8235ad39cc295281c5280a4",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
