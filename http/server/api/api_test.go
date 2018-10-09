@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/matcher"
 	"github.com/SamsungSLAV/boruta/requests"
@@ -156,5 +156,5 @@ func TestRedirectToDefault(t *testing.T) {
 	assert.Equal("application/json", resp.Header.Get("Content-Type"))
 	err = decoder.Decode(&srvErr)
 	assert.Equal(http.StatusNotFound, resp.StatusCode)
-	assert.Equal(NotFoundError(badPath).Error(), srvErr.Err)
+	assert.Equal(boruta.NotFoundError(badPath).Error(), srvErr.Err)
 }

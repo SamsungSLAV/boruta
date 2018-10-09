@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/stretchr/testify/assert"
@@ -55,7 +55,7 @@ type testCase struct {
 // chanFilter is used to mock failure of JSON marshalling in ListRequests.
 type chanFilter chan bool
 
-func (f chanFilter) Match(_ *ReqInfo) bool {
+func (f chanFilter) Match(_ *boruta.ReqInfo) bool {
 	return false
 }
 
@@ -79,9 +79,9 @@ const (
 
 var (
 	// req is valid request that may be used in tests directly or as a template.
-	req            ReqInfo
+	req            boruta.ReqInfo
 	errRead        = errors.New("unable to read server response: read failed")
-	errReqNotFound = util.NewServerError(NotFoundError("Request"))
+	errReqNotFound = util.NewServerError(boruta.NotFoundError("Request"))
 )
 
 func init() {
@@ -93,8 +93,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	req = ReqInfo{
-		Priority:   Priority(8),
+	req = boruta.ReqInfo{
+		Priority:   boruta.Priority(8),
 		Deadline:   deadline,
 		ValidAfter: validAfter,
 		Caps: map[string]string{
@@ -213,13 +213,15 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 }
 
 // from http/server/api/v1/api_test.go
-func newWorker(uuid string, state WorkerState, groups Groups, caps Capabilities) (w WorkerInfo) {
+func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups,
+	caps boruta.Capabilities) (w boruta.WorkerInfo) {
+
 	if caps == nil {
-		caps = make(Capabilities)
+		caps = make(boruta.Capabilities)
 	}
 	caps["UUID"] = uuid
-	w = WorkerInfo{
-		WorkerUUID: WorkerUUID(uuid),
+	w = boruta.WorkerInfo{
+		WorkerUUID: boruta.WorkerUUID(uuid),
 		State:      state,
 		Caps:       caps,
 	}
@@ -257,7 +259,7 @@ func TestReadBody(t *testing.T) {
 
 func TestBodyJSONUnmarshal(t *testing.T) {
 	assert := assert.New(t)
-	var reqinfo *ReqInfo
+	var reqinfo *boruta.ReqInfo
 	reqJSON := jsonMustMarshal(&req)
 	msg := `
 	Bąk złośnik huczał basem, jakby straszył kwiaty,
@@ -319,7 +321,7 @@ func TestGetServerError(t *testing.T) {
 func TestProcessResponse(t *testing.T) {
 	assert := assert.New(t)
 	var resp http.Response
-	var reqinfo *ReqInfo
+	var reqinfo *boruta.ReqInfo
 	var srvErr *util.ServerError
 	missing := `
 	{
@@ -331,7 +333,7 @@ func TestProcessResponse(t *testing.T) {
 	assert.Nil(processResponse(&resp, &reqinfo))
 	assert.Nil(reqinfo)
 
-	reqinfo = new(ReqInfo)
+	reqinfo = new(boruta.ReqInfo)
 	assert.Nil(processResponse(&resp, &reqinfo))
 	assert.Nil(reqinfo)
 
@@ -372,10 +374,10 @@ func TestGetHeaders(t *testing.T) {
 	date := time.Now().Format(util.DateFormat)
 
 	worker := make(http.Header)
-	worker.Set("Boruta-Worker-State", string(RUN))
+	worker.Set("Boruta-Worker-State", string(boruta.RUN))
 
 	request := make(http.Header)
-	request.Set("Boruta-Request-State", string(INPROGRESS))
+	request.Set("Boruta-Request-State", string(boruta.INPROGRESS))
 	request.Set("Boruta-Job-Timeout", date)
 
 	tests := []*testCase{
@@ -437,7 +439,7 @@ func TestNewRequest(t *testing.T) {
 	path := "/api/v1/reqs/"
 
 	badPrio := req
-	badPrio.Priority = Priority(32)
+	badPrio.Priority = boruta.Priority(32)
 	tests := []*testCase{
 		&testCase{
 			// valid request
@@ -464,7 +466,7 @@ func TestNewRequest(t *testing.T) {
 	// valid request
 	reqID, err := client.NewRequest(req.Caps, req.Priority,
 		req.Owner, req.ValidAfter, req.Deadline)
-	assert.Equal(ReqID(1), reqID)
+	assert.Equal(boruta.ReqID(1), reqID)
 	assert.Nil(err)
 
 	// bad request - priority out of bounds
@@ -506,14 +508,14 @@ func TestCloseRequest(t *testing.T) {
 	assert, client := initTest(t, srv.URL)
 
 	// valid request
-	assert.Nil(client.CloseRequest(ReqID(1)))
+	assert.Nil(client.CloseRequest(boruta.ReqID(1)))
 
 	// missing request
-	assert.Equal(errReqNotFound, client.CloseRequest(ReqID(2)))
+	assert.Equal(errReqNotFound, client.CloseRequest(boruta.ReqID(2)))
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	assert.NotNil(client.CloseRequest(ReqID(1)))
+	assert.NotNil(client.CloseRequest(boruta.ReqID(1)))
 }
 
 func TestUpdateRequest(t *testing.T) {
@@ -522,10 +524,10 @@ func TestUpdateRequest(t *testing.T) {
 
 	validAfter := time.Now()
 	deadline := validAfter.AddDate(0, 0, 2)
-	priority := Priority(4)
+	priority := boruta.Priority(4)
 
 	reqJSON := string(jsonMustMarshal(&struct {
-		Priority
+		boruta.Priority
 		Deadline   time.Time
 		ValidAfter time.Time
 	}{
@@ -564,11 +566,11 @@ func TestUpdateRequest(t *testing.T) {
 	assert, client := initTest(t, srv.URL)
 
 	// valid
-	reqinfo.ID = ReqID(1)
+	reqinfo.ID = boruta.ReqID(1)
 	assert.Nil(client.UpdateRequest(&reqinfo))
 
 	// missing
-	reqinfo.ID = ReqID(2)
+	reqinfo.ID = boruta.ReqID(2)
 	assert.Equal(errReqNotFound, client.UpdateRequest(&reqinfo))
 
 	// bad arguments
@@ -607,20 +609,20 @@ func TestGetRequestInfo(t *testing.T) {
 
 	// valid
 	req := req
-	req.ID = ReqID(1)
-	req.State = WAIT
-	reqInfo, err := client.GetRequestInfo(ReqID(1))
+	req.ID = boruta.ReqID(1)
+	req.State = boruta.WAIT
+	reqInfo, err := client.GetRequestInfo(boruta.ReqID(1))
 	assert.Nil(err)
 	assert.Equal(req, reqInfo)
 
 	// missing
-	reqInfo, err = client.GetRequestInfo(ReqID(2))
+	reqInfo, err = client.GetRequestInfo(boruta.ReqID(2))
 	assert.Zero(reqInfo)
 	assert.Equal(errReqNotFound, err)
 
 	// http.Get failure
 	client.url = "http://nosuchaddress.fail"
-	reqInfo, err = client.GetRequestInfo(ReqID(1))
+	reqInfo, err = client.GetRequestInfo(boruta.ReqID(1))
 	assert.Zero(reqInfo)
 	assert.NotNil(err)
 }
@@ -632,14 +634,14 @@ func TestListRequests(t *testing.T) {
 	// from api/v1 TestListRequestsHandler
 	deadline, _ := time.Parse(dateLayout, "2222-12-31T00:00:00Z")
 	validAfter, _ := time.Parse(dateLayout, "1683-09-12T00:00:00Z")
-	reqs := []ReqInfo{
-		{ID: 1, Priority: (HiPrio + LoPrio) / 2, State: WAIT,
+	reqs := []boruta.ReqInfo{
+		{ID: 1, Priority: (boruta.HiPrio + boruta.LoPrio) / 2, State: boruta.WAIT,
 			Deadline: deadline, ValidAfter: validAfter},
-		{ID: 2, Priority: (HiPrio+LoPrio)/2 + 1, State: WAIT,
+		{ID: 2, Priority: (boruta.HiPrio+boruta.LoPrio)/2 + 1, State: boruta.WAIT,
 			Deadline: deadline, ValidAfter: validAfter},
-		{ID: 3, Priority: (HiPrio + LoPrio) / 2, State: CANCEL,
+		{ID: 3, Priority: (boruta.HiPrio + boruta.LoPrio) / 2, State: boruta.CANCEL,
 			Deadline: deadline, ValidAfter: validAfter},
-		{ID: 4, Priority: (HiPrio+LoPrio)/2 + 1, State: CANCEL,
+		{ID: 4, Priority: (boruta.HiPrio+boruta.LoPrio)/2 + 1, State: boruta.CANCEL,
 			Deadline: deadline, ValidAfter: validAfter},
 	}
 
@@ -699,7 +701,7 @@ func TestListRequests(t *testing.T) {
 	// no requests matched
 	list, err = client.ListRequests(missingFilter)
 	assert.Nil(err)
-	assert.Equal([]ReqInfo{}, list)
+	assert.Equal([]boruta.ReqInfo{}, list)
 
 	// json.Marshal failure
 	var typeError *json.UnsupportedTypeError
@@ -763,7 +765,7 @@ func TestAcquireWorker(t *testing.T) {
 	assert.NotNil(block)
 	key, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
 
-	access := AccessInfo{
+	access := boruta.AccessInfo{
 		Addr: &net.TCPAddr{
 			IP:   net.IPv4(127, 0, 0, 1),
 			Port: 22,
@@ -773,23 +775,23 @@ func TestAcquireWorker(t *testing.T) {
 	}
 
 	// valid
-	accessInfo, err := client.AcquireWorker(ReqID(1))
+	accessInfo, err := client.AcquireWorker(boruta.ReqID(1))
 	assert.Equal(access, accessInfo)
 	assert.Nil(err)
 
 	// missing
-	accessInfo, err = client.AcquireWorker(ReqID(2))
+	accessInfo, err = client.AcquireWorker(boruta.ReqID(2))
 	assert.Zero(accessInfo)
 	assert.Equal(errReqNotFound, err)
 
 	// bad key
-	accessInfo, err = client.AcquireWorker(ReqID(3))
+	accessInfo, err = client.AcquireWorker(boruta.ReqID(3))
 	assert.Zero(accessInfo)
 	assert.Equal(errors.New("wrong key: "+badkeyAI.Key), err)
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	accessInfo, err = client.AcquireWorker(ReqID(1))
+	accessInfo, err = client.AcquireWorker(boruta.ReqID(1))
 	assert.Zero(accessInfo)
 	assert.NotNil(err)
 }
@@ -820,14 +822,14 @@ func TestProlongAccess(t *testing.T) {
 	assert, client := initTest(t, srv.URL)
 
 	// valid
-	assert.Nil(client.ProlongAccess(ReqID(1)))
+	assert.Nil(client.ProlongAccess(boruta.ReqID(1)))
 
 	// missing
-	assert.Equal(errReqNotFound, client.ProlongAccess(ReqID(2)))
+	assert.Equal(errReqNotFound, client.ProlongAccess(boruta.ReqID(2)))
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	assert.NotNil(client.ProlongAccess(ReqID(1)))
+	assert.NotNil(client.ProlongAccess(boruta.ReqID(1)))
 }
 
 func TestListWorkers(t *testing.T) {
@@ -835,18 +837,18 @@ func TestListWorkers(t *testing.T) {
 	path := "/api/v1/workers/list"
 
 	// based on http/server/api/v1/handlers_test.go
-	armCaps := make(Capabilities)
+	armCaps := make(boruta.Capabilities)
 	armCaps["architecture"] = "AArch64"
-	riscvCaps := make(Capabilities)
+	riscvCaps := make(boruta.Capabilities)
 	riscvCaps["architecture"] = "RISC-V"
-	workers := []WorkerInfo{
-		newWorker("0", IDLE, Groups{"Lędzianie"}, armCaps),
-		newWorker("1", FAIL, Groups{"Malinowy Chruśniak"}, armCaps),
-		newWorker("2", IDLE, Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
-		newWorker("3", FAIL, Groups{"Malinowy Chruśniak"}, riscvCaps),
+	workers := []boruta.WorkerInfo{
+		newWorker("0", boruta.IDLE, boruta.Groups{"Lędzianie"}, armCaps),
+		newWorker("1", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, armCaps),
+		newWorker("2", boruta.IDLE, boruta.Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
+		newWorker("3", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, riscvCaps),
 	}
 	validFilter := util.WorkersFilter{
-		Groups:       Groups{"Lędzianie"},
+		Groups:       boruta.Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
 	validHeader := make(http.Header)
@@ -854,7 +856,7 @@ func TestListWorkers(t *testing.T) {
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Worker-Count", "4")
 	missingFilter := util.WorkersFilter{
-		Groups: Groups{"Fern Flower"},
+		Groups: boruta.Groups{"Fern Flower"},
 	}
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Worker-Count", "0")
@@ -918,7 +920,7 @@ func TestListWorkers(t *testing.T) {
 func TestGetWorkerInfo(t *testing.T) {
 	prefix := "worker-info-"
 	path := "/api/v1/workers/"
-	worker := newWorker(validUUID, IDLE, Groups{}, nil)
+	worker := newWorker(validUUID, boruta.IDLE, boruta.Groups{}, nil)
 	header := make(http.Header)
 	header.Set("Boruta-Worker-State", "IDLE")
 
@@ -970,7 +972,7 @@ func TestSetState(t *testing.T) {
 			// valid
 			name:        prefix + "valid",
 			path:        path + validUUID + "/setstate",
-			json:        string(jsonMustMarshal(&util.WorkerStatePack{WorkerState: IDLE})),
+			json:        string(jsonMustMarshal(&util.WorkerStatePack{WorkerState: boruta.IDLE})),
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
@@ -978,7 +980,7 @@ func TestSetState(t *testing.T) {
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID + "/setstate",
-			json:        string(jsonMustMarshal(&util.WorkerStatePack{WorkerState: FAIL})),
+			json:        string(jsonMustMarshal(&util.WorkerStatePack{WorkerState: boruta.FAIL})),
 			contentType: contentJSON,
 			status:      http.StatusBadRequest,
 		},
@@ -989,20 +991,20 @@ func TestSetState(t *testing.T) {
 	assert, client := initTest(t, srv.URL)
 
 	// valid
-	assert.Nil(client.SetState(validUUID, IDLE))
+	assert.Nil(client.SetState(validUUID, boruta.IDLE))
 
 	// invalid UUID
-	assert.Equal(util.NewServerError(util.ErrBadUUID), client.SetState(invalidID, FAIL))
+	assert.Equal(util.NewServerError(util.ErrBadUUID), client.SetState(invalidID, boruta.FAIL))
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	assert.NotNil(client.SetState(validUUID, FAIL))
+	assert.NotNil(client.SetState(validUUID, boruta.FAIL))
 }
 
 func TestSetGroups(t *testing.T) {
 	prefix := "worker-set-groups-"
 	path := "/api/v1/workers/"
-	groups := Groups{"foo", "bar"}
+	groups := boruta.Groups{"foo", "bar"}
 
 	tests := []*testCase{
 		&testCase{
@@ -1079,7 +1081,7 @@ func TestGetRequestState(t *testing.T) {
 	path := "/api/v1/reqs/"
 
 	header := make(http.Header)
-	header.Set("Boruta-Request-State", string(DONE))
+	header.Set("Boruta-Request-State", string(boruta.DONE))
 
 	tests := []*testCase{
 		&testCase{
@@ -1103,12 +1105,12 @@ func TestGetRequestState(t *testing.T) {
 	assert, client := initTest(t, srv.URL)
 
 	// valid request
-	state, err := client.GetRequestState(ReqID(1))
+	state, err := client.GetRequestState(boruta.ReqID(1))
 	assert.Nil(err)
-	assert.Equal(DONE, state)
+	assert.Equal(boruta.DONE, state)
 
 	// missing request
-	state, err = client.GetRequestState(ReqID(2))
+	state, err = client.GetRequestState(boruta.ReqID(2))
 	assert.Equal(errors.New("bad HTTP status: 404 Not Found"), err)
 }
 
@@ -1117,7 +1119,7 @@ func TestGetWorkerState(t *testing.T) {
 	path := "/api/v1/workers/"
 
 	header := make(http.Header)
-	header.Set("Boruta-Worker-State", string(RUN))
+	header.Set("Boruta-Worker-State", string(boruta.RUN))
 
 	tests := []*testCase{
 		&testCase{
@@ -1143,7 +1145,7 @@ func TestGetWorkerState(t *testing.T) {
 	// valid
 	state, err := client.GetWorkerState(validUUID)
 	assert.Nil(err)
-	assert.Equal(RUN, state)
+	assert.Equal(boruta.RUN, state)
 
 	// invalid UUID
 	state, err = client.GetWorkerState(invalidID)
@@ -1156,14 +1158,14 @@ func TestGetJobTimeout(t *testing.T) {
 	date := time.Now().Round(time.Second)
 
 	header := make(http.Header)
-	header.Set("Boruta-Request-State", string(INPROGRESS))
+	header.Set("Boruta-Request-State", string(boruta.INPROGRESS))
 	header.Set("Boruta-Job-Timeout", date.Format(util.DateFormat))
 
 	wait := make(http.Header)
-	wait.Set("Boruta-Request-State", string(WAIT))
+	wait.Set("Boruta-Request-State", string(boruta.WAIT))
 
 	bad := make(http.Header)
-	bad.Set("Boruta-Request-State", string(INPROGRESS))
+	bad.Set("Boruta-Request-State", string(boruta.INPROGRESS))
 	bad.Set("Boruta-Job-Timeout", "fail")
 
 	tests := []*testCase{
@@ -1203,20 +1205,20 @@ func TestGetJobTimeout(t *testing.T) {
 	assert, client := initTest(t, srv.URL)
 
 	// valid
-	timeout, err := client.GetJobTimeout(ReqID(1))
+	timeout, err := client.GetJobTimeout(boruta.ReqID(1))
 	assert.Nil(err)
 	assert.True(date.Equal(timeout))
 
 	// wrong state
-	_, err = client.GetJobTimeout(ReqID(2))
+	_, err = client.GetJobTimeout(boruta.ReqID(2))
 	assert.Equal(errors.New(`request must be in "IN PROGRESS" state`), err)
 
 	// missing
-	_, err = client.GetJobTimeout(ReqID(3))
+	_, err = client.GetJobTimeout(boruta.ReqID(3))
 	assert.Equal(errors.New("bad HTTP status: 404 Not Found"), err)
 
 	// wrong date format
-	_, err = client.GetJobTimeout(ReqID(4))
+	_, err = client.GetJobTimeout(boruta.ReqID(4))
 	assert.NotNil(err)
 	var parseErr *time.ParseError
 	assert.IsType(parseErr, err)

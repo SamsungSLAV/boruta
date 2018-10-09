@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"testing"
 
-	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +52,7 @@ func TestNewServerError(t *testing.T) {
 		Status: http.StatusBadRequest,
 	}
 	notFound := &ServerError{
-		Err:    NotFoundError("Fern Flower").Error(),
+		Err:    boruta.NotFoundError("Fern Flower").Error(),
 		Status: http.StatusNotFound,
 	}
 	assert.Equal(badRequest, NewServerError(errors.New("foo")))
@@ -60,7 +60,7 @@ func TestNewServerError(t *testing.T) {
 	assert.Equal(notImplemented, NewServerError(ErrNotImplemented))
 	assert.Equal(internalErr, NewServerError(ErrInternalServerError))
 	assert.Equal(customErr, NewServerError(ErrBadRequest, "more details"))
-	assert.Equal(notFound, NewServerError(NotFoundError("Fern Flower")))
+	assert.Equal(notFound, NewServerError(boruta.NotFoundError("Fern Flower")))
 	assert.Nil(NewServerError(nil))
 }
 

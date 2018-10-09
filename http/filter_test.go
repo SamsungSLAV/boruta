@@ -21,14 +21,14 @@ package http
 import (
 	"testing"
 
-	. "github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewRequestFilter(t *testing.T) {
 	assert := assert.New(t)
-	state := string(WAIT)
-	priority := HiPrio.String()
+	state := string(boruta.WAIT)
+	priority := boruta.HiPrio.String()
 	filter := &RequestFilter{
 		State:    state,
 		Priority: priority,
@@ -38,10 +38,10 @@ func TestNewRequestFilter(t *testing.T) {
 
 func TestMatch(t *testing.T) {
 	assert := assert.New(t)
-	req := ReqInfo{
+	req := boruta.ReqInfo{
 		ID:       1,
-		Priority: (HiPrio + LoPrio) / 2,
-		State:    WAIT,
+		Priority: (boruta.HiPrio + boruta.LoPrio) / 2,
+		State:    boruta.WAIT,
 	}
 
 	var statesTests = [...]struct {
@@ -49,11 +49,11 @@ func TestMatch(t *testing.T) {
 		result bool
 	}{
 		{
-			state:  string(WAIT),
+			state:  string(boruta.WAIT),
 			result: true,
 		},
 		{
-			state:  string(INVALID),
+			state:  string(boruta.INVALID),
 			result: false,
 		},
 		{
