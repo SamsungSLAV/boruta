@@ -2,6 +2,75 @@
   "comments": [
     {
       "key": {
+        "uuid": "df407f29_0e146b02",
+        "filename": "ChangeLog",
+        "patchSetId": 6
+      },
+      "lineNbr": 4,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2018-10-09T13:32:17Z",
+      "side": 1,
+      "message": "AFAIR dryad binary runs on supervisor (NanoPi on given MuxPi)",
+      "range": {
+        "startLine": 4,
+        "startChar": 30,
+        "endLine": 4,
+        "endChar": 40
+      },
+      "revId": "2fa440e5587359459863fc315a10d2addd679b30",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bef249f5_f7f45688",
+        "filename": "ChangeLog",
+        "patchSetId": 6
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2018-10-09T13:32:17Z",
+      "side": 1,
+      "message": "Should there be a list, or next entries should be indented?",
+      "range": {
+        "startLine": 7,
+        "startChar": 28,
+        "endLine": 7,
+        "endChar": 29
+      },
+      "revId": "2fa440e5587359459863fc315a10d2addd679b30",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "becfa222_2d43a84c",
+        "filename": "ChangeLog",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2018-10-09T13:32:17Z",
+      "side": 1,
+      "message": "(obligatory dot comment) minor: inconsistent",
+      "range": {
+        "startLine": 14,
+        "startChar": 12,
+        "endLine": 14,
+        "endChar": 13
+      },
+      "revId": "2fa440e5587359459863fc315a10d2addd679b30",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "94602754_a3a22f76",
         "filename": "cmd/dryad/dryad.go",
         "patchSetId": 6
