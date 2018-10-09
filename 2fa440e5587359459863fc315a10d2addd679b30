@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "72fbf315_4c5bbc04",
+        "filename": "ChangeLog",
+        "patchSetId": 6
+      },
+      "lineNbr": 4,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2018-10-09T14:02:05Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "df407f29_0e146b02",
+      "range": {
+        "startLine": 4,
+        "startChar": 30,
+        "endLine": 4,
+        "endChar": 40
+      },
+      "revId": "2fa440e5587359459863fc315a10d2addd679b30",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bef249f5_f7f45688",
         "filename": "ChangeLog",
         "patchSetId": 6
@@ -48,6 +72,30 @@
     },
     {
       "key": {
+        "uuid": "152b3671_44cae82f",
+        "filename": "ChangeLog",
+        "patchSetId": 6
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2018-10-09T14:02:05Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bef249f5_f7f45688",
+      "range": {
+        "startLine": 7,
+        "startChar": 28,
+        "endLine": 7,
+        "endChar": 29
+      },
+      "revId": "2fa440e5587359459863fc315a10d2addd679b30",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "becfa222_2d43a84c",
         "filename": "ChangeLog",
         "patchSetId": 6
@@ -59,6 +107,30 @@
       "writtenOn": "2018-10-09T13:32:17Z",
       "side": 1,
       "message": "(obligatory dot comment) minor: inconsistent",
+      "range": {
+        "startLine": 14,
+        "startChar": 12,
+        "endLine": 14,
+        "endChar": 13
+      },
+      "revId": "2fa440e5587359459863fc315a10d2addd679b30",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f86682b_df4cc53a",
+        "filename": "ChangeLog",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2018-10-09T14:02:05Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "becfa222_2d43a84c",
       "range": {
         "startLine": 14,
         "startChar": 12,
