@@ -19,6 +19,7 @@ package http
 
 import (
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
@@ -83,4 +84,32 @@ type BorutaVersion struct {
 	Server string
 	API    string `json:"API_Version"`
 	State  string `json:"API_State"`
+}
+
+// Response is desired to be used by HTTP API handlers as a return value.
+type Response struct {
+	// Data contains actual content (e.g. pointer to structure, error) that will be marshalled
+	// and passed in HTTP response body.
+	Data interface{}
+	// Additional headers that will be added to HTTP response.
+	Headers http.Header
+}
+
+// NewResponse takes data of any type and http.Headers and prepares pointer to Response structure,
+// which should be returned by HTTP API handler function.
+func NewResponse(data interface{}, headers http.Header) *Response {
+	switch data := data.(type) {
+	// Don't clasify ServerError as an error.
+	case *ServerError:
+	case ServerError:
+	case error:
+		return &Response{
+			Data:    NewServerError(data),
+			Headers: headers,
+		}
+	}
+	return &Response{
+		Data:    data,
+		Headers: headers,
+	}
 }

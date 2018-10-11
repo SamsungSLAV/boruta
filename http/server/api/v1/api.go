@@ -30,12 +30,8 @@ import (
 	"github.com/dimfeld/httptreemux"
 )
 
-// responseData type denotes data returned by HTTP request handler functions.
-// Returned values are directly converted to JSON responses.
-type responseData interface{}
-
-// reqHandler denotes function that parses HTTP request and returns responseData.
-type reqHandler func(*http.Request, map[string]string) responseData
+// reqHandler denotes function that parses HTTP request and returns pointer to util.Response.
+type reqHandler func(*http.Request, map[string]string) *util.Response
 
 // Version contains version string of the API.
 const Version = "v1"
@@ -53,9 +49,8 @@ type API struct {
 // uuidRE matches only valid UUID strings.
 var uuidRE = regexp.MustCompile("^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$")
 
-// jsonMustMarshal tries to marshal responseData to JSON. Panics if error occurs.
-// TODO(mwereski): check type of data.
-func jsonMustMarshal(data responseData) []byte {
+// jsonMustMarshal tries to marshal passed data to JSON. Panics if error occurs.
+func jsonMustMarshal(data interface{}) []byte {
 	res, err := json.Marshal(data)
 	if err != nil {
 		msg := "unable to marshal JSON:" + err.Error()
@@ -74,8 +69,8 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 		return func(w http.ResponseWriter, r *http.Request,
 			ps map[string]string) {
 			status := status
-			data := handle(r, ps)
-			switch data := data.(type) {
+			respoonse := handle(r, ps)
+			switch data := respoonse.Data.(type) {
 			case *util.ServerError:
 				if data != nil {
 					status = data.Status
@@ -100,9 +95,14 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 			if status != http.StatusNoContent {
 				w.Header().Set("Content-Type", "application/json")
 			}
+			for k, v := range respoonse.Headers {
+				for _, s := range v {
+					w.Header().Add(k, s)
+				}
+			}
 			w.WriteHeader(status)
 			if status != http.StatusNoContent {
-				w.Write(jsonMustMarshal(data))
+				w.Write(jsonMustMarshal(respoonse.Data))
 			}
 		}
 	}
