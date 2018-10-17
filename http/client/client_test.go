@@ -55,7 +55,7 @@ type testCase struct {
 
 type dummyListFilter bool
 
-func (*dummyListFilter) Match(_ *boruta.ReqInfo) bool { return false }
+func (*dummyListFilter) Match(_ interface{}) bool { return false }
 
 type dummyReadCloser int
 

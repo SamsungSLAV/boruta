@@ -21,10 +21,10 @@ package boruta
 
 import "strings"
 
-// ListFilter is used to filter Requests in the Queue.
+// ListFilter is used to filter elements in a collection.
 type ListFilter interface {
-	// Match tells if request matches the filter.
-	Match(req *ReqInfo) bool
+	// Match tells if element matches the filter.
+	Match(elem interface{}) bool
 }
 
 // SortOrder denotes in which order (ascending or descending) collection should be sorted.

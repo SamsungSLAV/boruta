@@ -89,6 +89,7 @@ func TestMatch(t *testing.T) {
 		}
 	}
 	assert.False(filter.Match(nil))
+	assert.False(filter.Match(5))
 }
 
 func groups(g ...boruta.Group) boruta.Groups {

@@ -53,8 +53,9 @@ func NewRequests(state, priority string) *Requests {
 // * ranges,
 // * one of given,
 // * except of.
-func (filter *Requests) Match(req *boruta.ReqInfo) bool {
-	if req == nil {
+func (filter *Requests) Match(elem interface{}) bool {
+	req, ok := elem.(*boruta.ReqInfo)
+	if !ok || req == nil {
 		return false
 	}
 
