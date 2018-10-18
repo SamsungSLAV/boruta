@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"reflect"
 	"sort"
 	"sync"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/rpc/dryad"
 	"golang.org/x/crypto/ssh"
 )
@@ -259,87 +261,31 @@ func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
 	return nil
 }
 
-// isCapsMatching returns true if a worker has Capabilities satisfying caps.
-// The worker satisfies caps if and only if one of the following statements is true:
-//
-// * set of required capabilities is empty,
-//
-// * every key present in set of required capabilities is present in set of worker's capabilities,
-//
-// * value of every required capability matches the value of the capability in worker.
-//
-// TODO Caps matching is a complex problem and it should be changed to satisfy usecases below:
-// * matching any of the values and at least one:
-//   "SERIAL": "57600,115200" should be satisfied by "SERIAL": "9600, 38400, 57600"
-// * match value in range:
-//   "VOLTAGE": "2.9-3.6" should satisfy "VOLTAGE": "3.3"
-//
-// It is a helper function of ListWorkers.
-func isCapsMatching(worker boruta.WorkerInfo, caps boruta.Capabilities) bool {
-	if len(caps) == 0 {
-		return true
-	}
-	for srcKey, srcValue := range caps {
-		destValue, found := worker.Caps[srcKey]
-		if !found {
-			// Key is not present in the worker's caps
-			return false
-		}
-		if srcValue != destValue {
-			// Capability values do not match
-			return false
-		}
-	}
-	return true
-}
-
-// isGroupsMatching returns true if a worker belongs to any of groups in groupsMatcher.
-// Empty groupsMatcher is satisfied by every Worker.
-// It is a helper function of ListWorkers.
-func isGroupsMatching(worker boruta.WorkerInfo, groupsMatcher map[boruta.Group]interface{}) bool {
-	if len(groupsMatcher) == 0 {
-		return true
-	}
-	for _, workerGroup := range worker.Groups {
-		_, match := groupsMatcher[workerGroup]
-		if match {
-			return true
-		}
-	}
-	return false
-}
-
 // ListWorkers is an implementation of ListWorkers from Workers interface.
-func (wl *WorkerList) ListWorkers(groups boruta.Groups, caps boruta.Capabilities,
+func (wl *WorkerList) ListWorkers(filter boruta.ListFilter,
 	info *boruta.SortInfo) ([]boruta.WorkerInfo, error) {
 
 	wl.mutex.RLock()
 	defer wl.mutex.RUnlock()
 
-	return wl.listWorkers(groups, caps, info, false)
+	return wl.listWorkers(filter, info, false)
 }
 
 // listWorkers lists all workers when both:
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
 // Caller of this method should own the mutex.
-func (wl *WorkerList) listWorkers(groups boruta.Groups, caps boruta.Capabilities,
+func (wl *WorkerList) listWorkers(filter boruta.ListFilter,
 	info *boruta.SortInfo, onlyIdle bool) ([]boruta.WorkerInfo, error) {
 
 	sorter, err := newSorter(info)
 	if err != nil {
 		return nil, err
 	}
-
 	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
-	groupsMatcher := make(map[boruta.Group]interface{})
-	for _, group := range groups {
-		groupsMatcher[group] = nil
-	}
 
 	for _, worker := range wl.workers {
-		if isGroupsMatching(worker.WorkerInfo, groupsMatcher) &&
-			isCapsMatching(worker.WorkerInfo, caps) {
+		if filter == nil || reflect.ValueOf(filter).IsNil() || filter.Match(&worker.WorkerInfo) {
 			if onlyIdle && (worker.State != boruta.IDLE) {
 				continue
 			}
@@ -423,7 +369,7 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.C
 
 	var bestScore = math.MaxInt32
 
-	matching, err := wl.listWorkers(groups, caps, nil, true)
+	matching, err := wl.listWorkers(filter.NewWorkers(groups, caps), nil, true)
 	if err != nil {
 		panic("listing workers failed: " + err.Error())
 	}

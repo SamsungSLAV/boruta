@@ -941,7 +941,6 @@ func TestListWorkers(t *testing.T) {
 	}
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Worker-Count", "0")
-	emptyFilter := &filter.Workers{Groups: nil, Capabilities: nil}
 
 	tests := []*testCase{
 		&testCase{
@@ -961,7 +960,7 @@ func TestListWorkers(t *testing.T) {
 			name: prefix + "empty-filter",
 			path: path,
 			json: string(jsonMustMarshal(util.WorkersListSpec{
-				Filter: emptyFilter,
+				Filter: nil,
 				Sorter: nil,
 			})),
 			contentType: contentJSON,
@@ -973,7 +972,7 @@ func TestListWorkers(t *testing.T) {
 			name: prefix + "empty-filter-sort-asc",
 			path: path,
 			json: string(jsonMustMarshal(util.WorkersListSpec{
-				Filter: emptyFilter,
+				Filter: nil,
 				Sorter: sorterAsc,
 			})),
 			contentType: contentJSON,
@@ -985,7 +984,7 @@ func TestListWorkers(t *testing.T) {
 			name: prefix + "empty-filter-sort-desc",
 			path: path,
 			json: string(jsonMustMarshal(util.WorkersListSpec{
-				Filter: emptyFilter,
+				Filter: nil,
 				Sorter: sorterDesc,
 			})),
 			contentType: contentJSON,
@@ -1023,23 +1022,23 @@ func TestListWorkers(t *testing.T) {
 	sorter := new(boruta.SortInfo)
 
 	// list some
-	list, err := client.ListWorkers(validFilter.Groups, validFilter.Capabilities, sorter)
+	list, err := client.ListWorkers(validFilter, sorter)
 	assert.Nil(err)
 	assert.Equal(workers[:2], list)
 
 	// list all
-	list, err = client.ListWorkers(nil, nil, nil)
+	list, err = client.ListWorkers(nil, nil)
 	assert.Nil(err)
 	assert.Equal(workers, list)
 
 	// no matches
-	list, err = client.ListWorkers(missingFilter.Groups, missingFilter.Capabilities, sorter)
+	list, err = client.ListWorkers(missingFilter, sorter)
 	assert.Nil(err)
 	assert.Empty(list)
 
 	// list all, sorted by UUID (ascending)
 	sorter.Item = "UUID"
-	list, err = client.ListWorkers(nil, nil, sorter)
+	list, err = client.ListWorkers(nil, sorter)
 	assert.Nil(err)
 	assert.Equal(workers, list)
 
@@ -1047,19 +1046,24 @@ func TestListWorkers(t *testing.T) {
 	sorter.Item = "state"
 	sorter.Order = boruta.SortOrderDesc
 	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
-	list, err = client.ListWorkers(nil, nil, sorter)
+	list, err = client.ListWorkers(nil, sorter)
 	assert.Nil(err)
 	assert.Equal(w2, list)
 
 	// Bad sort item.
 	sorter.Item = "foobarbaz"
-	list, err = client.ListWorkers(validFilter.Groups, validFilter.Capabilities, sorter)
+	list, err = client.ListWorkers(validFilter, sorter)
 	assert.Empty(list)
 	assert.Equal(util.NewServerError(boruta.ErrWrongSortItem), err)
 
+	// Wrong filter type.
+	list, err = client.ListWorkers(new(dummyListFilter), sorter)
+	assert.Empty(list)
+	assert.Equal(errors.New("only *filter.Workers type is supported"), err)
+
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	list, err = client.ListWorkers(nil, nil, nil)
+	list, err = client.ListWorkers(nil, nil)
 	assert.Zero(list)
 	assert.NotNil(err)
 }

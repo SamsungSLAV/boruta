@@ -549,39 +549,34 @@ func TestListWorkersHandler(t *testing.T) {
 	filterPath := "/api/v1/workers/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := &filter.Workers{
-		Groups:       boruta.Groups{"Lędzianie"},
-		Capabilities: map[string]string{"architecture": "AArch64"},
-	}
-	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities, defaultSorter).Return(workers[:2], nil)
-	m.wm.EXPECT().ListWorkers(validFilter.Groups, validFilter.Capabilities,
-		sorterBad).Return([]boruta.WorkerInfo{}, boruta.ErrWrongSortItem)
+	validFilter := filter.NewWorkers(boruta.Groups{"Lędzianie"},
+		boruta.Capabilities{"architecture": "Aarch64"})
+	m.wm.EXPECT().ListWorkers(validFilter, defaultSorter).Return(workers[:2], nil)
+	m.wm.EXPECT().ListWorkers(validFilter, sorterBad).Return([]boruta.WorkerInfo{},
+		boruta.ErrWrongSortItem)
 	validHeader := make(http.Header)
 	validHeader.Set("Boruta-Worker-Count", "2")
 
-	m.wm.EXPECT().ListWorkers(nil, nil, nil).Return(workers, nil).MinTimes(1)
-	m.wm.EXPECT().ListWorkers(nil, nil, sorterAsc).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(nil, nil).Return(workers, nil).MinTimes(1)
 	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
-	m.wm.EXPECT().ListWorkers(nil, nil, sorterDesc).Return(w2, nil)
-	m.wm.EXPECT().ListWorkers(boruta.Groups{}, nil, nil).Return(workers, nil)
-	m.wm.EXPECT().ListWorkers(nil, make(boruta.Capabilities), nil).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(filter.NewWorkers(boruta.Groups{}, nil), nil).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, make(boruta.Capabilities)),
+		nil).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, nil), nil).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(nil, sorterAsc).Return(workers, nil)
+	m.wm.EXPECT().ListWorkers(nil, sorterDesc).Return(w2, nil)
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Worker-Count", "4")
 
-	missingFilter := &filter.Workers{
-		Groups: boruta.Groups{"Fern Flower"},
-	}
+	missingFilter := filter.NewWorkers(boruta.Groups{"Fern Flower"}, nil)
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Worker-Count", "0")
-	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities,
-		nil).Return([]boruta.WorkerInfo{}, nil)
+	m.wm.EXPECT().ListWorkers(missingFilter, nil).Return([]boruta.WorkerInfo{}, nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
-	badFilter := &filter.Workers{
-		Groups: boruta.Groups{"Oops"},
-	}
-	m.wm.EXPECT().ListWorkers(badFilter.Groups, badFilter.Capabilities,
-		nil).Return([]boruta.WorkerInfo{}, errors.New("foo bar: pizza failed"))
+	badFilter := filter.NewWorkers(boruta.Groups{"Oops"}, nil)
+	m.wm.EXPECT().ListWorkers(badFilter, nil).Return([]boruta.WorkerInfo{},
+		errors.New("foo bar: pizza failed"))
 
 	tests := []requestTest{
 		// Valid filter - list some workers.
@@ -636,7 +631,7 @@ func TestListWorkersHandler(t *testing.T) {
 			path:    filterPath,
 			methods: methods,
 			json: string(jsonMustMarshal(util.WorkersListSpec{
-				Filter: &filter.Workers{Groups: nil, Capabilities: nil},
+				Filter: nil,
 				Sorter: sorterAsc,
 			})),
 			contentType: contentTypeJSON,
@@ -649,7 +644,7 @@ func TestListWorkersHandler(t *testing.T) {
 			path:    filterPath,
 			methods: methods,
 			json: string(jsonMustMarshal(util.WorkersListSpec{
-				Filter: &filter.Workers{Groups: nil, Capabilities: nil},
+				Filter: nil,
 				Sorter: sorterDesc,
 			})),
 			contentType: contentTypeJSON,

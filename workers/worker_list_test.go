@@ -28,6 +28,7 @@ import (
 	"sync"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/rpc/dryad"
 
 	gomock "github.com/golang/mock/gomock"
@@ -1104,7 +1105,7 @@ var _ = Describe("WorkerList", func() {
 
 			testWorkerList := func(groups boruta.Groups, caps boruta.Capabilities,
 				si *boruta.SortInfo, present, absent []boruta.WorkerInfo) {
-				workers, err := wl.ListWorkers(groups, caps, si)
+				workers, err := wl.ListWorkers(filter.NewWorkers(groups, caps), si)
 				Expect(err).ToNot(HaveOccurred())
 				for _, workerInfo := range present {
 					Expect(workers).To(ContainElement(workerInfo))
@@ -1128,7 +1129,7 @@ var _ = Describe("WorkerList", func() {
 
 			It("should return an error when SortInfo has unknown item", func() {
 				sortinfo := &boruta.SortInfo{Item: "foobar"}
-				workers, err := wl.ListWorkers(nil, nil, sortinfo)
+				workers, err := wl.ListWorkers(nil, sortinfo)
 				Expect(len(workers)).To(Equal(0))
 				Expect(err).To(Equal(boruta.ErrWrongSortItem))
 			})
@@ -1150,10 +1151,10 @@ var _ = Describe("WorkerList", func() {
 				})
 
 				It("should return empty list if no worker matches the caps", func() {
-					workers, err := wl.ListWorkers(boruta.Groups{},
+					workers, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{},
 						boruta.Capabilities{
 							"non-existing-caps": "",
-						}, &si)
+						}), &si)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
 				})
@@ -1176,7 +1177,8 @@ var _ = Describe("WorkerList", func() {
 				})
 
 				It("should return empty list if no worker matches the group", func() {
-					workers, err := wl.ListWorkers(boruta.Groups{"non-existing-group"}, nil, &si)
+					workers, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{"non-existing-group"},
+						nil), &si)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
 				})

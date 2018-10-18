@@ -322,16 +322,18 @@ func (client *BorutaClient) ProlongAccess(reqID boruta.ReqID) error {
 // ListWorkers queries Boruta server for list of workers that are in given groups and have provided
 // capabilities. Setting both caps and groups to empty or nil lists all workers. If sorter is nil
 // then the default sorting is used (ascending, by UUID).
-func (client *BorutaClient) ListWorkers(groups boruta.Groups,
-	caps boruta.Capabilities, sorter *boruta.SortInfo) ([]boruta.WorkerInfo, error) {
+func (client *BorutaClient) ListWorkers(f boruta.ListFilter, s *boruta.SortInfo) ([]boruta.WorkerInfo,
+	error) {
 
-	req, err := json.Marshal(util.WorkersListSpec{
-		Filter: &filter.Workers{
-			Groups:       groups,
-			Capabilities: caps,
-		},
-		Sorter: sorter,
-	})
+	listSpec := &util.WorkersListSpec{Sorter: s}
+	if f != nil {
+		wfilter, ok := f.(*filter.Workers)
+		if !ok {
+			return nil, errors.New("only *filter.Workers type is supported")
+		}
+		listSpec.Filter = wfilter
+	}
+	req, err := json.Marshal(listSpec)
 	if err != nil {
 		return nil, err
 	}

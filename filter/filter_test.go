@@ -36,7 +36,7 @@ func TestNewRequest(t *testing.T) {
 	assert.Equal(filter, NewRequests(state, priority))
 }
 
-func TestMatch(t *testing.T) {
+func TestRequestMatch(t *testing.T) {
 	assert := assert.New(t)
 	req := boruta.ReqInfo{
 		ID:       1,
@@ -107,9 +107,91 @@ func TestNewWorkers(t *testing.T) {
 	assert := assert.New(t)
 	g := groups(boruta.Group("foo"), boruta.Group("bar"))
 	c := caps("armv7l", "true")
+	m := make(map[boruta.Group]bool)
+	for _, group := range g {
+		m[group] = true
+	}
 	filter := &Workers{
 		Groups:       g,
 		Capabilities: c,
+		matcher:      m,
 	}
 	assert.Equal(filter, NewWorkers(g, c))
+}
+
+func TestWorkerMatch(t *testing.T) {
+	assert := assert.New(t)
+
+	newWorker := func(g boruta.Groups, c boruta.Capabilities) *boruta.WorkerInfo {
+		return &boruta.WorkerInfo{
+			Groups: g,
+			Caps:   c,
+		}
+	}
+
+	empty := boruta.Group("empty")
+	all := boruta.Group("all")
+	some := boruta.Group("some")
+	other := boruta.Group("other")
+
+	var tests = [...]struct {
+		worker *boruta.WorkerInfo
+		filter *Workers
+		result bool
+	}{
+		{
+			worker: newWorker(groups(all), caps("armv7", "true")),
+			filter: NewWorkers(nil, nil),
+			result: true,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(groups(empty), nil),
+			result: false,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(nil, caps("aarch64", "true")),
+			result: true,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(nil, make(boruta.Capabilities)),
+			result: true,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(make(boruta.Groups, 0), nil),
+			result: true,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(groups(all, other), caps("aarch64", "true")),
+			result: true,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(groups(other), caps("aarch64", "true")),
+			result: false,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(groups(all, other), caps("aarch64", "false")),
+			result: false,
+		},
+		{
+			worker: newWorker(groups(all, some), caps("aarch64", "true")),
+			filter: NewWorkers(groups(all, other),
+				boruta.Capabilities{"foo": "bar"}),
+			result: false,
+		},
+	}
+
+	for _, tcase := range tests {
+		assert.Equal(tcase.result, tcase.filter.Match(tcase.worker))
+	}
+
+	filter := new(Workers)
+	assert.False(filter.Match(nil))
+	assert.False(filter.Match(5))
 }

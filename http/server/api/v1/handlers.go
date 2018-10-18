@@ -175,22 +175,25 @@ func (api *API) prolongAccessHandler(r *http.Request, ps map[string]string) resp
 func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) responseData {
 	defer r.Body.Close()
 
-	listSpec := &util.WorkersListSpec{Filter: &filter.Workers{}}
+	listSpec := &util.WorkersListSpec{}
 	// Read list spec.
 	if r.Method == http.MethodPost {
 		if err := json.NewDecoder(r.Body).Decode(listSpec); err != nil {
 			if err != io.EOF {
 				return util.NewServerError(err)
 			}
-			listSpec.Filter.Groups = nil
-			listSpec.Filter.Capabilities = nil
+			listSpec.Filter = nil
 			listSpec.Sorter = nil
 		}
 	}
 
+	// WorkersFilter needs to be regenerated to initialize internal structures.
+	if listSpec.Filter != nil {
+		listSpec.Filter = filter.NewWorkers(listSpec.Filter.Groups,
+			listSpec.Filter.Capabilities)
+	}
 	// Filter and sort workers.
-	workers, err := api.workers.ListWorkers(listSpec.Filter.Groups, listSpec.Filter.Capabilities,
-		listSpec.Sorter)
+	workers, err := api.workers.ListWorkers(listSpec.Filter, listSpec.Sorter)
 	if err != nil {
 		return util.NewServerError(err)
 	}
