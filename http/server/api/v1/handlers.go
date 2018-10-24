@@ -27,6 +27,7 @@ import (
 	"net/http"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	util "github.com/SamsungSLAV/boruta/http"
 )
 
@@ -110,20 +111,20 @@ func (api *API) getRequestInfoHandler(r *http.Request, ps map[string]string) res
 // listRequestsHandler parses HTTP request for listing Boruta requests and calls
 // ListRequests().
 func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) responseData {
-	var filter *util.RequestFilter
+	var rfilter *filter.Requests
 	defer r.Body.Close()
 
 	if r.Method == http.MethodPost {
-		filter = new(util.RequestFilter)
-		if err := json.NewDecoder(r.Body).Decode(filter); err != nil {
+		rfilter = new(filter.Requests)
+		if err := json.NewDecoder(r.Body).Decode(rfilter); err != nil {
 			if err != io.EOF {
 				return util.NewServerError(err)
 			}
-			filter = nil
+			rfilter = nil
 		}
 	}
 
-	reqs, err := api.reqs.ListRequests(filter)
+	reqs, err := api.reqs.ListRequests(rfilter)
 	if err != nil {
 		return util.NewServerError(err)
 	}
@@ -171,17 +172,17 @@ func (api *API) prolongAccessHandler(r *http.Request, ps map[string]string) resp
 
 // listWorkersHandler parses HTTP request for listing workers and calls ListWorkers().
 func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) responseData {
-	var filter util.WorkersFilter
+	var wfilter filter.Workers
 	defer r.Body.Close()
 
 	if r.Method == http.MethodPost {
-		err := json.NewDecoder(r.Body).Decode(&filter)
+		err := json.NewDecoder(r.Body).Decode(&wfilter)
 		if err != nil && err != io.EOF {
 			return util.NewServerError(err)
 		}
 	}
 
-	workers, err := api.workers.ListWorkers(filter.Groups, filter.Capabilities)
+	workers, err := api.workers.ListWorkers(wfilter.Groups, wfilter.Capabilities)
 	if err != nil {
 		return util.NewServerError(err)
 	}

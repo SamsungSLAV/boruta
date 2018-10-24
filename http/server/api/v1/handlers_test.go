@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/requests"
 )
@@ -272,24 +273,24 @@ func TestListRequestsHandler(t *testing.T) {
 	filterPath := "/api/v1/reqs/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := util.NewRequestFilter("WAIT", "")
+	validFilter := filter.NewRequests("WAIT", "")
 	m.rq.EXPECT().ListRequests(validFilter).Return(reqs[:2], nil)
 	validHeader := make(http.Header)
 	validHeader.Set("Boruta-Request-Count", "2")
 
-	emptyFilter := util.NewRequestFilter("", "")
+	emptyFilter := filter.NewRequests("", "")
 	m.rq.EXPECT().ListRequests(emptyFilter).Return(reqs, nil).Times(2)
 	m.rq.EXPECT().ListRequests(nil).Return(reqs, nil).Times(3)
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Request-Count", "4")
 
-	missingFilter := util.NewRequestFilter("INVALID", "")
+	missingFilter := filter.NewRequests("INVALID", "")
 	m.rq.EXPECT().ListRequests(missingFilter).Return([]boruta.ReqInfo{}, nil)
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Request-Count", "0")
 
 	// Currently ListRequests doesn't return any error hence the meaningless values.
-	badFilter := util.NewRequestFilter("FAIL", "-1")
+	badFilter := filter.NewRequests("FAIL", "-1")
 	m.rq.EXPECT().ListRequests(badFilter).Return([]boruta.ReqInfo{}, errors.New("foo bar: pizza failed"))
 
 	tests := []requestTest{
@@ -461,7 +462,7 @@ func TestListWorkersHandler(t *testing.T) {
 	filterPath := "/api/v1/workers/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := util.WorkersFilter{
+	validFilter := filter.Workers{
 		Groups:       boruta.Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
@@ -475,7 +476,7 @@ func TestListWorkersHandler(t *testing.T) {
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Worker-Count", "4")
 
-	missingFilter := util.WorkersFilter{
+	missingFilter := filter.Workers{
 		Groups: boruta.Groups{"Fern Flower"},
 	}
 	missingHeader := make(http.Header)
@@ -483,7 +484,7 @@ func TestListWorkersHandler(t *testing.T) {
 	m.wm.EXPECT().ListWorkers(missingFilter.Groups, missingFilter.Capabilities).Return([]boruta.WorkerInfo{}, nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
-	badFilter := util.WorkersFilter{
+	badFilter := filter.Workers{
 		Groups: boruta.Groups{"Oops"},
 	}
 	m.wm.EXPECT().ListWorkers(badFilter.Groups, badFilter.Capabilities).Return([]boruta.WorkerInfo{}, errors.New("foo bar: pizza failed"))
@@ -521,30 +522,36 @@ func TestListWorkersHandler(t *testing.T) {
 		},
 		// Empty filter (all nil) - list all requests.
 		{
-			name:        prefix + "empty-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: nil})),
+			name:    prefix + "empty-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(filter.Workers{
+				Groups:       nil,
+				Capabilities: nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
 		// Empty filter (nil groups) - list all requests.
 		{
-			name:        prefix + "empty2-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: make(boruta.Capabilities)})),
+			name:    prefix + "empty2-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(filter.Workers{
+				Groups:       nil,
+				Capabilities: make(boruta.Capabilities)})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,
 		},
 		// Empty filter (nil caps) - list all requests.
 		{
-			name:        prefix + "empty3-filter",
-			path:        filterPath,
-			methods:     methods,
-			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: boruta.Groups{}, Capabilities: nil})),
+			name:    prefix + "empty3-filter",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(filter.Workers{
+				Groups:       boruta.Groups{},
+				Capabilities: nil})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 			header:      allHeader,

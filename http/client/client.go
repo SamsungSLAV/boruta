@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	util "github.com/SamsungSLAV/boruta/http"
 )
 
@@ -311,7 +312,7 @@ func (client *BorutaClient) ProlongAccess(reqID boruta.ReqID) error {
 // lists all workers.
 func (client *BorutaClient) ListWorkers(groups boruta.Groups,
 	caps boruta.Capabilities) ([]boruta.WorkerInfo, error) {
-	req, err := json.Marshal(&util.WorkersFilter{
+	req, err := json.Marshal(&filter.Workers{
 		Groups:       groups,
 		Capabilities: caps,
 	})

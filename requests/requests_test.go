@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/workers"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -376,28 +377,6 @@ func TestGetRequestInfo(t *testing.T) {
 	assert.Zero(req3)
 }
 
-type reqFilter struct {
-	state    string
-	priority string
-}
-
-func (filter *reqFilter) Match(req *boruta.ReqInfo) bool {
-	if req == nil {
-		return false
-	}
-
-	if filter.state != "" && string(req.State) != filter.state {
-		return false
-	}
-
-	priority := req.Priority.String()
-	if filter.priority != "" && priority != filter.priority {
-		return false
-	}
-
-	return true
-}
-
 func TestListRequests(t *testing.T) {
 	assert, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
@@ -426,90 +405,90 @@ func TestListRequests(t *testing.T) {
 	notFoundPrio := req.Priority - 1
 	notFoundState := boruta.INVALID
 	var filterTests = [...]struct {
-		filter reqFilter
+		f      filter.Requests
 		result map[boruta.ReqID]bool
 	}{
 		{
-			filter: reqFilter{
-				state:    string(boruta.WAIT),
-				priority: req.Priority.String(),
+			f: filter.Requests{
+				State:    string(boruta.WAIT),
+				Priority: req.Priority.String(),
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(1): true},
 		},
 		{
-			filter: reqFilter{
-				state:    string(boruta.WAIT),
-				priority: (req.Priority + 1).String(),
+			f: filter.Requests{
+				State:    string(boruta.WAIT),
+				Priority: (req.Priority + 1).String(),
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(2): true},
 		},
 		{
-			filter: reqFilter{
-				state:    string(boruta.DONE),
-				priority: req.Priority.String(),
+			f: filter.Requests{
+				State:    string(boruta.DONE),
+				Priority: req.Priority.String(),
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(3): true},
 		},
 		{
-			filter: reqFilter{
-				state:    string(boruta.DONE),
-				priority: (req.Priority + 1).String(),
+			f: filter.Requests{
+				State:    string(boruta.DONE),
+				Priority: (req.Priority + 1).String(),
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(4): true},
 		},
 		{
-			filter: reqFilter{
-				state:    "",
-				priority: req.Priority.String(),
+			f: filter.Requests{
+				State:    "",
+				Priority: req.Priority.String(),
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(1): true, boruta.ReqID(3): true},
 		},
 		{
-			filter: reqFilter{
-				state:    "",
-				priority: (req.Priority + 1).String(),
+			f: filter.Requests{
+				State:    "",
+				Priority: (req.Priority + 1).String(),
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(2): true, boruta.ReqID(4): true},
 		},
 		{
-			filter: reqFilter{
-				state:    string(boruta.WAIT),
-				priority: "",
+			f: filter.Requests{
+				State:    string(boruta.WAIT),
+				Priority: "",
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(1): true, boruta.ReqID(2): true},
 		},
 		{
-			filter: reqFilter{
-				state:    string(boruta.DONE),
-				priority: "",
+			f: filter.Requests{
+				State:    string(boruta.DONE),
+				Priority: "",
 			},
 			result: map[boruta.ReqID]bool{boruta.ReqID(3): true, boruta.ReqID(4): true},
 		},
 		{
-			filter: reqFilter{
-				state:    "",
-				priority: "",
+			f: filter.Requests{
+				State:    "",
+				Priority: "",
 			},
 			result: reqs,
 		},
 		{
-			filter: reqFilter{
-				state:    string(notFoundState),
-				priority: notFoundPrio.String(),
+			f: filter.Requests{
+				State:    string(notFoundState),
+				Priority: notFoundPrio.String(),
 			},
 			result: noReqs,
 		},
 		{
-			filter: reqFilter{
-				state:    string(boruta.WAIT),
-				priority: notFoundPrio.String(),
+			f: filter.Requests{
+				State:    string(boruta.WAIT),
+				Priority: notFoundPrio.String(),
 			},
 			result: noReqs,
 		},
 		{
-			filter: reqFilter{
-				state:    string(notFoundState),
-				priority: req.Priority.String(),
+			f: filter.Requests{
+				State:    string(notFoundState),
+				Priority: req.Priority.String(),
 			},
 			result: noReqs,
 		},
@@ -523,7 +502,7 @@ func TestListRequests(t *testing.T) {
 	}
 
 	for _, test := range filterTests {
-		resp, err := rqueue.ListRequests(&test.filter)
+		resp, err := rqueue.ListRequests(&test.f)
 		assert.Nil(err)
 		checkReqs(test.result, resp)
 	}
@@ -534,7 +513,7 @@ func TestListRequests(t *testing.T) {
 	resp, err := rqueue.ListRequests(nil)
 	assert.Nil(err)
 	checkReqs(reqs, resp)
-	var flt *reqFilter
+	var flt *filter.Requests
 	// Concrete type is nil but interface isn't nil.
 	resp, err = rqueue.ListRequests(flt)
 	assert.Nil(err)

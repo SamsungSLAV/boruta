@@ -14,9 +14,9 @@
  *  limitations under the License
  */
 
-// File http/filter_test.go contains tests for RequestFilter.
+// File filter/filter_test.go contains tests for requests and workers filters.
 
-package http
+package filter
 
 import (
 	"testing"
@@ -25,15 +25,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewRequestFilter(t *testing.T) {
+func TestNewRequest(t *testing.T) {
 	assert := assert.New(t)
 	state := string(boruta.WAIT)
 	priority := boruta.HiPrio.String()
-	filter := &RequestFilter{
+	filter := &Requests{
 		State:    state,
 		Priority: priority,
 	}
-	assert.Equal(filter, NewRequestFilter(state, priority))
+	assert.Equal(filter, NewRequests(state, priority))
 }
 
 func TestMatch(t *testing.T) {
@@ -80,7 +80,7 @@ func TestMatch(t *testing.T) {
 		},
 	}
 
-	var filter RequestFilter
+	var filter Requests
 	for _, stest := range statesTests {
 		filter.State = stest.state
 		for _, ptest := range priorityTests {
@@ -89,4 +89,26 @@ func TestMatch(t *testing.T) {
 		}
 	}
 	assert.False(filter.Match(nil))
+}
+
+func groups(g ...boruta.Group) boruta.Groups {
+	return g
+}
+
+func caps(v1, v2 string) boruta.Capabilities {
+	return boruta.Capabilities{
+		"arch":    v1,
+		"display": v2,
+	}
+}
+
+func TestNewWorkers(t *testing.T) {
+	assert := assert.New(t)
+	g := groups(boruta.Group("foo"), boruta.Group("bar"))
+	c := caps("armv7l", "true")
+	filter := &Workers{
+		Groups:       g,
+		Capabilities: c,
+	}
+	assert.Equal(filter, NewWorkers(g, c))
 }

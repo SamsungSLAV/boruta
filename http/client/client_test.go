@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/stretchr/testify/assert"
@@ -645,10 +646,10 @@ func TestListRequests(t *testing.T) {
 			Deadline: deadline, ValidAfter: validAfter},
 	}
 
-	missingFilter := util.NewRequestFilter("INPROGRESS", "2")
+	missingFilter := filter.NewRequests("INPROGRESS", "2")
 	missingHeader := make(http.Header)
 	missingHeader.Set("Boruta-Request-Count", "0")
-	validFilter := util.NewRequestFilter("WAIT", "")
+	validFilter := filter.NewRequests("WAIT", "")
 	validHeader := make(http.Header)
 	validHeader.Set("Boruta-Request-Count", "2")
 	nilHeader := make(http.Header)
@@ -847,7 +848,7 @@ func TestListWorkers(t *testing.T) {
 		newWorker("2", boruta.IDLE, boruta.Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
 		newWorker("3", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, riscvCaps),
 	}
-	validFilter := util.WorkersFilter{
+	validFilter := filter.Workers{
 		Groups:       boruta.Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
@@ -855,7 +856,7 @@ func TestListWorkers(t *testing.T) {
 	validHeader.Set("Boruta-Worker-Count", "2")
 	allHeader := make(http.Header)
 	allHeader.Set("Boruta-Worker-Count", "4")
-	missingFilter := util.WorkersFilter{
+	missingFilter := filter.Workers{
 		Groups: boruta.Groups{"Fern Flower"},
 	}
 	missingHeader := make(http.Header)
@@ -875,7 +876,7 @@ func TestListWorkers(t *testing.T) {
 			// list all
 			name:        prefix + "empty-filter",
 			path:        path,
-			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: nil})),
+			json:        string(jsonMustMarshal(filter.Workers{Groups: nil, Capabilities: nil})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
 			header:      allHeader,

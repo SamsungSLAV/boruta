@@ -14,9 +14,10 @@
  *  limitations under the License
  */
 
-// File http/filter.go provides implementation of ListFilter interface.
+// File filter/filter.go provides implementation of ListFilter interface.
 
-package http
+// Package filter provides filters used in listing functions.
+package filter
 
 import (
 	"strings"
@@ -24,22 +25,22 @@ import (
 	"github.com/SamsungSLAV/boruta"
 )
 
-// WorkersFilter contains Groups and Capabilities to be used to filter workers.
-type WorkersFilter struct {
+// Workers contains Groups and Capabilities to be used to filter workers.
+type Workers struct {
 	boruta.Groups
 	boruta.Capabilities
 }
 
-// RequestFilter implements ListFilter interface. Currently it is possible to
+// Requests implements ListFilter interface. Currently it is possible to
 // filter by state and priority.
-type RequestFilter struct {
+type Requests struct {
 	State    string
 	Priority string
 }
 
-// NewRequestFilter returns pointer to initialized RequestFilter structure.
-func NewRequestFilter(state, priority string) *RequestFilter {
-	return &RequestFilter{
+// NewRequests returns pointer to initialized Requests structure.
+func NewRequests(state, priority string) *Requests {
+	return &Requests{
 		State:    strings.TrimSpace(strings.ToUpper(state)),
 		Priority: strings.TrimSpace(priority),
 	}
@@ -52,7 +53,7 @@ func NewRequestFilter(state, priority string) *RequestFilter {
 // * ranges,
 // * one of given,
 // * except of.
-func (filter *RequestFilter) Match(req *boruta.ReqInfo) bool {
+func (filter *Requests) Match(req *boruta.ReqInfo) bool {
 	if req == nil {
 		return false
 	}
@@ -67,4 +68,12 @@ func (filter *RequestFilter) Match(req *boruta.ReqInfo) bool {
 	}
 
 	return true
+}
+
+// NewWorkers returns pointer to initialized Workers structure.
+func NewWorkers(groups boruta.Groups, caps boruta.Capabilities) *Workers {
+	return &Workers{
+		Groups:       groups,
+		Capabilities: caps,
+	}
 }
