@@ -76,27 +76,27 @@ func (m *JobsManagerImpl) Create(req boruta.ReqID, worker boruta.WorkerUUID) err
 
 	j, present := m.jobs[worker]
 	if present {
-		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+		logger.WithProperties(logger.Properties{"requestID": req.String(), "workerID": worker}).
 			Errorf("Worker is already processing another req: %s.", j.String())
 		return ErrJobAlreadyExists
 	}
 
 	addr, err := m.workers.GetWorkerSSHAddr(worker)
 	if err != nil {
-		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+		logger.WithProperties(logger.Properties{"requestID": req.String(), "workerID": worker}).
 			Error("Cannot get Worker's SSH address.")
 		return err
 	}
 	key, err := m.workers.GetWorkerKey(worker)
 	if err != nil {
-		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+		logger.WithProperties(logger.Properties{"requestID": req.String(), "workerID": worker}).
 			Error("Cannot get Worker's key.")
 		return err
 	}
 	t := m.newTunnel()
 	err = t.Create(nil, addr)
 	if err != nil {
-		logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).
+		logger.WithProperties(logger.Properties{"requestID": req.String(), "workerID": worker}).
 			Error("Cannot create a new tunnel.")
 		return err
 	}
@@ -112,7 +112,8 @@ func (m *JobsManagerImpl) Create(req boruta.ReqID, worker boruta.WorkerUUID) err
 		Req:    req,
 	}
 	m.jobs[worker] = job
-	logger.WithProperty("requestID", req.String()).WithProperty("workerID", worker).WithProperty("job", job).
+	logger.WithProperties(logger.Properties{
+		"requestID": req.String(), "workerID": worker, "job": job}).
 		Info("New Job created.")
 	return nil
 }
