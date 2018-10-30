@@ -25,6 +25,7 @@ import (
 	"github.com/SamsungSLAV/boruta"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/http/server/api/v1"
+	"github.com/SamsungSLAV/slav/logger"
 	"github.com/dimfeld/httptreemux"
 )
 
@@ -55,6 +56,7 @@ func panicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write([]byte(fmt.Sprintf("Internal Server Error:\n%s", reason)))
+	logger.WithError(err).Notice("httptreemux panic was handled")
 }
 
 // redirectToDefault redirects requests which lack API version information to
