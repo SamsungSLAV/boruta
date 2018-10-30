@@ -21,13 +21,14 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/SamsungSLAV/boruta"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/http/server/api/v1"
-
+	"github.com/SamsungSLAV/slav/logger"
 	"github.com/dimfeld/httptreemux"
 	"github.com/rs/cors"
 )
@@ -58,6 +59,8 @@ func panicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
 	var status = http.StatusInternalServerError
 	switch srvErr := err.(type) {
 	case *util.ServerError:
+		logger.WithError(errors.New(srvErr.Err)).
+			Notice("internal server error handled by httptreemux panic handler")
 		reason = srvErr.Err
 		status = srvErr.Status
 	default:
