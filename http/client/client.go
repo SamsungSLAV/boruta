@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -162,6 +163,26 @@ func checkStatus(shouldBe int, resp *http.Response) (err error) {
 	return
 }
 
+func listInfoFromHeaders(hdr http.Header) (*boruta.ListInfo, error) {
+	hdrKeys := [...]string{util.ListTotalItemsHdr, util.ListRemainingItemsHdr}
+	var tmp [len(hdrKeys)]uint64
+
+	for i, k := range hdrKeys {
+		if _, present := hdr[k]; !present {
+			return nil, fmt.Errorf("couldn't find header: %s", k)
+		}
+		_, err := fmt.Sscanf(hdr.Get(k), "%d", &tmp[i])
+		if err != nil {
+			return nil, fmt.Errorf("couldn't parse header: %s", err)
+		}
+	}
+
+	return &boruta.ListInfo{
+		TotalItems:     tmp[0],
+		RemainingItems: tmp[1],
+	}, nil
+}
+
 // getHeaders is a helper function that makes HEAD HTTP request for given address,
 // checks Status and returns HTTP headers and error.
 func getHeaders(url string) (http.Header, error) {
@@ -251,31 +272,41 @@ func (client *BorutaClient) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, 
 
 // ListRequests queries Boruta server for list of requests that match given filter. Filter may be
 // empty or nil to get list of all requests. If sorter is nil then the default sorting is used
-// (ascending, by ID).
-func (client *BorutaClient) ListRequests(f boruta.ListFilter, s *boruta.SortInfo) ([]boruta.ReqInfo,
-	error) {
+// (ascending, by ID). List may be divided into pages. Division is made according to
+// boruta.RequestsPaginator. To iterate through whole list, ListRequests should be called repetedly
+// with ID changed to ID of last (or first if going backwards) request of slice returned by previous
+// call. If paginator is nil then server will use default values. boruta.ListInfo contains
+// information how many requests are in filtered list and how many are left till the end of the list.
+func (client *BorutaClient) ListRequests(f boruta.ListFilter, s *boruta.SortInfo,
+	p *boruta.RequestsPaginator) ([]boruta.ReqInfo, *boruta.ListInfo, error) {
 
-	listSpec := &util.RequestsListSpec{}
-	listSpec.Sorter = s
+	listSpec := &util.RequestsListSpec{
+		Sorter:    s,
+		Paginator: p,
+	}
 	if f != nil {
 		rfilter, ok := f.(*filter.Requests)
 		if !ok {
-			return nil, errors.New("only *filter.Requests type is supported")
+			return nil, nil, errors.New("only *filter.Requests type is supported")
 		}
 		listSpec.Filter = rfilter
 	}
 
 	req, err := json.Marshal(listSpec)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	resp, err := http.Post(client.url+"reqs/list", contentType, bytes.NewReader(req))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	info, err := listInfoFromHeaders(resp.Header)
+	if err != nil {
+		return nil, nil, err
 	}
 	list := new([]boruta.ReqInfo)
 	err = processResponse(resp, list)
-	return *list, err
+	return *list, info, err
 }
 
 // AcquireWorker queries Boruta server for information required to access
@@ -449,9 +480,9 @@ func (client *BorutaClient) Version() (*Version, error) {
 	return &Version{
 		Client: boruta.Version,
 		BorutaVersion: util.BorutaVersion{
-			Server: headers.Get("Boruta-Server-Version"),
-			API:    headers.Get("Boruta-API-Version"),
-			State:  headers.Get("Boruta-API-State"),
+			Server: headers.Get(util.ServerVersionHdr),
+			API:    headers.Get(util.APIVersionHdr),
+			State:  headers.Get(util.APIStateHdr),
 		},
 	}, nil
 }

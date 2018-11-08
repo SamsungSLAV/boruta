@@ -23,10 +23,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/SamsungSLAV/boruta"
+	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
@@ -159,6 +161,18 @@ func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups, caps
 	}
 	if len(groups) != 0 {
 		w.Groups = groups
+	}
+	return
+}
+
+func updateHeaders(hdr http.Header, info *boruta.ListInfo) (ret http.Header) {
+	ret = make(http.Header)
+	for k := range hdr {
+		copy(ret[k], hdr[k])
+	}
+	if info != nil {
+		ret.Set(util.ListTotalItemsHdr, strconv.FormatUint(info.TotalItems, 10))
+		ret.Set(util.ListRemainingItemsHdr, strconv.FormatUint(info.RemainingItems, 10))
 	}
 	return
 }

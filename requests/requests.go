@@ -262,28 +262,97 @@ func (reqs *ReqsCollection) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, 
 	return reqs.Get(reqID)
 }
 
+// min is helper function of ListRequests. It takes two uint64 values and returns smaller one.
+func min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // ListRequests is part of implementation of Requests interface. It returns slice of ReqInfo that
 // matches ListFilter. Returned slice is sorted by SortInfo. It is possible to sort by following
 // items: ID (default), Priority, State, ValidAfter and Deadline dates in ascending (default) or
-// descending order.
+// descending order. If paginator was set then the sorted list will be divided into pages with
+// paginator.Limit requests at most per page. If paginator.Direction is forward then listed
+// requests begin after the paginator.ID. In case of backward direction listed requests end just
+// before paginator.ID.
 func (reqs *ReqsCollection) ListRequests(filter boruta.ListFilter, si *boruta.SortInfo,
-) ([]boruta.ReqInfo, error) {
+	paginator *boruta.RequestsPaginator) ([]boruta.ReqInfo, *boruta.ListInfo, error) {
+
+	// setup sorter
+	sorter, err := newSorter(si)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// setup paginator
+	if paginator == nil {
+		paginator = &boruta.RequestsPaginator{
+			Limit: boruta.MaxPageLimit,
+		}
+	}
+	if paginator.Limit == 0 || paginator.Limit > boruta.MaxPageLimit {
+		paginator.Limit = boruta.MaxPageLimit
+	}
+
+	// setup filter
+	if filter != nil && reflect.ValueOf(filter).IsNil() {
+		filter = nil
+	}
+
 	reqs.mutex.RLock()
+	var pagReq *boruta.ReqInfo
+	var found bool
+	if pagReq, found = reqs.requests[paginator.ID]; paginator.ID != 0 && !found {
+		reqs.mutex.RUnlock()
+		return nil, nil, boruta.NotFoundError("request")
+	}
+
+	// filter
 	res := make([]boruta.ReqInfo, 0, len(reqs.requests))
 	for _, req := range reqs.requests {
-		if filter == nil || reflect.ValueOf(filter).IsNil() ||
-			filter.Match(req) {
+		if filter == nil || filter.Match(req) || req.ID == paginator.ID {
 			res = append(res, *req)
 		}
 	}
 	reqs.mutex.RUnlock()
-	sorter, err := newSorter(si)
-	if err != nil {
-		return nil, err
-	}
+
+	// sort
 	sorter.reqs = res
 	sort.Sort(sorter)
-	return res, nil
+
+	// return appropriate page
+	var index, elems uint64
+	listInfo := &boruta.ListInfo{TotalItems: uint64(len(res))}
+
+	if listInfo.TotalItems == 0 {
+		listInfo.RemainingItems = 0
+		return res, listInfo, nil
+	}
+
+	for i, r := range res {
+		if r.ID == paginator.ID {
+			index = uint64(i)
+			break
+		}
+	}
+	if paginator.Direction == boruta.DirectionForward {
+		if paginator.ID != boruta.ReqID(0) {
+			index++
+		}
+		elems = min(uint64(paginator.Limit), listInfo.TotalItems-index)
+		listInfo.RemainingItems = listInfo.TotalItems - index - elems
+	} else {
+		elems = min(uint64(paginator.Limit), index)
+		listInfo.RemainingItems = index - elems
+		index -= elems
+	}
+	if filter != nil && paginator.ID != 0 && !filter.Match(pagReq) {
+		listInfo.TotalItems--
+	}
+
+	return res[index : index+elems], listInfo, nil
 }
 
 // AcquireWorker is part of implementation of Requests interface. When worker is

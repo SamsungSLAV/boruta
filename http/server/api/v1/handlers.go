@@ -25,6 +25,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/filter"
@@ -115,22 +116,30 @@ func (api *API) listRequestsHandler(r *http.Request, ps map[string]string) *util
 
 	listSpec := &util.RequestsListSpec{}
 
-	if r.Method == http.MethodPost {
-		if err := json.NewDecoder(r.Body).Decode(listSpec); err != nil {
-			if err != io.EOF {
-				return util.NewResponse(err, nil)
-			}
-			listSpec.Filter = nil
-			listSpec.Sorter = nil
+	// Read filter.
+	if err := json.NewDecoder(r.Body).Decode(listSpec); err != nil {
+		if err != io.EOF {
+			return util.NewResponse(err, nil)
 		}
+		listSpec.Filter = nil
+		listSpec.Sorter = nil
+		listSpec.Paginator = nil
 	}
 
-	reqs, err := api.reqs.ListRequests(listSpec.Filter, listSpec.Sorter)
+	// Filter and sort requests.
+	reqs, info, err := api.reqs.ListRequests(listSpec.Filter, listSpec.Sorter, listSpec.Paginator)
 	if err != nil {
 		return util.NewResponse(err, nil)
 	}
 
-	return util.NewResponse(reqs, nil)
+	// Set headers.
+	headers := make(http.Header)
+	if info != nil {
+		headers.Set(util.ListTotalItemsHdr, strconv.FormatUint(info.TotalItems, 10))
+		headers.Set(util.ListRemainingItemsHdr, strconv.FormatUint(info.RemainingItems, 10))
+	}
+
+	return util.NewResponse(reqs, headers)
 }
 
 // acquireWorkerHandler parses HTTP request for acquiring worker for Boruta

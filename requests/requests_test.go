@@ -380,21 +380,30 @@ func TestGetRequestInfo(t *testing.T) {
 }
 
 func TestListRequests(t *testing.T) {
-	assert, rqueue, ctrl, _ := initTest(t)
+	_, rqueue, ctrl, _ := initTest(t)
 	defer finiTest(rqueue, ctrl)
 	req := requestsTests[0].req
-	const reqsCnt = 4
+	const reqsCnt = 16
 	si := &boruta.SortInfo{
 		Item:  "id",
-		Order: boruta.SortOrderAsc,
+		Order: boruta.SortOrderDesc,
+	}
+
+	getResults := func(ids ...int) (res []*boruta.ReqInfo) {
+		res = make([]*boruta.ReqInfo, len(ids))
+		for idx, id := range ids {
+			res[idx] = rqueue.requests[boruta.ReqID(id)]
+		}
+		return
 	}
 
 	// Add few requests.
-	reqs := make(map[boruta.ReqID]bool, reqsCnt)
-	noReqs := make(map[boruta.ReqID]bool)
 	for i := 0; i < reqsCnt; i++ {
-		reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter, req.Deadline)
-		assert.Nil(err)
+		reqid, err := rqueue.NewRequest(req.Caps, req.Priority, req.Owner, req.ValidAfter,
+			req.Deadline)
+		if err != nil {
+			t.Fatal("unable to create new request:", err)
+		}
 		if i%2 == 1 {
 			rqueue.mutex.Lock()
 			rqueue.requests[reqid].Priority++
@@ -405,134 +414,446 @@ func TestListRequests(t *testing.T) {
 			rqueue.requests[reqid].State = boruta.DONE
 			rqueue.mutex.Unlock()
 		}
-		reqs[reqid] = true
 	}
 
 	notFoundPrio := req.Priority - 1
 	notFoundState := boruta.INVALID
 	var filterTests = [...]struct {
-		f      filter.Requests
-		result map[boruta.ReqID]bool
+		f      *filter.Requests
+		s      *boruta.SortInfo
+		p      *boruta.RequestsPaginator
+		result []*boruta.ReqInfo
+		info   *boruta.ListInfo
+		err    error
+		name   string
 	}{
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(boruta.WAIT),
 				Priority: req.Priority.String(),
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(1): true},
+			s:      si,
+			p:      nil,
+			result: getResults(1),
+			info: &boruta.ListInfo{
+				TotalItems:     1,
+				RemainingItems: 0,
+			},
+			name: "filter by WAIT state and higher priority",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(boruta.WAIT),
 				Priority: (req.Priority + 1).String(),
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(2): true},
+			s:      si,
+			p:      nil,
+			result: getResults(2),
+			info: &boruta.ListInfo{
+				TotalItems:     1,
+				RemainingItems: 0,
+			},
+			name: "filter by WAIT state and lower priority",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(boruta.DONE),
 				Priority: req.Priority.String(),
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(3): true},
+			s:      nil,
+			p:      nil,
+			result: getResults(3, 5, 7, 9, 11, 13, 15),
+			info: &boruta.ListInfo{
+				TotalItems:     7,
+				RemainingItems: 0,
+			},
+			name: "filter by DONE state and higher priority",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(boruta.DONE),
 				Priority: (req.Priority + 1).String(),
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(4): true},
+			s:      nil,
+			p:      nil,
+			result: getResults(4, 6, 8, 10, 12, 14, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     7,
+				RemainingItems: 0,
+			},
+			name: "filter by DONE state and lower priority",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    "",
 				Priority: req.Priority.String(),
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(1): true, boruta.ReqID(3): true},
+			s:      nil,
+			p:      nil,
+			result: getResults(1, 3, 5, 7, 9, 11, 13, 15),
+			info: &boruta.ListInfo{
+				TotalItems:     8,
+				RemainingItems: 0,
+			},
+			name: "filter by higher priority only",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    "",
 				Priority: (req.Priority + 1).String(),
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(2): true, boruta.ReqID(4): true},
+			s:      nil,
+			p:      nil,
+			result: getResults(2, 4, 6, 8, 10, 12, 14, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     8,
+				RemainingItems: 0,
+			},
+			name: "filter by lower priority only",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
+				State:    "",
+				Priority: (req.Priority + 1).String(),
+			},
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionBackward,
+				Limit:     3,
+			},
+			result: getResults(10, 8, 6),
+			info: &boruta.ListInfo{
+				TotalItems:     8,
+				RemainingItems: 3,
+			},
+			name: "backward paginator with ID not belonging to results",
+		},
+		{
+			f: &filter.Requests{
+				State:    "",
+				Priority: (req.Priority + 1).String(),
+			},
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(4),
+				Direction: boruta.DirectionBackward,
+				Limit:     3,
+			},
+			result: getResults(10, 8, 6),
+			info: &boruta.ListInfo{
+				TotalItems:     8,
+				RemainingItems: 3,
+			},
+			name: "backward paginator with ID belonging to results",
+		},
+		{
+			f: &filter.Requests{
+				State:    "",
+				Priority: (req.Priority + 1).String(),
+			},
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionForward,
+				Limit:     3,
+			},
+			result: getResults(4, 2),
+			info: &boruta.ListInfo{
+				TotalItems:     8,
+				RemainingItems: 0,
+			},
+			name: "forward paginator with ID not belonging to results",
+		},
+		{
+			f: &filter.Requests{
 				State:    string(boruta.WAIT),
 				Priority: "",
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(1): true, boruta.ReqID(2): true},
+			s:      si,
+			p:      nil,
+			result: getResults(2, 1),
+			info: &boruta.ListInfo{
+				TotalItems:     2,
+				RemainingItems: 0,
+			},
+			name: "filter by WAIT state only",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(boruta.DONE),
 				Priority: "",
 			},
-			result: map[boruta.ReqID]bool{boruta.ReqID(3): true, boruta.ReqID(4): true},
+			s:      nil,
+			p:      nil,
+			result: getResults(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     14,
+				RemainingItems: 0,
+			},
+			name: "filter by DONE state only",
 		},
 		{
-			f: filter.Requests{
+			f:      nil,
+			s:      si,
+			p:      nil,
+			result: getResults(16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "nil filter",
+		},
+		{
+			f: &filter.Requests{
 				State:    "",
 				Priority: "",
 			},
-			result: reqs,
+			s:      nil,
+			p:      nil,
+			result: getResults(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "empty filter",
 		},
 		{
-			f: filter.Requests{
+			f:      nil,
+			s:      nil,
+			p:      nil,
+			result: getResults(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "all nil",
+		},
+		{
+			f: nil,
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionForward,
+				Limit:     3,
+			},
+			result: getResults(4, 3, 2),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 1,
+			},
+			name: "get page after item with page size smaller than nr of items",
+		},
+		{
+			f: nil,
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionBackward,
+				Limit:     3,
+			},
+			result: getResults(8, 7, 6),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 8,
+			},
+			name: "get page before item with page size smaller than nr of items",
+		},
+		{
+			f: nil,
+			s: nil,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionBackward,
+				Limit:     32,
+			},
+			result: getResults(1, 2, 3, 4),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "get page before item with page size bigger than nr of items",
+		},
+		{
+			f: nil,
+			s: nil,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionForward,
+				Limit:     32,
+			},
+			result: getResults(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "get page after item with page size bigger than nr of items",
+		},
+		{
+			f: nil,
+			s: nil,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(5),
+				Direction: boruta.DirectionForward,
+				Limit:     0,
+			},
+			result: getResults(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "get page after item with default page size",
+		},
+		{
+			f: nil,
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(1),
+				Direction: boruta.DirectionForward,
+				Limit:     32,
+			},
+			result: getResults(),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "get page after last item",
+		},
+		{
+			f: nil,
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(16),
+				Direction: boruta.DirectionBackward,
+				Limit:     32,
+			},
+			result: getResults(),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 0,
+			},
+			name: "get page before 1st item",
+		},
+		{
+			f: &filter.Requests{
 				State:    string(notFoundState),
 				Priority: notFoundPrio.String(),
 			},
-			result: noReqs,
+			s: si,
+			p: nil,
+			info: &boruta.ListInfo{
+				TotalItems:     0,
+				RemainingItems: 0,
+			},
+			result: getResults(),
+			name:   "missing state and priority in filter",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(boruta.WAIT),
 				Priority: notFoundPrio.String(),
 			},
-			result: noReqs,
+			s:      si,
+			p:      nil,
+			result: getResults(),
+			info: &boruta.ListInfo{
+				TotalItems:     0,
+				RemainingItems: 0,
+			},
+			name: "missing priority in filter",
 		},
 		{
-			f: filter.Requests{
+			f: &filter.Requests{
 				State:    string(notFoundState),
 				Priority: req.Priority.String(),
 			},
-			result: noReqs,
+			s:      si,
+			p:      nil,
+			result: getResults(),
+			info: &boruta.ListInfo{
+				TotalItems:     0,
+				RemainingItems: 0,
+			},
+			name: "missing state in filter",
+		},
+		{
+			f:    nil,
+			s:    &boruta.SortInfo{Item: "foobarbaz"},
+			p:    nil,
+			info: nil,
+			err:  boruta.ErrWrongSortItem,
+			name: "wrong sort item",
+		},
+		{
+			f: nil,
+			s: si,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(32),
+				Direction: boruta.DirectionForward,
+				Limit:     0,
+			},
+			info: nil,
+			err:  boruta.NotFoundError("request"),
+			name: "get page after item with unknown ID page size",
 		},
 	}
 
-	checkReqs := func(reqs map[boruta.ReqID]bool, resp []boruta.ReqInfo) {
-		assert.Equal(len(reqs), len(resp))
-		for _, req := range resp {
-			assert.True(reqs[req.ID])
+	checkReqs := func(assert *assert.Assertions, name string, reqs []*boruta.ReqInfo,
+		resp []boruta.ReqInfo) {
+
+		assert.Equal(len(reqs), len(resp), name)
+		for i := range resp {
+			assert.Equal(reqs[i], &resp[i], name)
 		}
 	}
-
 	for _, test := range filterTests {
-		resp, err := rqueue.ListRequests(&test.f, si)
-		assert.Nil(err)
-		checkReqs(test.result, resp)
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert := assert.New(t)
+			resp, info, err := rqueue.ListRequests(test.f, test.s, test.p)
+			assert.Equal(test.err, err, test.name)
+			assert.Equal(test.info, info, test.name)
+			checkReqs(assert, test.name, test.result, resp)
+		})
 	}
 
-	// Nil interface.
-	resp, err := rqueue.ListRequests(nil, si)
-	assert.Nil(err)
-	checkReqs(reqs, resp)
-	var flt *filter.Requests
-	// Concrete type is nil but interface isn't nil.
-	resp, err = rqueue.ListRequests(flt, si)
-	assert.Nil(err)
-	checkReqs(reqs, resp)
+	name := "nil interface"
+	t.Run(name, func(t *testing.T) {
+		assert := assert.New(t)
+		resp, info, err := rqueue.ListRequests(nil, nil, nil)
+		assert.Nil(err)
+		assert.Equal(&boruta.ListInfo{
+			TotalItems:     16,
+			RemainingItems: 0,
+		}, info)
+		checkReqs(assert, name, getResults(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+			14, 15, 16), resp)
+	})
 
-	// Wrong sort item.
-	si.Item = "foobarbaz"
-	resp, err = rqueue.ListRequests(nil, si)
-	assert.Empty(resp)
-	assert.Equal(boruta.ErrWrongSortItem, err)
-
-	// Nil sort order.
-	resp, err = rqueue.ListRequests(nil, nil)
-	checkReqs(reqs, resp)
-	assert.Nil(err)
+	name = "big queue"
+	// As tests are running in parallel rqueue modification would make some of previously defined
+	// tests fail.
+	ctrl2 := gomock.NewController(t)
+	defer ctrl2.Finish()
+	wm := NewMockWorkersManager(ctrl2)
+	jm := NewMockJobsManager(ctrl2)
+	wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""),
+		nil).AnyTimes()
+	wm.EXPECT().SetChangeListener(gomock.Any())
+	rqueue2 := NewRequestQueue(wm, jm)
+	for i := 0; i < boruta.MaxPageLimit+reqsCnt; i++ {
+		rqueue2.NewRequest(req.Caps, req.Priority, req.Owner, tomorrow, nextWeek)
+	}
+	assert.Equal(t, boruta.MaxPageLimit+reqsCnt, len(rqueue2.requests))
+	t.Run(name, func(t *testing.T) {
+		assert := assert.New(t)
+		resp, info, err := rqueue2.ListRequests(nil, nil, &boruta.RequestsPaginator{Limit: 0})
+		assert.Nil(err)
+		assert.EqualValues(boruta.MaxPageLimit+reqsCnt, info.TotalItems)
+		assert.EqualValues(boruta.MaxPageLimit, len(resp))
+		assert.EqualValues(reqsCnt, info.RemainingItems)
+	})
 }
 
 func TestAcquireWorker(t *testing.T) {

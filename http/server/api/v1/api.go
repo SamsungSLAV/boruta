@@ -76,21 +76,21 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 					status = data.Status
 				}
 			case boruta.ReqInfo:
-				w.Header().Add("Boruta-Request-State", string(data.State))
+				w.Header().Add(util.RequestStateHdr, string(data.State))
 				if data.State == boruta.INPROGRESS {
-					w.Header().Add("Boruta-Job-Timeout",
+					w.Header().Add(util.JobTimeoutHdr,
 						data.Job.Timeout.Format(util.DateFormat))
 				}
 			case []boruta.ReqInfo:
-				w.Header().Add("Boruta-Request-Count", strconv.Itoa(len(data)))
+				w.Header().Add(util.RequestCountHdr, strconv.Itoa(len(data)))
 			case boruta.WorkerInfo:
-				w.Header().Add("Boruta-Worker-State", string(data.State))
+				w.Header().Add(util.WorkerStateHdr, string(data.State))
 			case []boruta.WorkerInfo:
-				w.Header().Add("Boruta-Worker-Count", strconv.Itoa(len(data)))
+				w.Header().Add(util.WorkerCountHdr, strconv.Itoa(len(data)))
 			case *util.BorutaVersion:
-				w.Header().Add("Boruta-Server-Version", data.Server)
-				w.Header().Add("Boruta-API-Version", data.API)
-				w.Header().Add("Boruta-API-State", data.State)
+				w.Header().Add(util.ServerVersionHdr, data.Server)
+				w.Header().Add(util.APIVersionHdr, data.API)
+				w.Header().Add(util.APIStateHdr, data.State)
 			}
 			if status != http.StatusNoContent {
 				w.Header().Set("Content-Type", "application/json")
@@ -127,8 +127,6 @@ func NewAPI(router *httptreemux.Group, requestsAPI boruta.Requests,
 	workers := api.r.NewGroup("/workers")
 
 	// Requests API
-	routerSetHandler(reqs, "/", api.listRequestsHandler, http.StatusOK,
-		http.MethodGet, http.MethodHead)
 	routerSetHandler(reqs, "/list", api.listRequestsHandler, http.StatusOK,
 		http.MethodPost)
 	routerSetHandler(reqs, "/", api.newRequestHandler, http.StatusCreated,

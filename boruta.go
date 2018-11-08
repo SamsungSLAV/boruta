@@ -183,9 +183,12 @@ type Requests interface {
 	UpdateRequest(reqInfo *ReqInfo) error
 	// GetRequestInfo returns ReqInfo associated with ReqID.
 	GetRequestInfo(reqID ReqID) (ReqInfo, error)
-	// ListRequests returns ReqInfo matching the filter or all Requests if empty filter is
-	// given. Returned requests are sorted by given sorter.
-	ListRequests(filter ListFilter, sorter *SortInfo) ([]ReqInfo, error)
+	// ListRequests returns slice of ReqInfo matching the filter (any request matches if filter
+	// is empty or nil).  Returned requests are sorted by given sorter. Matching requests are
+	// divided into pages according to paginator and paginator specified page is returned.
+	// Additional metadata are returned as a pointer to ListInfo.
+	ListRequests(filter ListFilter, sorter *SortInfo, paginator *RequestsPaginator) ([]ReqInfo,
+		*ListInfo, error)
 	// AcquireWorker returns information necessary to access the Worker reserved by the Request
 	// and prolongs access to it. If the Request is in the WAIT state, call to this function
 	// will block until the state changes.

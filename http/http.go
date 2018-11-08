@@ -26,8 +26,45 @@ import (
 	"github.com/SamsungSLAV/boruta/filter"
 )
 
-// DateFormat denotes layout of timestamps used by Boruta HTTP API.
-const DateFormat = time.RFC3339
+const (
+	// DateFormat denotes layout of timestamps used by Boruta HTTP API.
+	DateFormat = time.RFC3339
+)
+
+// Headers returned by Boruta.
+const (
+	// ListTotalItemsHdr is HTTP header that is set as part of response to filtering methods.
+	// It contains number of items that match a filter.
+	ListTotalItemsHdr = "Boruta-List-Total"
+	// ListRemainingItemsHdr is HTTP header that is set in response to filtering methods. It contains
+	// number of items that weren't paged through yet.
+	ListRemainingItemsHdr = "Boruta-List-Remaining"
+	// RequestStateHdr is HTTP header that is set in responses that (would) carry boruta.ReqInfo.
+	// It contains state of the request.
+	RequestStateHdr = "Boruta-Request-State"
+	// RequestCountHdr is HTTP header that is set in responses that (would) carry collection of
+	// boruta.ReqInfo items. It contains number of items in the collection.
+	RequestCountHdr = "Boruta-Request-Count"
+	// JobTimeoutHdr is HTTP header that is set in responses that (would) carry boruta.ReqInfo
+	// of request that is in INPROGRESS state. It denotes when timeout will pass and request will
+	// be closed.
+	JobTimeoutHdr = "Boruta-Job-Timeout"
+	// WorkerStateHdr is HTTP header that is set in responses that (would) carry
+	// boruta.WorkerInfo. It contains state of the worker.
+	WorkerStateHdr = "Boruta-Worker-State"
+	// WorkerCountHdr is HTTP header that is set in repsonses that (would) carry collection of
+	// boruta.WorkerInfo items.
+	WorkerCountHdr = "Boruta-Worker-Count"
+	// ServerVersionHdr is HTTP header that is set when Boruta version information is requested.
+	// It contains version of the server.
+	ServerVersionHdr = "Boruta-Server-Version"
+	// APIVersionHdr is HTTP header that is set when Boruta version information is requested. It
+	// contains version of the HTTP API.
+	APIVersionHdr = "Boruta-API-Version"
+	// APIStateHdr is HTTP header that is set when Boruta version information is requested. It
+	// contains state of used API version.
+	APIStateHdr = "Boruta-API-State"
+)
 
 // API possible states.
 const (
@@ -46,6 +83,8 @@ type RequestsListSpec struct {
 	Filter *filter.Requests
 	// Sorter contains SortInfo data.
 	Sorter *boruta.SortInfo
+	// Paginator contains RequestsPaginator.
+	Paginator *boruta.RequestsPaginator
 }
 
 // WorkersListSpec is intended for (un)marshaling ListWorkers parameters in HTTP API.
