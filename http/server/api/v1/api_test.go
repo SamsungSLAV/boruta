@@ -17,18 +17,17 @@
 package v1
 
 import (
+	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/SamsungSLAV/boruta"
-	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/mocks"
 	"github.com/dimfeld/httptreemux"
 	"github.com/golang/mock/gomock"
@@ -67,7 +66,6 @@ type requestTest struct {
 	json        string
 	contentType string
 	status      int
-	header      http.Header
 }
 
 type allMocks struct {
@@ -165,18 +163,6 @@ func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups, caps
 	return
 }
 
-func updateHeaders(hdr http.Header, info *boruta.ListInfo) (ret http.Header) {
-	ret = make(http.Header)
-	for k := range hdr {
-		copy(ret[k], hdr[k])
-	}
-	if info != nil {
-		ret.Set(util.ListTotalItemsHdr, strconv.FormatUint(info.TotalItems, 10))
-		ret.Set(util.ListRemainingItemsHdr, strconv.FormatUint(info.RemainingItems, 10))
-	}
-	return
-}
-
 func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []requestTest) {
 	srv := httptest.NewServer(r)
 	defer srv.Close()
@@ -204,11 +190,23 @@ func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []request
 
 			// read expected results from file or generate the file
 			tdata := filepath.Join("testdata", test.name+"-"+method+".json")
+			hdata := filepath.Join("testdata", test.name+".headers")
 			body, err := ioutil.ReadAll(resp.Body)
 			assert.Nil(err)
-			if update && resp.StatusCode != http.StatusNoContent &&
-				method != http.MethodHead {
-				err = ioutil.WriteFile(tdata, body, 0644)
+			if update {
+				if resp.StatusCode != http.StatusNoContent &&
+					method != http.MethodHead {
+					err = ioutil.WriteFile(tdata, body, 0644)
+					assert.Nil(err)
+				}
+				hdr := make(http.Header)
+				for k, v := range resp.Header {
+					if k != "Date" {
+						// hdr will be used read-only, so no copy is needed.
+						hdr[k] = v
+					}
+				}
+				err = ioutil.WriteFile(hdata, []byte(jsonMustMarshal(hdr)), 0644)
 				assert.Nil(err)
 			}
 
@@ -230,15 +228,18 @@ func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []request
 				continue
 			}
 			// check Boruta HTTP headers
-			if test.header != nil && len(test.header) > 0 {
-				for k, v := range test.header {
-					assert.Contains(resp.Header, k, tcaseErrStr+" (header)")
-					assert.Equal(v, resp.Header[k], tcaseErrStr+" (header)")
-				}
+			hdr := make(http.Header)
+			headers, err := ioutil.ReadFile(hdata)
+			assert.Nil(err)
+			err = json.Unmarshal(headers, &hdr)
+			assert.Nil(err)
+			for k, v := range hdr {
+				assert.Contains(resp.Header, k, tcaseErrStr+" (header)")
+				assert.Equal(v, resp.Header[k], tcaseErrStr+" (header)")
 			}
 			// check result JSON
 			expected, err := ioutil.ReadFile(tdata)
-			assert.Nil(err, tcaseErrStr)
+			assert.Nil(err)
 			assert.JSONEq(string(expected), string(body), tcaseErrStr+" (JSON)")
 		}
 	}

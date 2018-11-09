@@ -204,8 +204,6 @@ func TestGetRequestInfoHandler(t *testing.T) {
 	var req boruta.ReqInfo
 	err := json.Unmarshal([]byte(validReqJSON), &req)
 	assert.Nil(err)
-	header := make(http.Header)
-	header.Set(util.RequestStateHdr, "WAITING")
 
 	timeout, err := time.Parse(dateLayout, future)
 	assert.Nil(err)
@@ -218,9 +216,6 @@ func TestGetRequestInfoHandler(t *testing.T) {
 		WorkerUUID: validUUID,
 		Timeout:    timeout,
 	}
-	rheader := make(http.Header)
-	rheader.Set(util.RequestStateHdr, string(boruta.INPROGRESS))
-	rheader.Set(util.JobTimeoutHdr, timeout.Format(util.DateFormat))
 
 	notFoundTest := testFromTempl(notFoundTestTempl, prefix, path+"3", methods...)
 	invalidIDTest := testFromTempl(invalidIDTestTempl, prefix, path+invalidID, methods...)
@@ -237,7 +232,6 @@ func TestGetRequestInfoHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      header,
 		},
 		// Get information of running request.
 		{
@@ -247,7 +241,6 @@ func TestGetRequestInfoHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      rheader,
 		},
 		// Try to get request information of request that doesn't exist.
 		notFoundTest,
@@ -324,8 +317,6 @@ func TestListRequestsHandler(t *testing.T) {
 		reqs[0]}, validInfo, nil)
 	m.rq.EXPECT().ListRequests(validFilter, sorterBad, nil).Return([]boruta.ReqInfo{}, nil,
 		boruta.ErrWrongSortItem)
-	validHeader := make(http.Header)
-	validHeader.Set(util.RequestCountHdr, "2")
 
 	emptyFilter := filter.NewRequests("", "")
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, nil).Return(reqs, secondInfo, nil)
@@ -334,13 +325,9 @@ func TestListRequestsHandler(t *testing.T) {
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, backPaginator1).Return(reqs[2:], firstInfo, nil)
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, backPaginator2).Return(reqs[:2], secondInfo, nil)
 	m.rq.EXPECT().ListRequests(nil, nil, nil).Return(reqs, secondInfo, nil).Times(2)
-	allHeader := make(http.Header)
-	allHeader.Set(util.RequestCountHdr, "2")
 
 	missingFilter := filter.NewRequests("INVALID", "")
 	m.rq.EXPECT().ListRequests(missingFilter, nil, nil).Return([]boruta.ReqInfo{}, nil, nil)
-	missingHeader := make(http.Header)
-	missingHeader.Set(util.RequestCountHdr, "0")
 
 	// Currently ListRequests doesn't return any error hence the meaningless values.
 	badFilter := filter.NewRequests("FAIL", "-1")
@@ -359,7 +346,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      validHeader,
 		},
 		// Valid filter with sorter - list some requests sorted by priority (ascending).
 		{
@@ -372,7 +358,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(validHeader, validInfo),
 		},
 		// Valid filter with sorter - list some requests sorted by state (descending).
 		// As state is equal - this will be sorted by ID.
@@ -386,7 +371,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(validHeader, validInfo),
 		},
 		// Empty body - list all requests.
 		{
@@ -396,7 +380,6 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        "",
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, secondInfo),
 		},
 		// Nil filter - list all requests (same as emptyFilter).
 		{
@@ -406,7 +389,6 @@ func TestListRequestsHandler(t *testing.T) {
 			json:        string(jsonMustMarshal(nil)),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, secondInfo),
 		},
 		// Empty filter - list all requests.
 		{
@@ -419,7 +401,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, secondInfo),
 		},
 		// List first part of all requests.
 		{
@@ -433,7 +414,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, firstInfo),
 		},
 		// List second part of all requests.
 		{
@@ -447,7 +427,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, secondInfo),
 		},
 		// List first part of all requests (backward).
 		{
@@ -461,7 +440,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, firstInfo),
 		},
 		// List second part of all requests (backward).
 		{
@@ -475,7 +453,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      updateHeaders(allHeader, secondInfo),
 		},
 		// No matches
 		{
@@ -488,7 +465,6 @@ func TestListRequestsHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      missingHeader,
 		},
 		// Error in filter.
 		{
@@ -629,8 +605,6 @@ func TestListWorkersHandler(t *testing.T) {
 	m.wm.EXPECT().ListWorkers(validFilter, defaultSorter).Return(workers[:2], nil)
 	m.wm.EXPECT().ListWorkers(validFilter, sorterBad).Return([]boruta.WorkerInfo{},
 		boruta.ErrWrongSortItem)
-	validHeader := make(http.Header)
-	validHeader.Set(util.WorkerCountHdr, "2")
 
 	m.wm.EXPECT().ListWorkers(nil, nil).Return(workers, nil).MinTimes(1)
 	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
@@ -640,12 +614,8 @@ func TestListWorkersHandler(t *testing.T) {
 	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, nil), nil).Return(workers, nil)
 	m.wm.EXPECT().ListWorkers(nil, sorterAsc).Return(workers, nil)
 	m.wm.EXPECT().ListWorkers(nil, sorterDesc).Return(w2, nil)
-	allHeader := make(http.Header)
-	allHeader.Set(util.WorkerCountHdr, "4")
 
 	missingFilter := filter.NewWorkers(boruta.Groups{"Fern Flower"}, nil)
-	missingHeader := make(http.Header)
-	missingHeader.Set(util.WorkerCountHdr, "0")
 	m.wm.EXPECT().ListWorkers(missingFilter, nil).Return([]boruta.WorkerInfo{}, nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
@@ -665,7 +635,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      validHeader,
 		},
 		// List all workers.
 		{
@@ -675,7 +644,6 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// Empty body - list all workers.
 		{
@@ -685,7 +653,6 @@ func TestListWorkersHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// Empty filter (all nil) - list all workers.
 		{
@@ -698,7 +665,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// Empty filter - list all workers sorted by uuid (ascending).
 		{
@@ -711,7 +677,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// Empty filter - list all workers sorted by state (descending).
 		{
@@ -724,7 +689,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// Empty filter (nil groups) - list all workers.
 		{
@@ -740,7 +704,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// Empty filter (nil caps) - list all workers.
 		{
@@ -753,7 +716,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
 		},
 		// No matches.
 		{
@@ -766,7 +728,6 @@ func TestListWorkersHandler(t *testing.T) {
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      missingHeader,
 		},
 		// Error in filter.
 		{
@@ -811,8 +772,6 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 	missingErr := boruta.NotFoundError("Worker")
 	m.wm.EXPECT().GetWorkerInfo(boruta.WorkerUUID(validUUID)).Return(worker, nil).Times(2)
 	m.wm.EXPECT().GetWorkerInfo(boruta.WorkerUUID(missingUUID)).Return(boruta.WorkerInfo{}, missingErr).Times(2)
-	header := make(http.Header)
-	header.Set(util.WorkerStateHdr, "IDLE")
 
 	tests := []requestTest{
 		{
@@ -822,7 +781,6 @@ func TestGetWorkerInfoHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      header,
 		},
 		{
 			name:        prefix + "bad-uuid",
@@ -959,10 +917,10 @@ func TestDeregisterWorkerHandler(t *testing.T) {
 func TestVersionHandler(t *testing.T) {
 	assert, m, r := initTest(t)
 	defer m.finish()
-	header := make(http.Header)
+	/*header := make(http.Header)
 	header.Set(util.ServerVersionHdr, boruta.Version)
 	header.Set(util.APIVersionHdr, Version)
-	header.Set(util.APIStateHdr, State)
+	header.Set(util.APIStateHdr, State)*/
 
 	tests := []requestTest{
 		{
@@ -972,7 +930,6 @@ func TestVersionHandler(t *testing.T) {
 			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
-			header:      header,
 		},
 	}
 
