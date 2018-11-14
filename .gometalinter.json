@@ -1,0 +1,36 @@
+{
+"Linters": {
+    "lll":{
+        "Command": "lll -g -l 100 -w 4 ",
+        "Pattern": "^(?P<path>.*?\\.go):(?P<line>\\d+):\\s*(?P<message>.*)$",
+        "IsFast": true
+    }
+},
+"Enable":[
+    "deadcode",
+    "errcheck",
+    "goconst",
+    "gocyclo",
+    "gofmt",
+    "golint",
+    "gosec",
+    "ineffassign",
+    "interfacer",
+    "lll",
+    "maligned",
+    "megacheck",
+    "structcheck",
+    "test",
+    "unconvert",
+    "unparam",
+    "varcheck",
+    "vet",
+    "vetshadow"
+],
+"Vendor":true,
+"Cyclo":10,
+"Sort":["path","line"],
+"Aggregate":true,
+"Skip":[],
+"Exclude":[]
+}
