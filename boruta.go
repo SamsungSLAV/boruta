@@ -21,6 +21,7 @@
 // Worker - MuxPi with a target device, which executes the Jobs from the Server.
 package boruta
 
+// nolint: lll
 //go:generate mockgen -destination=mocks/mock_requests.go -package=mocks github.com/SamsungSLAV/boruta Requests
 //go:generate mockgen -destination=mocks/mock_workers.go -package=mocks github.com/SamsungSLAV/boruta Workers,Superviser
 //go:generate mockgen -destination=mocks/mock_dryad.go -package=mocks github.com/SamsungSLAV/boruta Dryad
