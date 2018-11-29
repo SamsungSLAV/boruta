@@ -219,14 +219,15 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups,
 	caps boruta.Capabilities) (w boruta.WorkerInfo) {
 
-	if caps == nil {
-		caps = make(boruta.Capabilities)
+	c := make(boruta.Capabilities)
+	for k, v := range caps {
+		c[k] = v
 	}
-	caps["UUID"] = uuid
+	c["UUID"] = uuid
 	w = boruta.WorkerInfo{
 		WorkerUUID: boruta.WorkerUUID(uuid),
 		State:      state,
-		Caps:       caps,
+		Caps:       c,
 	}
 	if len(groups) != 0 {
 		w.Groups = groups
