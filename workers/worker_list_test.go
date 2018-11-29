@@ -26,6 +26,7 @@ import (
 	"net"
 	"sort"
 	"sync"
+	"testing"
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/filter"
@@ -1043,6 +1044,28 @@ var _ = Describe("WorkerList", func() {
 		Describe("ListWorkers", func() {
 			var refWorkerList []boruta.WorkerInfo
 			var si boruta.SortInfo
+			var pag boruta.WorkersPaginator
+
+			getSortedWorkerList := func(l []boruta.WorkerInfo,
+				s *boruta.SortInfo) (ret []boruta.WorkerInfo) {
+
+				ret = make([]boruta.WorkerInfo, len(l))
+				copy(ret, l)
+				sorter, _ := newSorter(s)
+				sorter.list = ret
+				sort.Sort(sorter)
+				return
+			}
+
+			indexOf := func(uuid boruta.WorkerUUID,
+				w []boruta.WorkerInfo) int {
+				for i, v := range w {
+					if v.WorkerUUID == uuid {
+						return i
+					}
+				}
+				return -1
+			}
 
 			registerAndSetGroups := func(groups boruta.Groups, caps boruta.Capabilities) boruta.WorkerInfo {
 				capsUUID := getUUID()
@@ -1062,7 +1085,8 @@ var _ = Describe("WorkerList", func() {
 			}
 
 			BeforeEach(func() {
-				si = boruta.SortInfo{}
+				si = boruta.SortInfo{Order: boruta.SortOrderDesc}
+				pag = boruta.WorkersPaginator{}
 				refWorkerList = make([]boruta.WorkerInfo, 1)
 				// Add worker with minimal caps and empty groups.
 				wl.mutex.RLock()
@@ -1103,107 +1127,407 @@ var _ = Describe("WorkerList", func() {
 					}))
 			})
 
-			testWorkerList := func(groups boruta.Groups, caps boruta.Capabilities,
-				si *boruta.SortInfo, present, absent []boruta.WorkerInfo) {
-				workers, err := wl.ListWorkers(filter.NewWorkers(groups, caps), si)
+			testWorkerList := func(filter *filter.Workers, si *boruta.SortInfo,
+				pag *boruta.WorkersPaginator, present []boruta.WorkerInfo,
+				expected *boruta.ListInfo) {
+
+				workers, info, err := wl.ListWorkers(filter, si, pag)
 				Expect(err).ToNot(HaveOccurred())
-				for _, workerInfo := range present {
-					Expect(workers).To(ContainElement(workerInfo))
-				}
-				for _, workerInfo := range absent {
-					Expect(workers).ToNot(ContainElement(workerInfo))
-				}
+				Expect(workers).To(Equal(present))
+				Expect(info).To(Equal(expected))
 			}
 
-			It("should return all workers when only SortInfo is set", func() {
-				testWorkerList(nil, nil, &si, refWorkerList, nil)
-			})
+			It("should return first page of all workers when only SortInfo is set",
+				func() {
+					testWorkerList(nil, &si, nil,
+						getSortedWorkerList(refWorkerList, &si),
+						&boruta.ListInfo{
+							TotalItems: uint64(len(refWorkerList)),
+						})
+				})
 
-			It("should return all workers when parameters are empty", func() {
-				testWorkerList(boruta.Groups{}, boruta.Capabilities{}, &si, refWorkerList, nil)
-			})
+			It("should return first page of all workers when parameters are empty",
+				func() {
+					f := filter.NewWorkers(boruta.Groups{}, boruta.Capabilities{})
+					testWorkerList(f, &si, &pag,
+						getSortedWorkerList(refWorkerList, &si), &boruta.ListInfo{
+							TotalItems: uint64(len(refWorkerList)),
+						})
+				})
 
-			It("should return all workers when parameters are nil", func() {
-				testWorkerList(nil, nil, nil, refWorkerList, nil)
-			})
+			It("should return first page of all workers when parameters are nil",
+				func() {
+					testWorkerList(nil, nil, nil,
+						getSortedWorkerList(refWorkerList, nil), &boruta.ListInfo{
+							TotalItems: uint64(len(refWorkerList)),
+						})
+				})
+
+			It("should return first page of all workers when filter is nil, but interface isn't.",
+				func() {
+					var f *filter.Workers
+					testWorkerList(f, nil, nil,
+						getSortedWorkerList(refWorkerList, nil), &boruta.ListInfo{
+							TotalItems:     uint64(len(refWorkerList)),
+							RemainingItems: 0,
+						})
+				})
+
+			It("should return first page of all workers when paginator is set with empty ID",
+				func() {
+					p := &boruta.WorkersPaginator{
+						ID:        "",
+						Direction: boruta.DirectionForward,
+						Limit:     2,
+					}
+					ref := getSortedWorkerList(refWorkerList, &si)
+					testWorkerList(nil, &si, p, ref[:2],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(len(ref) - 2),
+						})
+				})
+
+			It("should return appropriate page of all workers when forward paginator is set",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[2].WorkerUUID,
+						Direction: boruta.DirectionForward,
+						Limit:     2,
+					}
+					testWorkerList(nil, &si, p, ref[3:5],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(len(ref) - 5),
+						})
+				})
+
+			It("should return appropriate page of filtered workers when forward paginator is set with ID belonging to results",
+				func() {
+					f := filter.NewWorkers(boruta.Groups{"all"}, nil)
+					ref := getSortedWorkerList([]boruta.WorkerInfo{
+						refWorkerList[1], refWorkerList[2], refWorkerList[4],
+						refWorkerList[5]}, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[1].WorkerUUID,
+						Direction: boruta.DirectionForward,
+						Limit:     1,
+					}
+					testWorkerList(f, &si, p, ref[2:3],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(1),
+						})
+				})
+
+			It("should return appropriate page of filtered workers when backward paginator is set with ID belonging to results",
+				func() {
+					f := filter.NewWorkers(boruta.Groups{"all"}, nil)
+					ref := getSortedWorkerList([]boruta.WorkerInfo{
+						refWorkerList[1], refWorkerList[2], refWorkerList[4],
+						refWorkerList[5]}, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[2].WorkerUUID,
+						Direction: boruta.DirectionBackward,
+						Limit:     1,
+					}
+					testWorkerList(f, &si, p, ref[1:2],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(1),
+						})
+				})
+
+			It("should return appropriate page of filtered workers when forward paginator is set with ID not belonging to results",
+				func() {
+					f := filter.NewWorkers(boruta.Groups{"all"}, nil)
+					// Varying UUIDs can be painful, in this test case, so use
+					// fixed ones.
+					wl2 := NewWorkerList()
+					refWL := make([]boruta.WorkerInfo, len(refWorkerList))
+					for i := 0; i < len(refWorkerList); i++ {
+						id := boruta.WorkerUUID(fmt.Sprintf("%d", i))
+						wl2.Register(boruta.Capabilities{UUID: string(id)},
+							dryadAddr.String(), sshdAddr.String())
+						wl2.SetGroups(id, refWorkerList[i].Groups)
+						wl2.mutex.RLock()
+						refWL[i] = wl2.workers[id].WorkerInfo
+						wl2.mutex.RUnlock()
+					}
+					ref := getSortedWorkerList([]boruta.WorkerInfo{
+						refWL[1], refWL[2], refWL[3], refWL[4], refWL[5]},
+						&si)
+
+					p := &boruta.WorkersPaginator{
+						ID:        refWL[3].WorkerUUID,
+						Direction: boruta.DirectionForward,
+						Limit:     1,
+					}
+
+					i := indexOf(p.ID, ref)
+					workers, info, err := wl2.ListWorkers(f, &si, p)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(workers).To(Equal(ref[i+1 : i+2]))
+					Expect(info).To(Equal(&boruta.ListInfo{
+						TotalItems:     uint64(len(ref) - 1),
+						RemainingItems: uint64(len(ref) - i - 2),
+					}))
+				})
+
+			It("should return appropriate page of filtered workers when backward paginator is set with ID not belonging to results",
+				func() {
+					f := filter.NewWorkers(boruta.Groups{"all"}, nil)
+					// Varying UUIDs can be painful, in this test case, so use
+					// fixed ones.
+					wl2 := NewWorkerList()
+					refWL := make([]boruta.WorkerInfo, len(refWorkerList))
+					for i := 0; i < len(refWorkerList); i++ {
+						id := boruta.WorkerUUID(fmt.Sprintf("%d", i))
+						wl2.Register(boruta.Capabilities{UUID: string(id)},
+							dryadAddr.String(), sshdAddr.String())
+						wl2.SetGroups(id, refWorkerList[i].Groups)
+						wl2.mutex.RLock()
+						refWL[i] = wl2.workers[id].WorkerInfo
+						wl2.mutex.RUnlock()
+					}
+					ref := getSortedWorkerList([]boruta.WorkerInfo{
+						refWL[1], refWL[2], refWL[3], refWL[4], refWL[5]},
+						&si)
+
+					p := &boruta.WorkersPaginator{
+						ID:        refWL[3].WorkerUUID,
+						Direction: boruta.DirectionBackward,
+						Limit:     1,
+					}
+
+					i := indexOf(p.ID, ref)
+					workers, info, err := wl2.ListWorkers(f, &si, p)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(workers).To(Equal(ref[i-1 : i]))
+					Expect(info).To(Equal(&boruta.ListInfo{
+						TotalItems:     uint64(len(ref) - 1),
+						RemainingItems: uint64(i - 1),
+					}))
+				})
+
+			It("should return appropriate page when forward paginator is set with limit greater than numer of workers",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[2].WorkerUUID,
+						Direction: boruta.DirectionForward,
+						Limit:     uint16(len(ref) + 2),
+					}
+					testWorkerList(nil, &si, p, ref[3:],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(0),
+						})
+				})
+
+			It("should return all workers when forward paginator is set withoud ID and with limit greater than numer of workers",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						Direction: boruta.DirectionForward,
+						Limit:     uint16(len(ref) + 2),
+					}
+					testWorkerList(nil, &si, p, ref,
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(0),
+						})
+				})
+
+			It("should return appropriate page when backward paginator is set with limit greater than numer of workers",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[2].WorkerUUID,
+						Direction: boruta.DirectionBackward,
+						Limit:     uint16(len(ref) + 2),
+					}
+					testWorkerList(nil, &si, p, ref[:2],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(0),
+						})
+				})
+
+			It("should return all workers when backward paginator is set without ID and with limit greater than numer of workers",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						Direction: boruta.DirectionBackward,
+						Limit:     uint16(len(ref) + 2),
+					}
+					testWorkerList(nil, &si, p, ref,
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(0),
+						})
+				})
+
+			It("should return appropriate page of all workers when backward paginator is set",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[4].WorkerUUID,
+						Direction: boruta.DirectionBackward,
+						Limit:     2,
+					}
+					testWorkerList(nil, &si, p, ref[2:4],
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(2),
+						})
+				})
+
+			It("should return empty page of all workers when forward paginator is set with ID of last worker",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[len(ref)-1].WorkerUUID,
+						Direction: boruta.DirectionForward,
+						Limit:     2,
+					}
+					testWorkerList(nil, &si, p, []boruta.WorkerInfo{},
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(0),
+						})
+				})
+
+			It("should return empty page of all workers when backward paginator is set with ID of 1st worker",
+				func() {
+					ref := getSortedWorkerList(refWorkerList, &si)
+					p := &boruta.WorkersPaginator{
+						ID:        ref[0].WorkerUUID,
+						Direction: boruta.DirectionBackward,
+						Limit:     2,
+					}
+					testWorkerList(nil, &si, p, []boruta.WorkerInfo{},
+						&boruta.ListInfo{
+							TotalItems:     uint64(len(ref)),
+							RemainingItems: uint64(0),
+						})
+				})
+
+			It("should return first page with MaxPageLimit items when queue has more elements than MaxPageLimit",
+				func() {
+					if testing.Short() {
+						Skip("Big queue - skip when race is on")
+					}
+					wl2 := NewWorkerList()
+					n := int(boruta.MaxPageLimit) + 8
+					for i := 0; i < n; i++ {
+						wl2.Register(boruta.Capabilities{UUID: getUUID()},
+							dryadAddr.String(), sshdAddr.String())
+					}
+					wl2.mutex.RLock()
+					Expect(len(wl2.workers)).To(Equal(n))
+					wl2.mutex.RUnlock()
+					workers, info, err := wl2.ListWorkers(nil, nil, nil)
+					Expect(err).To(BeNil())
+					Expect(info.TotalItems).To(Equal(uint64(n)))
+					Expect(info.RemainingItems).To(Equal(uint64(n - boruta.MaxPageLimit)))
+					Expect(len(workers)).To(Equal(boruta.MaxPageLimit))
+				})
 
 			It("should return an error when SortInfo has unknown item", func() {
 				sortinfo := &boruta.SortInfo{Item: "foobar"}
-				workers, err := wl.ListWorkers(nil, sortinfo)
+				workers, info, err := wl.ListWorkers(nil, sortinfo, nil)
 				Expect(len(workers)).To(Equal(0))
+				Expect(info).To(Equal((*boruta.ListInfo)(nil)))
 				Expect(err).To(Equal(boruta.ErrWrongSortItem))
 			})
 
-			Describe("filterCaps", func() {
-				It("should return all workers satisfying defined caps", func() {
-					By("Returning all workers with display")
-					testWorkerList(boruta.Groups{},
-						boruta.Capabilities{"display": "yes"}, &si,
-						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[3], refWorkerList[5]},
-						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[2], refWorkerList[4]})
+			It("should return an error when paginator has unknown UUID", func() {
+				p := &boruta.WorkersPaginator{ID: "foo"}
+				workers, info, err := wl.ListWorkers(nil, nil, p)
+				Expect(len(workers)).To(Equal(0))
+				Expect(info).To(Equal((*boruta.ListInfo)(nil)))
+				Expect(err).To(Equal(boruta.NotFoundError("worker")))
+			})
 
-					By("Returning all workers without display")
-					testWorkerList(boruta.Groups{},
-						boruta.Capabilities{"display": "no"}, &si,
-						[]boruta.WorkerInfo{refWorkerList[4]},
-						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[1],
-							refWorkerList[2], refWorkerList[3], refWorkerList[5]})
-				})
+			Describe("filterCaps", func() {
+				It("should return first page of all workers satisfying defined caps",
+					func() {
+						By("Returning first page of all workers with display")
+						ref := getSortedWorkerList([]boruta.WorkerInfo{
+							refWorkerList[1], refWorkerList[3],
+							refWorkerList[5]}, &si)
+						testWorkerList(filter.NewWorkers(boruta.Groups{},
+							boruta.Capabilities{"display": "yes"}), &si,
+							&pag, ref,
+							&boruta.ListInfo{TotalItems: 3})
+
+						By("Returning first page of all workers without display")
+						testWorkerList(filter.NewWorkers(boruta.Groups{},
+							boruta.Capabilities{"display": "no"}), &si, &pag,
+							[]boruta.WorkerInfo{refWorkerList[4]},
+							&boruta.ListInfo{TotalItems: 1})
+					})
 
 				It("should return empty list if no worker matches the caps", func() {
-					workers, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{},
+					workers, info, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{},
 						boruta.Capabilities{
 							"non-existing-caps": "",
-						}), &si)
+						}), &si, &pag)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
+					Expect(info).To(Equal(&boruta.ListInfo{}))
 				})
 			})
 
 			Describe("filterGroups", func() {
-				It("should return all workers satisfying defined groups", func() {
-					By("Returning all workers in group all")
-					testWorkerList(boruta.Groups{"all"},
-						nil, &si,
-						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[2],
-							refWorkerList[4], refWorkerList[5]},
-						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[3]})
+				It("should return first page of all workers satisfying defined groups",
+					func() {
+						By("Returning first page of all workers in group all")
+						f := filter.NewWorkers(boruta.Groups{"all"}, nil)
+						ref := []boruta.WorkerInfo{refWorkerList[1],
+							refWorkerList[2], refWorkerList[4],
+							refWorkerList[5]}
+						testWorkerList(f, &si, &pag,
+							getSortedWorkerList(ref, &si),
+							&boruta.ListInfo{TotalItems: 4})
 
-					By("Returning all workers in group small_1")
-					testWorkerList(boruta.Groups{"small_1"},
-						nil, &si,
-						[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[2], refWorkerList[4]},
-						[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[3], refWorkerList[5]})
-				})
+						By("Returning first page of all workers in group small_1")
+						f = filter.NewWorkers(boruta.Groups{"small_1"}, nil)
+						ref = []boruta.WorkerInfo{refWorkerList[1],
+							refWorkerList[2], refWorkerList[4]}
+						testWorkerList(f, &si, &pag,
+							getSortedWorkerList(ref, &si),
+							&boruta.ListInfo{TotalItems: 3})
+					})
 
 				It("should return empty list if no worker matches the group", func() {
-					workers, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{"non-existing-group"},
-						nil), &si)
+					workers, info, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{"non-existing-group"},
+						nil), &si, &pag)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(workers).To(BeEmpty())
+					Expect(info).To(Equal(&boruta.ListInfo{}))
 				})
 			})
 
 			It("should work with many groups and caps defined", func() {
-				By("Returning all targets with display in both groups")
-				testWorkerList(boruta.Groups{"small_1", "small_2"},
+				By("Returning first page of all targets with display in both groups")
+				ref := getSortedWorkerList([]boruta.WorkerInfo{refWorkerList[1],
+					refWorkerList[5]}, &si)
+				testWorkerList(filter.NewWorkers(boruta.Groups{"small_1", "small_2"},
 					boruta.Capabilities{
 						"target":  "yes",
 						"display": "yes",
-					}, &si,
-					[]boruta.WorkerInfo{refWorkerList[1], refWorkerList[5]},
-					[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[2],
-						refWorkerList[3], refWorkerList[4]})
+					}), &si, &pag, ref, &boruta.ListInfo{TotalItems: 2})
 
-				By("Returning all targets without display in group all and small_1")
-				testWorkerList(boruta.Groups{"all", "small_1"},
+				By("Returning first page of all targets without display in group all and small_1")
+				ref = getSortedWorkerList([]boruta.WorkerInfo{refWorkerList[4]}, &si)
+				testWorkerList(filter.NewWorkers(boruta.Groups{"all", "small_1"},
 					boruta.Capabilities{
 						"target":  "yes",
 						"display": "no",
-					}, &si,
-					[]boruta.WorkerInfo{refWorkerList[4]},
-					[]boruta.WorkerInfo{refWorkerList[0], refWorkerList[1],
-						refWorkerList[2], refWorkerList[3], refWorkerList[5]})
+					}), &si, &pag, ref, &boruta.ListInfo{TotalItems: 1})
 			})
 		})
 

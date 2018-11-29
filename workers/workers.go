@@ -261,31 +261,94 @@ func (wl *WorkerList) Deregister(uuid boruta.WorkerUUID) error {
 	return nil
 }
 
+// min takes two uint64 values and returns smaller one.
+func min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // ListWorkers is an implementation of ListWorkers from Workers interface.
-func (wl *WorkerList) ListWorkers(filter boruta.ListFilter,
-	info *boruta.SortInfo) ([]boruta.WorkerInfo, error) {
+func (wl *WorkerList) ListWorkers(filter boruta.ListFilter, info *boruta.SortInfo,
+	paginator *boruta.WorkersPaginator) ([]boruta.WorkerInfo, *boruta.ListInfo, error) {
+
+	if paginator == nil {
+		paginator = &boruta.WorkersPaginator{
+			Limit: boruta.MaxPageLimit,
+		}
+	}
+	if paginator.Limit == 0 || paginator.Limit > boruta.MaxPageLimit {
+		paginator.Limit = boruta.MaxPageLimit
+	}
 
 	wl.mutex.RLock()
-	defer wl.mutex.RUnlock()
+	var pagWorker *mapWorker
+	var found bool
+	if pagWorker, found = wl.workers[paginator.ID]; paginator.ID != boruta.WorkerUUID("") && !found {
+		wl.mutex.RUnlock()
+		return nil, nil, boruta.NotFoundError("worker")
+	}
+	res, err := wl.listWorkers(filter, info, paginator.ID, false)
+	wl.mutex.RUnlock()
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return wl.listWorkers(filter, info, false)
+	var index, elems uint64
+	listInfo := &boruta.ListInfo{TotalItems: uint64(len(res))}
+	if listInfo.TotalItems == 0 {
+		listInfo.RemainingItems = 0
+		return res, listInfo, nil
+	}
+
+	for i, w := range res {
+		if w.WorkerUUID == paginator.ID {
+			index = uint64(i)
+			break
+		}
+	}
+
+	if paginator.Direction == boruta.DirectionForward {
+		if paginator.ID != boruta.WorkerUUID("") {
+			index++
+		}
+		elems = min(uint64(paginator.Limit), listInfo.TotalItems-index)
+		listInfo.RemainingItems = listInfo.TotalItems - index - elems
+	} else {
+		if paginator.ID == boruta.WorkerUUID("") {
+			index = uint64(len(res))
+		}
+		elems = min(uint64(paginator.Limit), index)
+		listInfo.RemainingItems = index - elems
+		index -= elems
+	}
+	if filter != nil && !reflect.ValueOf(filter).IsNil() && paginator.ID != boruta.WorkerUUID("") &&
+		!filter.Match(&pagWorker.WorkerInfo) {
+		listInfo.TotalItems--
+	}
+
+	return res[index : index+elems], listInfo, nil
 }
 
 // listWorkers lists all workers when both:
 // * any of the groups is matching (or groups is nil)
 // * all of the caps is matching (or caps is nil)
 // Caller of this method should own the mutex.
-func (wl *WorkerList) listWorkers(filter boruta.ListFilter,
-	info *boruta.SortInfo, onlyIdle bool) ([]boruta.WorkerInfo, error) {
+func (wl *WorkerList) listWorkers(filter boruta.ListFilter, info *boruta.SortInfo,
+	pid boruta.WorkerUUID, onlyIdle bool) ([]boruta.WorkerInfo, error) {
 
 	sorter, err := newSorter(info)
 	if err != nil {
 		return nil, err
 	}
 	matching := make([]boruta.WorkerInfo, 0, len(wl.workers))
+	if filter != nil && reflect.ValueOf(filter).IsNil() {
+		filter = nil
+	}
 
 	for _, worker := range wl.workers {
-		if filter == nil || reflect.ValueOf(filter).IsNil() || filter.Match(&worker.WorkerInfo) {
+		if filter == nil || filter.Match(&worker.WorkerInfo) || worker.WorkerUUID == pid {
 			if onlyIdle && (worker.State != boruta.IDLE) {
 				continue
 			}
@@ -369,7 +432,8 @@ func (wl *WorkerList) TakeBestMatchingWorker(groups boruta.Groups, caps boruta.C
 
 	var bestScore = math.MaxInt32
 
-	matching, err := wl.listWorkers(filter.NewWorkers(groups, caps), nil, true)
+	matching, err := wl.listWorkers(filter.NewWorkers(groups, caps), nil, boruta.WorkerUUID(""),
+		true)
 	if err != nil {
 		panic("listing workers failed: " + err.Error())
 	}

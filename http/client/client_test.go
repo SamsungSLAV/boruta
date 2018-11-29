@@ -1082,6 +1082,34 @@ func TestListWorkers(t *testing.T) {
 		Item:  "state",
 		Order: boruta.SortOrderDesc,
 	}
+
+	validInfo := &boruta.ListInfo{TotalItems: 2, RemainingItems: 0}
+	allInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+	emptyInfo := &boruta.ListInfo{TotalItems: 0, RemainingItems: 0}
+	firstInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 2}
+	secondInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+
+	fwdPaginator1 := &boruta.WorkersPaginator{
+		ID:        "0",
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	fwdPaginator2 := &boruta.WorkersPaginator{
+		ID:        "2",
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	backPaginator1 := &boruta.WorkersPaginator{
+		ID:        "4",
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+	backPaginator2 := &boruta.WorkersPaginator{
+		ID:        "2",
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+
 	validFilter := &filter.Workers{
 		Groups:       boruta.Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
@@ -1107,7 +1135,7 @@ func TestListWorkers(t *testing.T) {
 			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      validHeader,
+			header:      updateHeaders(validHeader, validInfo),
 		},
 		&testCase{
 			// list all
@@ -1119,7 +1147,7 @@ func TestListWorkers(t *testing.T) {
 			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
+			header:      updateHeaders(allHeader, allInfo),
 		},
 		&testCase{
 			// list all - sorted by uuid, ascending
@@ -1131,7 +1159,7 @@ func TestListWorkers(t *testing.T) {
 			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
+			header:      updateHeaders(allHeader, allInfo),
 		},
 		&testCase{
 			// list all - sorted by state, descending
@@ -1143,7 +1171,51 @@ func TestListWorkers(t *testing.T) {
 			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
+			header:      updateHeaders(allHeader, allInfo),
+		},
+		&testCase{
+			// list first part of all requests
+			name: prefix + "paginator-fwd1",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: fwdPaginator1,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, firstInfo),
+		},
+		&testCase{
+			// list second part of all requests
+			name: prefix + "paginator-fwd2",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: fwdPaginator2,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, secondInfo),
+		},
+		&testCase{
+			// list first part of all requests (backward)
+			name: prefix + "paginator-back1",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: backPaginator1,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, firstInfo),
+		},
+		&testCase{
+			// list second part of all requests (backward)
+			name: prefix + "paginator-back2",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: backPaginator2,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, secondInfo),
 		},
 		&testCase{
 			// no matches
@@ -1155,7 +1227,7 @@ func TestListWorkers(t *testing.T) {
 			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      missingHeader,
+			header:      updateHeaders(missingHeader, &boruta.ListInfo{}),
 		},
 		&testCase{
 			// Bad sort item.
@@ -1176,49 +1248,81 @@ func TestListWorkers(t *testing.T) {
 	sorter := new(boruta.SortInfo)
 
 	// list some
-	list, err := client.ListWorkers(validFilter, sorter)
+	list, info, err := client.ListWorkers(validFilter, sorter, nil)
 	assert.Nil(err)
-	assert.Equal(workers[:2], list)
+	assert.Equal(validInfo, info)
+	assert.Equal(workers[2:], list)
 
 	// list all
-	list, err = client.ListWorkers(nil, nil)
+	list, info, err = client.ListWorkers(nil, nil, nil)
 	assert.Nil(err)
+	assert.Equal(allInfo, info)
 	assert.Equal(workers, list)
 
-	// no matches
-	list, err = client.ListWorkers(missingFilter, sorter)
+	// list first part of all requests
+	list, info, err = client.ListWorkers(nil, nil, fwdPaginator1)
 	assert.Nil(err)
+	assert.Equal(firstInfo, info)
+	assert.Equal(workers[:2], list)
+
+	// list second part of all requests
+	list, info, err = client.ListWorkers(nil, nil, fwdPaginator2)
+	assert.Nil(err)
+	assert.Equal(secondInfo, info)
+	assert.Equal(workers[2:], list)
+
+	// list first part of all requests (backward)
+	list, info, err = client.ListWorkers(nil, nil, backPaginator1)
+	assert.Nil(err)
+	assert.Equal(firstInfo, info)
+	assert.Equal(workers[2:], list)
+
+	// list second part of all requests (backward)
+	list, info, err = client.ListWorkers(nil, nil, backPaginator2)
+	assert.Nil(err)
+	assert.Equal(secondInfo, info)
+	assert.Equal(workers[:2], list)
+
+	// no matches
+	list, info, err = client.ListWorkers(missingFilter, sorter, nil)
+	assert.Nil(err)
+	assert.Equal(emptyInfo, info)
 	assert.Empty(list)
 
 	// list all, sorted by UUID (ascending)
 	sorter.Item = "UUID"
-	list, err = client.ListWorkers(nil, sorter)
+	list, info, err = client.ListWorkers(nil, sorter, nil)
 	assert.Nil(err)
+	assert.Equal(allInfo, info)
 	assert.Equal(workers, list)
 
 	// list all, sorted by state (descending)
 	sorter.Item = "state"
 	sorter.Order = boruta.SortOrderDesc
 	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
-	list, err = client.ListWorkers(nil, sorter)
+	list, info, err = client.ListWorkers(nil, sorter, nil)
 	assert.Nil(err)
+	assert.Equal(allInfo, info)
 	assert.Equal(w2, list)
 
 	// Bad sort item.
 	sorter.Item = "foobarbaz"
-	list, err = client.ListWorkers(validFilter, sorter)
+	list, info, err = client.ListWorkers(validFilter, sorter, nil)
 	assert.Empty(list)
-	assert.Equal(util.NewServerError(boruta.ErrWrongSortItem), err)
+	assert.Nil(info)
+	assert.NotNil(err)
 
 	// Wrong filter type.
-	list, err = client.ListWorkers(new(dummyListFilter), sorter)
+	list, info, err = client.ListWorkers(new(dummyListFilter), sorter, nil)
 	assert.Empty(list)
+	assert.Nil(info)
 	assert.Equal(errors.New("only *filter.Workers type is supported"), err)
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	list, err = client.ListWorkers(nil, nil)
-	assert.Zero(list)
+	list, info, err = client.ListWorkers(nil, nil, nil)
+	assert.Empty(list)
+	assert.Nil(info)
 	assert.NotNil(err)
 }
 

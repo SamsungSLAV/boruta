@@ -587,6 +587,33 @@ func TestListWorkersHandler(t *testing.T) {
 		Order: boruta.SortOrderDesc,
 	}
 
+	validInfo := &boruta.ListInfo{TotalItems: 2, RemainingItems: 0}
+	allInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+	emptyInfo := &boruta.ListInfo{TotalItems: 0, RemainingItems: 0}
+	firstInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 2}
+	secondInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+
+	fwdPaginator1 := &boruta.WorkersPaginator{
+		ID:        "0",
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	fwdPaginator2 := &boruta.WorkersPaginator{
+		ID:        "2",
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	backPaginator1 := &boruta.WorkersPaginator{
+		ID:        "4",
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+	backPaginator2 := &boruta.WorkersPaginator{
+		ID:        "2",
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+
 	workers := []boruta.WorkerInfo{
 		newWorker("0", boruta.IDLE, boruta.Groups{"Lędzianie"}, armCaps),
 		newWorker("1", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, armCaps),
@@ -600,27 +627,35 @@ func TestListWorkersHandler(t *testing.T) {
 	filterPath := "/api/v1/workers/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := filter.NewWorkers(boruta.Groups{"Lędzianie"},
-		boruta.Capabilities{"architecture": "Aarch64"})
-	m.wm.EXPECT().ListWorkers(validFilter, defaultSorter).Return(workers[:2], nil)
-	m.wm.EXPECT().ListWorkers(validFilter, sorterBad).Return([]boruta.WorkerInfo{},
+	validFilter := filter.NewWorkers(boruta.Groups{"Malinowy Chruśniak"},
+		boruta.Capabilities{"architecture": "RISC-V"})
+	m.wm.EXPECT().ListWorkers(validFilter, defaultSorter, nil).Return(workers[2:], validInfo,
+		nil)
+	m.wm.EXPECT().ListWorkers(validFilter, sorterBad, nil).Return([]boruta.WorkerInfo{}, nil,
 		boruta.ErrWrongSortItem)
 
-	m.wm.EXPECT().ListWorkers(nil, nil).Return(workers, nil).MinTimes(1)
+	m.wm.EXPECT().ListWorkers(nil, nil, nil).Return(workers, allInfo, nil).MinTimes(1)
 	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
-	m.wm.EXPECT().ListWorkers(filter.NewWorkers(boruta.Groups{}, nil), nil).Return(workers, nil)
-	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, make(boruta.Capabilities)),
-		nil).Return(workers, nil)
-	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, nil), nil).Return(workers, nil)
-	m.wm.EXPECT().ListWorkers(nil, sorterAsc).Return(workers, nil)
-	m.wm.EXPECT().ListWorkers(nil, sorterDesc).Return(w2, nil)
+	m.wm.EXPECT().ListWorkers(filter.NewWorkers(boruta.Groups{}, nil), nil, nil).Return(workers,
+		allInfo, nil)
+	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, make(boruta.Capabilities)), nil,
+		nil).Return(workers, allInfo, nil)
+	m.wm.EXPECT().ListWorkers(filter.NewWorkers(nil, nil), nil, nil).Return(workers, allInfo,
+		nil)
+	m.wm.EXPECT().ListWorkers(nil, sorterAsc, nil).Return(workers, allInfo, nil)
+	m.wm.EXPECT().ListWorkers(nil, sorterDesc, nil).Return(w2, allInfo, nil)
+	m.wm.EXPECT().ListWorkers(nil, nil, fwdPaginator1).Return(workers[:2], firstInfo, nil)
+	m.wm.EXPECT().ListWorkers(nil, nil, fwdPaginator2).Return(workers[2:], secondInfo, nil)
+	m.wm.EXPECT().ListWorkers(nil, nil, backPaginator1).Return(workers[2:], firstInfo, nil)
+	m.wm.EXPECT().ListWorkers(nil, nil, backPaginator2).Return(workers[:2], secondInfo, nil)
 
 	missingFilter := filter.NewWorkers(boruta.Groups{"Fern Flower"}, nil)
-	m.wm.EXPECT().ListWorkers(missingFilter, nil).Return([]boruta.WorkerInfo{}, nil)
+	m.wm.EXPECT().ListWorkers(missingFilter, nil, nil).Return([]boruta.WorkerInfo{}, emptyInfo,
+		nil)
 
 	// Currently ListWorkers doesn't return any error hence the meaningless values.
 	badFilter := filter.NewWorkers(boruta.Groups{"Oops"}, nil)
-	m.wm.EXPECT().ListWorkers(badFilter, nil).Return([]boruta.WorkerInfo{},
+	m.wm.EXPECT().ListWorkers(badFilter, nil, nil).Return([]boruta.WorkerInfo{}, nil,
 		errors.New("foo bar: pizza failed"))
 
 	tests := []requestTest{
@@ -633,15 +668,6 @@ func TestListWorkersHandler(t *testing.T) {
 				Filter: validFilter,
 				Sorter: defaultSorter,
 			})),
-			contentType: contentTypeJSON,
-			status:      http.StatusOK,
-		},
-		// List all workers.
-		{
-			name:        "list-workers-all",
-			path:        "/api/v1/workers/",
-			methods:     []string{http.MethodGet, http.MethodHead},
-			json:        ``,
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,
 		},
@@ -713,6 +739,58 @@ func TestListWorkersHandler(t *testing.T) {
 			json: string(jsonMustMarshal(util.WorkersListSpec{
 				Filter: &filter.Workers{Groups: boruta.Groups{}, Capabilities: nil},
 				Sorter: nil,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// List first part of all workers.
+		{
+			name:    prefix + "paginator-fwd1",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter:    nil,
+				Sorter:    nil,
+				Paginator: fwdPaginator1,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// List second part of all workers.
+		{
+			name:    prefix + "paginator-fwd2",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter:    nil,
+				Sorter:    nil,
+				Paginator: fwdPaginator2,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// List first part of all workers (backward).
+		{
+			name:    prefix + "paginator-back1",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter:    nil,
+				Sorter:    nil,
+				Paginator: backPaginator1,
+			})),
+			contentType: contentTypeJSON,
+			status:      http.StatusOK,
+		},
+		// List second part of all workers (backward).
+		{
+			name:    prefix + "paginator-back2",
+			path:    filterPath,
+			methods: methods,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter:    nil,
+				Sorter:    nil,
+				Paginator: backPaginator2,
 			})),
 			contentType: contentTypeJSON,
 			status:      http.StatusOK,

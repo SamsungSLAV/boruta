@@ -93,6 +93,8 @@ type WorkersListSpec struct {
 	Filter *filter.Workers
 	// Sorter contains SortInfo data.
 	Sorter *boruta.SortInfo
+	// Paginator contains WorkersPaginator.
+	Paginator *boruta.WorkersPaginator
 }
 
 // ReqIDPack is used for JSON (un)marshaller.

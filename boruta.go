@@ -214,10 +214,12 @@ type Superviser interface {
 // Workers defines all actions that can be done by users and admins on workers.
 // Users (and admins) can also call methods from Requests interface.
 type Workers interface {
-	// ListWorkers returns a list of all Workers matching filter or all registered Workers if
-	// filter is nil. The list is sorted according to passed sorter (using default sorting when
-	// it's nil).
-	ListWorkers(filter ListFilter, sorter *SortInfo) ([]WorkerInfo, error)
+	// ListWorkers returns a slice of Workers matching filter (any worker matches if filter is
+	// empty or nil. The list is sorted according to passed sorter (using default sorting when
+	// it's nil). Matching workers are divided into pages according to paginator and paginator
+	// specified page is returned. Additional metadata are returned as a pointer to ListInfo.
+	ListWorkers(filter ListFilter, sorter *SortInfo, paginator *WorkersPaginator) ([]WorkerInfo,
+		*ListInfo, error)
 	// GetWorkerInfo returns WorkerInfo of specified worker.
 	GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error)
 

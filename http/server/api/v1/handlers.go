@@ -186,14 +186,13 @@ func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) *util.
 
 	listSpec := &util.WorkersListSpec{}
 	// Read list spec.
-	if r.Method == http.MethodPost {
-		if err := json.NewDecoder(r.Body).Decode(listSpec); err != nil {
-			if err != io.EOF {
-				return util.NewResponse(err, nil)
-			}
-			listSpec.Filter = nil
-			listSpec.Sorter = nil
+	if err := json.NewDecoder(r.Body).Decode(listSpec); err != nil {
+		if err != io.EOF {
+			return util.NewResponse(err, nil)
 		}
+		listSpec.Filter = nil
+		listSpec.Sorter = nil
+		listSpec.Paginator = nil
 	}
 
 	// WorkersFilter needs to be regenerated to initialize internal structures.
@@ -201,13 +200,19 @@ func (api *API) listWorkersHandler(r *http.Request, ps map[string]string) *util.
 		listSpec.Filter = filter.NewWorkers(listSpec.Filter.Groups,
 			listSpec.Filter.Capabilities)
 	}
-	// Filter and sort workers.
-	workers, err := api.workers.ListWorkers(listSpec.Filter, listSpec.Sorter)
+	// Filter, sort and paginate workers.
+	workers, info, err := api.workers.ListWorkers(listSpec.Filter, listSpec.Sorter,
+		listSpec.Paginator)
 	if err != nil {
 		return util.NewResponse(err, nil)
 	}
+	headers := make(http.Header)
+	if info != nil {
+		headers.Set(util.ListTotalItemsHdr, strconv.FormatUint(info.TotalItems, 10))
+		headers.Set(util.ListRemainingItemsHdr, strconv.FormatUint(info.RemainingItems, 10))
+	}
 
-	return util.NewResponse(workers, nil)
+	return util.NewResponse(workers, headers)
 }
 
 // getWorkerInfoHandler parses HTTP request for obtaining worker information and

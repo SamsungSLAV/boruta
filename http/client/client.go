@@ -353,28 +353,35 @@ func (client *BorutaClient) ProlongAccess(reqID boruta.ReqID) error {
 // ListWorkers queries Boruta server for list of workers that are in given groups and have provided
 // capabilities. Setting both caps and groups to empty or nil lists all workers. If sorter is nil
 // then the default sorting is used (ascending, by UUID).
-func (client *BorutaClient) ListWorkers(f boruta.ListFilter, s *boruta.SortInfo) ([]boruta.WorkerInfo,
-	error) {
+func (client *BorutaClient) ListWorkers(f boruta.ListFilter, s *boruta.SortInfo,
+	p *boruta.WorkersPaginator) ([]boruta.WorkerInfo, *boruta.ListInfo, error) {
 
-	listSpec := &util.WorkersListSpec{Sorter: s}
+	listSpec := &util.WorkersListSpec{
+		Sorter:    s,
+		Paginator: p,
+	}
 	if f != nil {
 		wfilter, ok := f.(*filter.Workers)
 		if !ok {
-			return nil, errors.New("only *filter.Workers type is supported")
+			return nil, nil, errors.New("only *filter.Workers type is supported")
 		}
 		listSpec.Filter = wfilter
 	}
 	req, err := json.Marshal(listSpec)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	resp, err := http.Post(client.url+"workers/list", contentType, bytes.NewReader(req))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	info, err := listInfoFromHeaders(resp.Header)
+	if err != nil {
+		return nil, nil, err
 	}
 	list := new([]boruta.WorkerInfo)
 	err = processResponse(resp, list)
-	return *list, err
+	return *list, info, err
 }
 
 // GetWorkerInfo queries Boruta server for information about worker with given
