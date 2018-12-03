@@ -1,0 +1,67 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cc843fb9_052cb55f",
+        "filename": ".gometalinter.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2018-12-03T11:16:57Z",
+      "side": 1,
+      "message": "should include mocks and generated code",
+      "range": {
+        "startLine": 34,
+        "startChar": 0,
+        "endLine": 35,
+        "endChar": 12
+      },
+      "revId": "3ee8fa47f1428cba3315d1b57a0b7cf8889450dd",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "446a4c78_4cabcf4c",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2018-12-03T11:16:57Z",
+      "side": 1,
+      "message": "add this url:\nhttps://github.com/alecthomas/gometalinter/blob/master/config.go\n\nadd verification:\n$ gometalinter --deadline\u003d60s ./...",
+      "revId": "3ee8fa47f1428cba3315d1b57a0b7cf8889450dd",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ef3a1aa8_fcdf9f0b",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2018-12-03T11:16:57Z",
+      "side": 1,
+      "message": "should be in separate commits before this one (together with rest of linter error fixes)",
+      "range": {
+        "startLine": 10,
+        "startChar": 0,
+        "endLine": 12,
+        "endChar": 25
+      },
+      "revId": "3ee8fa47f1428cba3315d1b57a0b7cf8889450dd",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
