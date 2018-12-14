@@ -14,7 +14,9 @@
  *  limitations under the License
  */
 
-// Package api aggregates all availabe Boruta HTTP API versions.
+// Package api aggregates all availabe Boruta HTTP API versions. It also takes care of CORS headers.
+// When API version is omitted in HTTP request, server will redirect user to default API version
+// (latest stable).
 package api
 
 import (
@@ -25,15 +27,25 @@ import (
 	"github.com/SamsungSLAV/boruta"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/http/server/api/v1"
+
 	"github.com/dimfeld/httptreemux"
+	"github.com/rs/cors"
 )
 
-// defaultAPI contains information which version of the API is treated as default.
-// It should always be latest stable version.
-const defaultAPI = v1.Version
+const (
+	// defaultAPI contains information which version of the API is treated as default.
+	// It should always be latest stable version.
+	defaultAPI = v1.Version
+	// day is 24 hours in seconds.
+	day = 86400
+	// contentTypeHdr is name of header indicating content type.
+	contentTypeHdr = "Content-Type"
+)
 
 // API provides HTTP API handlers.
 type API struct {
+	// Router is ready to go router that should be used as http.Handler in http.ListenAndServe().
+	Router  http.Handler
 	r       *httptreemux.TreeMux
 	reqs    boruta.Requests
 	workers boruta.Workers
@@ -52,7 +64,7 @@ func panicHandler(w http.ResponseWriter, r *http.Request, err interface{}) {
 		reason = srvErr
 	}
 	// Because marshalling JSON may fail, data is sent in plaintext.
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set(contentTypeHdr, "text/plain; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write([]byte(fmt.Sprintf("Internal Server Error:\n%s", reason)))
 }
@@ -100,17 +112,25 @@ func setDefaultAPIRedirect(prefix *httptreemux.Group) {
 	}
 }
 
-// NewAPI registers all available Boruta HTTP APIs on provided router. It also
-// sets panicHandler for all panics that may occur in any API. Finally it sets
+// NewAPI creates router and registers all available Boruta HTTP APIs on it. It also sets
+// panicHandler for all panics that may occur in any API and enables CORS support. It sets
 // default API version to which requests that miss API version are redirected.
-func NewAPI(router *httptreemux.TreeMux, requestsAPI boruta.Requests,
-	workersAPI boruta.Workers) (api *API) {
+func NewAPI(requestsAPI boruta.Requests, workersAPI boruta.Workers) (api *API) {
 	api = new(API)
 
 	api.reqs = requestsAPI
 	api.workers = workersAPI
 
-	api.r = router
+	c := cors.New(cors.Options{
+		//TODO(mwereski): should be configurable.
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{http.MethodGet, http.MethodHead, http.MethodPost},
+		AllowedHeaders: []string{contentTypeHdr},
+		//TODO(mwereski): should be configurable.
+		MaxAge: day,
+	})
+
+	api.r = httptreemux.New()
 	api.r.PanicHandler = panicHandler
 	api.r.RedirectBehavior = httptreemux.Redirect308
 
@@ -119,6 +139,7 @@ func NewAPI(router *httptreemux.TreeMux, requestsAPI boruta.Requests,
 
 	_ = v1.NewAPI(v1group, api.reqs, api.workers)
 	setDefaultAPIRedirect(all)
+	api.Router = c.Handler(api.r)
 
 	return
 }
