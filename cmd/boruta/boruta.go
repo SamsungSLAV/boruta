@@ -29,7 +29,6 @@ import (
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/boruta/workers"
-	"github.com/dimfeld/httptreemux"
 )
 
 var (
@@ -46,12 +45,11 @@ func main() {
 	}
 	w := workers.NewWorkerList()
 	r := requests.NewRequestQueue(w, matcher.NewJobsManager(w))
-	router := httptreemux.New()
-	_ = api.NewAPI(router, r, w)
+	a := api.NewAPI(r, w)
 	err := superviser.StartSuperviserReception(w, *rpcAddr)
 	if err != nil {
 		log.Fatal("RPC register failed:", err)
 	}
 
-	log.Fatal(http.ListenAndServe(*apiAddr, router))
+	log.Fatal(http.ListenAndServe(*apiAddr, a.Router))
 }

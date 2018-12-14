@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/SamsungSLAV/boruta"
@@ -38,6 +39,13 @@ import (
 
 var update bool
 
+const (
+	CORSAllowOrigin  = "Access-Control-Allow-Origin"
+	CORSAllowMethods = "Access-Control-Allow-Methods"
+	CORSAllowHeaders = "Access-Control-Allow-Headers"
+	CORSMaxAge       = "Access-Control-Max-Age"
+)
+
 func TestMain(m *testing.M) {
 	flag.BoolVar(&update, "update", false, "update testdata")
 	flag.Parse()
@@ -46,8 +54,7 @@ func TestMain(m *testing.M) {
 
 func initTest(t *testing.T) (*assert.Assertions, *API) {
 	wm := workers.NewWorkerList()
-	return assert.New(t), NewAPI(httptreemux.New(),
-		requests.NewRequestQueue(wm, matcher.NewJobsManager(wm)), wm)
+	return assert.New(t), NewAPI(requests.NewRequestQueue(wm, matcher.NewJobsManager(wm)), wm)
 }
 
 func TestPanicHandler(t *testing.T) {
@@ -84,7 +91,7 @@ func TestPanicHandler(t *testing.T) {
 	for _, test := range tests {
 		grp.GET(test.path, newHandler(test.err))
 	}
-	srv := httptest.NewServer(api.r)
+	srv := httptest.NewServer(api.Router)
 	assert.NotNil(srv)
 	defer srv.Close()
 	for _, test := range tests {
@@ -111,7 +118,7 @@ func TestNewAPI(t *testing.T) {
 
 func TestRedirectToDefault(t *testing.T) {
 	assert, api := initTest(t)
-	srv := httptest.NewServer(api.r)
+	srv := httptest.NewServer(api.Router)
 	defer srv.Close()
 
 	reqPath := "/api/reqs"
@@ -157,4 +164,45 @@ func TestRedirectToDefault(t *testing.T) {
 	err = decoder.Decode(&srvErr)
 	assert.Equal(http.StatusNotFound, resp.StatusCode)
 	assert.Equal(boruta.NotFoundError(badPath).Error(), srvErr.Err)
+}
+
+func TestCORS(t *testing.T) {
+	assert, api := initTest(t)
+	var client http.Client
+	srv := httptest.NewServer(api.Router)
+	path := "/api/v1/reqs"
+
+	// Simple CORS request
+	request, err := http.NewRequest(http.MethodPost, srv.URL+path, nil)
+	assert.Nil(err)
+	request.Header.Set("Origin", "http://foo.bar")
+	resp, err := client.Do(request)
+	assert.Nil(err)
+	assert.Equal("*", resp.Header.Get(CORSAllowOrigin))
+
+	// Preflight CORS request
+	request, err = http.NewRequest(http.MethodOptions, srv.URL+path, nil)
+	assert.Nil(err)
+	request.Header.Set("Origin", "http://foo.bar")
+	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	request.Header.Set("Access-Control-Request-Headers", contentTypeHdr)
+	resp, err = client.Do(request)
+	assert.Nil(err)
+	assert.Equal("*", resp.Header.Get(CORSAllowOrigin))
+	assert.Equal(http.MethodPost, resp.Header.Get(CORSAllowMethods))
+	assert.Equal(contentTypeHdr, resp.Header.Get(CORSAllowHeaders))
+	assert.Equal(strconv.Itoa(day), resp.Header.Get(CORSMaxAge))
+	assert.Equal("Origin", resp.Header.Get("Vary"))
+
+	// Preflight CORS request - wrong header
+	request.Header.Set("Access-Control-Request-Headers", "foo")
+	resp, err = client.Do(request)
+	assert.Nil(err)
+	assert.Empty(resp.Header.Get(CORSAllowOrigin))
+	// Preflight CORS request - wrong method
+	request.Header.Del("Access-Control-Request-Headers")
+	request.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	resp, err = client.Do(request)
+	assert.Nil(err)
+	assert.Empty(resp.Header.Get(CORSAllowOrigin))
 }
