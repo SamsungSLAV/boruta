@@ -33,4 +33,10 @@ func (err NotFoundError) Error() string {
 var (
 	// ErrInternalLogicError means that boruta's implementation has detected unexpected behaviour.
 	ErrInternalLogicError = errors.New("Boruta's internal logic error")
+	// ErrWrongSortItem means that unknown item name was provided.
+	ErrWrongSortItem = errors.New("unknown name of item by which list should be sorted")
+	// ErrWrongSortOrder is returned when user provided unknown order.
+	ErrWrongSortOrder = errors.New("unknown sort order (valid: ascending or descending)")
+	// ErrWrongListDirection is returned when user provided unknown order.
+	ErrWrongListDirection = errors.New("unknown direction (valid: forward or backward)")
 )

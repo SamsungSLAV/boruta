@@ -20,6 +20,7 @@ import (
 	"math/rand"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/workers"
 
 	. "github.com/onsi/ginkgo"
@@ -80,27 +81,32 @@ var _ = Describe("WorkerList", func() {
 		}
 		b.Time("list all", func() {
 			for i := 0; i < maximumListTests; i++ {
-				_, err := wl.ListWorkers(nil, nil)
+				_, _, err := wl.ListWorkers(nil, nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		b.Time("list with caps matching", func() {
 			for i := 0; i < maximumListTests; i++ {
-				_, err := wl.ListWorkers(nil,
-					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])})
+				_, _, err := wl.ListWorkers(filter.NewWorkers(
+					nil,
+					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])},
+				),
+					nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		b.Time("list with groups matching", func() {
 			for i := 0; i < maximumListTests; i++ {
-				_, err := wl.ListWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])}, nil)
+				_, _, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])},
+					nil), nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
 		b.Time("list with both groups and caps matching", func() {
 			for i := 0; i < maximumListTests; i++ {
-				_, err := wl.ListWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])},
-					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])})
+				_, _, err := wl.ListWorkers(filter.NewWorkers(boruta.Groups{boruta.Group(groupWithCaps[i][0])},
+					boruta.Capabilities{matchingCaps: string(groupWithCaps[i][1])}),
+					nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})

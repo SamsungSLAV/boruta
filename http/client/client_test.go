@@ -25,11 +25,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/SamsungSLAV/boruta/filter"
 	util "github.com/SamsungSLAV/boruta/http"
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/stretchr/testify/assert"
@@ -52,12 +54,9 @@ type testCase struct {
 	header http.Header
 }
 
-// chanFilter is used to mock failure of JSON marshalling in ListRequests.
-type chanFilter chan bool
+type dummyListFilter bool
 
-func (f chanFilter) Match(_ *boruta.ReqInfo) bool {
-	return false
-}
+func (*dummyListFilter) Match(_ interface{}) bool { return false }
 
 type dummyReadCloser int
 
@@ -82,6 +81,10 @@ var (
 	req            boruta.ReqInfo
 	errRead        = errors.New("unable to read server response: read failed")
 	errReqNotFound = util.NewServerError(boruta.NotFoundError("Request"))
+	sorterBad      = &boruta.SortInfo{
+		Item:  "foobarbaz",
+		Order: boruta.SortOrderDesc,
+	}
 )
 
 func init() {
@@ -154,13 +157,13 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 		r.Body.Close()
 		// Making operation like "req/id/close" - path must be unique.
 		if method == http.MethodPost && len(body) == 0 {
-			validateTestCase(tcasesMap[r.URL.Path])
+			validateTestCase(tcasesMap[r.URL.String()])
 		}
-		tlen := len(tcasesMap[r.URL.Path])
+		tlen := len(tcasesMap[r.URL.String()])
 		if tlen == 0 {
-			panic("No test cases for path: " + r.URL.Path)
+			panic("No test cases for path: " + r.URL.String())
 		}
-		for i, tcase := range tcasesMap[r.URL.Path] {
+		for i, tcase := range tcasesMap[r.URL.String()] {
 			// There may be many POST requests per one path.
 			// Differentiate by body.
 			if method == http.MethodPost {
@@ -216,17 +219,30 @@ func prepareServer(method string, tests []*testCase) *httptest.Server {
 func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups,
 	caps boruta.Capabilities) (w boruta.WorkerInfo) {
 
-	if caps == nil {
-		caps = make(boruta.Capabilities)
+	c := make(boruta.Capabilities)
+	for k, v := range caps {
+		c[k] = v
 	}
-	caps["UUID"] = uuid
+	c["UUID"] = uuid
 	w = boruta.WorkerInfo{
 		WorkerUUID: boruta.WorkerUUID(uuid),
 		State:      state,
-		Caps:       caps,
+		Caps:       c,
 	}
 	if len(groups) != 0 {
 		w.Groups = groups
+	}
+	return
+}
+
+func updateHeaders(hdr http.Header, info *boruta.ListInfo) (ret http.Header) {
+	ret = make(http.Header)
+	for k := range hdr {
+		copy(ret[k], hdr[k])
+	}
+	if info != nil {
+		ret.Set(util.ListTotalItemsHdr, strconv.FormatUint(info.TotalItems, 10))
+		ret.Set(util.ListRemainingItemsHdr, strconv.FormatUint(info.RemainingItems, 10))
 	}
 	return
 }
@@ -645,42 +661,190 @@ func TestListRequests(t *testing.T) {
 			Deadline: deadline, ValidAfter: validAfter},
 	}
 
-	missingFilter := util.NewRequestFilter("INPROGRESS", "2")
+	validInfo := &boruta.ListInfo{TotalItems: 2, RemainingItems: 0}
+	firstInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 2}
+	secondInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+
+	fwdPaginator1 := &boruta.RequestsPaginator{
+		ID:        0,
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	fwdPaginator2 := &boruta.RequestsPaginator{
+		ID:        2,
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	backPaginator1 := &boruta.RequestsPaginator{
+		ID:        4,
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+	backPaginator2 := &boruta.RequestsPaginator{
+		ID:        2,
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+
+	missingFilter := filter.NewRequests("INPROGRESS", "2")
 	missingHeader := make(http.Header)
-	missingHeader.Set("Boruta-Request-Count", "0")
-	validFilter := util.NewRequestFilter("WAIT", "")
+	missingHeader.Set(util.RequestCountHdr, "0")
+	validFilter := filter.NewRequests("WAIT", "")
 	validHeader := make(http.Header)
-	validHeader.Set("Boruta-Request-Count", "2")
+	validHeader.Set(util.RequestCountHdr, "2")
 	nilHeader := make(http.Header)
-	nilHeader.Set("Boruta-Request-Count", "4")
+	nilHeader.Set(util.RequestCountHdr, "4")
+	malformedHeader := make(http.Header)
+	malformedHeader.Set(util.ListTotalItemsHdr, "foo")
+
+	sorterDefault := new(boruta.SortInfo) // "", SortOrderAsc
+	sorterAsc := &boruta.SortInfo{
+		Item:  "priority",
+		Order: boruta.SortOrderAsc,
+	}
+	sorterDesc := &boruta.SortInfo{
+		Item:  "state",
+		Order: boruta.SortOrderDesc,
+	}
 
 	tests := []*testCase{
 		&testCase{
 			// valid filter
-			name:        prefix + "valid-filter",
-			path:        path,
-			json:        string(jsonMustMarshal(validFilter)),
+			name: prefix + "valid-filter",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterDefault,
+			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      validHeader,
+			header:      updateHeaders(validHeader, validInfo),
+		},
+		&testCase{
+			// Valid filter with sorter - list some requests sorted by priority (ascending).
+			name: prefix + "valid-filter-sort-asc",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterAsc,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, validInfo),
+		},
+		&testCase{
+			// Valid filter with sorter - list some requests sorted by state (descending).
+			// As state is equal - this will be sorted by ID.
+			name: prefix + "valid-filter-sort-desc",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterDesc,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, validInfo),
 		},
 		&testCase{
 			// nil filter - list all
 			name:        prefix + "nil",
 			path:        path,
-			json:        string(jsonMustMarshal(nil)),
+			json:        string(jsonMustMarshal(&util.RequestsListSpec{})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      nilHeader,
+			header:      updateHeaders(nilHeader, secondInfo),
+		},
+		// List first part of all requests.
+		{
+			name: prefix + "paginator-fwd1",
+			path: path,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Paginator: fwdPaginator1,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(nilHeader, firstInfo),
+		},
+		// List second part of all requests.
+		{
+			name: prefix + "paginator-fwd2",
+			path: path,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Paginator: fwdPaginator2,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(nilHeader, secondInfo),
+		},
+		// List first part of all requests (backward).
+		{
+			name: prefix + "paginator-back1",
+			path: path,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Paginator: backPaginator1,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(nilHeader, firstInfo),
+		},
+		// List second part of all requests (backward).
+		{
+			name: prefix + "paginator-back2",
+			path: path,
+			json: string(jsonMustMarshal(util.RequestsListSpec{
+				Paginator: backPaginator2,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(nilHeader, secondInfo),
 		},
 		&testCase{
 			// no requests matched
-			name:        prefix + "nomatch-all",
-			path:        path,
-			json:        string(jsonMustMarshal(missingFilter)),
+			name: prefix + "nomatch-all",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: missingFilter,
+				Sorter: sorterDefault,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(missingHeader, &boruta.ListInfo{}),
+		},
+		&testCase{
+			// missing headers
+			name: prefix + "missing-headers",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: missingFilter,
+				Sorter: sorterAsc,
+			})),
+			resp:        string(jsonMustMarshal(nil)),
 			contentType: contentJSON,
 			status:      http.StatusOK,
 			header:      missingHeader,
+		},
+		&testCase{
+			// malformed headers
+			name: prefix + "malformed-headers",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Sorter: sorterAsc,
+			})),
+			resp:        string(jsonMustMarshal(nil)),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      malformedHeader,
+		},
+		&testCase{
+			// Bad sort item.
+			name: prefix + "bad-sorter-item",
+			path: path,
+			json: string(jsonMustMarshal(&util.RequestsListSpec{
+				Filter: validFilter,
+				Sorter: sorterBad,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
 		},
 	}
 
@@ -688,33 +852,96 @@ func TestListRequests(t *testing.T) {
 	defer srv.Close()
 	assert, client := initTest(t, srv.URL)
 
-	// nil filter
-	list, err := client.ListRequests(nil)
+	sorter := new(boruta.SortInfo)
+
+	// nil spec
+	list, info, err := client.ListRequests(nil, nil, nil)
 	assert.Nil(err)
 	assert.Equal(reqs, list)
+	assert.Equal(secondInfo, info)
 
 	// valid filter
-	list, err = client.ListRequests(validFilter)
+	list, info, err = client.ListRequests(validFilter, sorter, nil)
 	assert.Nil(err)
 	assert.Equal(reqs[:2], list)
+	assert.Equal(validInfo, info)
 
 	// no requests matched
-	list, err = client.ListRequests(missingFilter)
+	list, info, err = client.ListRequests(missingFilter, sorter, nil)
 	assert.Nil(err)
 	assert.Equal([]boruta.ReqInfo{}, list)
+	assert.Equal(&boruta.ListInfo{}, info)
 
-	// json.Marshal failure
-	var typeError *json.UnsupportedTypeError
-	list, err = client.ListRequests(make(chanFilter))
+	// valid filter, sort by priority, ascending.
+	sorter.Item = "priority"
+	list, info, err = client.ListRequests(validFilter, sorter, nil)
+	assert.Nil(err)
+	assert.Equal(reqs[:2], list)
+	assert.Equal(validInfo, info)
+
+	// valid filter, sort by state, descending.
+	sorter.Item = "state"
+	sorter.Order = boruta.SortOrderDesc
+	list, info, err = client.ListRequests(validFilter, sorter, nil)
+	assert.Nil(err)
+	assert.Equal([]boruta.ReqInfo{reqs[1], reqs[0]}, list)
+	assert.Equal(validInfo, info)
+
+	// List first part of all requests.
+	list, info, err = client.ListRequests(nil, nil, fwdPaginator1)
+	assert.Nil(err)
+	assert.Equal(reqs[:2], list)
+	assert.Equal(firstInfo, info)
+
+	// List second part of all requests.
+	list, info, err = client.ListRequests(nil, nil, fwdPaginator2)
+	assert.Nil(err)
+	assert.Equal(reqs[2:], list)
+	assert.Equal(secondInfo, info)
+
+	// List first part of all requests (backward).
+	list, info, err = client.ListRequests(nil, nil, backPaginator1)
+	assert.Nil(err)
+	assert.Equal(reqs[2:], list)
+	assert.Equal(firstInfo, info)
+
+	// List second part of all requests (backward).
+	list, info, err = client.ListRequests(nil, nil, backPaginator2)
+	assert.Nil(err)
+	assert.Equal(reqs[:2], list)
+	assert.Equal(secondInfo, info)
+
+	// Missing headers.
+	list, info, err = client.ListRequests(missingFilter, sorterAsc, nil)
+	assert.Nil(list)
+	assert.Nil(info)
+	assert.NotNil(err)
+
+	// Malformed headers.
+	list, info, err = client.ListRequests(nil, sorterAsc, nil)
+	assert.Nil(list)
+	assert.Nil(info)
+	assert.NotNil(err)
+
+	// Bad sort item.
+	sorter.Item = "foobarbaz"
+	list, info, err = client.ListRequests(validFilter, sorter, nil)
 	assert.Empty(list)
-	assert.IsType(typeError, err)
+	assert.Nil(info)
+	assert.NotNil(err)
+
+	// Wrong type of filter.
+	list, info, err = client.ListRequests(new(dummyListFilter), sorter, nil)
+	assert.Empty(list)
+	assert.Nil(info)
+	assert.NotNil(err)
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	list, err = client.ListRequests(nil)
+	list, info, err = client.ListRequests(nil, sorter, nil)
 	assert.Zero(list)
+	assert.Nil(info)
 	assert.NotNil(err)
-
 }
 
 func TestAcquireWorker(t *testing.T) {
@@ -847,73 +1074,255 @@ func TestListWorkers(t *testing.T) {
 		newWorker("2", boruta.IDLE, boruta.Groups{"Malinowy Chruśniak", "Lędzianie"}, riscvCaps),
 		newWorker("3", boruta.FAIL, boruta.Groups{"Malinowy Chruśniak"}, riscvCaps),
 	}
-	validFilter := util.WorkersFilter{
+	sorterAsc := &boruta.SortInfo{
+		Item:  "UUID",
+		Order: boruta.SortOrderAsc,
+	}
+	sorterDesc := &boruta.SortInfo{
+		Item:  "state",
+		Order: boruta.SortOrderDesc,
+	}
+
+	validInfo := &boruta.ListInfo{TotalItems: 2, RemainingItems: 0}
+	allInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+	emptyInfo := &boruta.ListInfo{TotalItems: 0, RemainingItems: 0}
+	firstInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 2}
+	secondInfo := &boruta.ListInfo{TotalItems: 4, RemainingItems: 0}
+
+	fwdPaginator1 := &boruta.WorkersPaginator{
+		ID:        "0",
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	fwdPaginator2 := &boruta.WorkersPaginator{
+		ID:        "2",
+		Direction: boruta.DirectionForward,
+		Limit:     2,
+	}
+	backPaginator1 := &boruta.WorkersPaginator{
+		ID:        "4",
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+	backPaginator2 := &boruta.WorkersPaginator{
+		ID:        "2",
+		Direction: boruta.DirectionBackward,
+		Limit:     2,
+	}
+
+	validFilter := &filter.Workers{
 		Groups:       boruta.Groups{"Lędzianie"},
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
 	validHeader := make(http.Header)
-	validHeader.Set("Boruta-Worker-Count", "2")
+	validHeader.Set(util.WorkerCountHdr, "2")
 	allHeader := make(http.Header)
-	allHeader.Set("Boruta-Worker-Count", "4")
-	missingFilter := util.WorkersFilter{
+	allHeader.Set(util.WorkerCountHdr, "4")
+	missingFilter := &filter.Workers{
 		Groups: boruta.Groups{"Fern Flower"},
 	}
 	missingHeader := make(http.Header)
-	missingHeader.Set("Boruta-Worker-Count", "0")
+	missingHeader.Set(util.WorkerCountHdr, "0")
 
 	tests := []*testCase{
 		&testCase{
 			// valid request
-			name:        prefix + "valid-filter",
-			path:        path,
-			json:        string(jsonMustMarshal(validFilter)),
+			name: prefix + "valid-filter",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: validFilter,
+				Sorter: &boruta.SortInfo{},
+			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      validHeader,
+			header:      updateHeaders(validHeader, validInfo),
 		},
 		&testCase{
 			// list all
-			name:        prefix + "empty-filter",
-			path:        path,
-			json:        string(jsonMustMarshal(util.WorkersFilter{Groups: nil, Capabilities: nil})),
+			name: prefix + "empty-filter",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: nil,
+				Sorter: nil,
+			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      allHeader,
+			header:      updateHeaders(allHeader, allInfo),
+		},
+		&testCase{
+			// list all - sorted by uuid, ascending
+			name: prefix + "empty-filter-sort-asc",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: nil,
+				Sorter: sorterAsc,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(allHeader, allInfo),
+		},
+		&testCase{
+			// list all - sorted by state, descending
+			name: prefix + "empty-filter-sort-desc",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: nil,
+				Sorter: sorterDesc,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(allHeader, allInfo),
+		},
+		&testCase{
+			// list first part of all requests
+			name: prefix + "paginator-fwd1",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: fwdPaginator1,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, firstInfo),
+		},
+		&testCase{
+			// list second part of all requests
+			name: prefix + "paginator-fwd2",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: fwdPaginator2,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, secondInfo),
+		},
+		&testCase{
+			// list first part of all requests (backward)
+			name: prefix + "paginator-back1",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: backPaginator1,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, firstInfo),
+		},
+		&testCase{
+			// list second part of all requests (backward)
+			name: prefix + "paginator-back2",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Paginator: backPaginator2,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusOK,
+			header:      updateHeaders(validHeader, secondInfo),
 		},
 		&testCase{
 			// no matches
-			name:        prefix + "nomatch",
-			path:        path,
-			json:        string(jsonMustMarshal(missingFilter)),
+			name: prefix + "nomatch",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: missingFilter,
+				Sorter: &boruta.SortInfo{},
+			})),
 			contentType: contentJSON,
 			status:      http.StatusOK,
-			header:      missingHeader,
+			header:      updateHeaders(missingHeader, &boruta.ListInfo{}),
+		},
+		&testCase{
+			// Bad sort item.
+			name: prefix + "bad-sorter-item",
+			path: path,
+			json: string(jsonMustMarshal(util.WorkersListSpec{
+				Filter: validFilter,
+				Sorter: sorterBad,
+			})),
+			contentType: contentJSON,
+			status:      http.StatusBadRequest,
 		},
 	}
 
 	srv := prepareServer(http.MethodPost, tests)
 	defer srv.Close()
 	assert, client := initTest(t, srv.URL)
+	sorter := new(boruta.SortInfo)
 
 	// list some
-	list, err := client.ListWorkers(validFilter.Groups, validFilter.Capabilities)
+	list, info, err := client.ListWorkers(validFilter, sorter, nil)
 	assert.Nil(err)
-	assert.Equal(workers[:2], list)
+	assert.Equal(validInfo, info)
+	assert.Equal(workers[2:], list)
 
 	// list all
-	list, err = client.ListWorkers(nil, nil)
+	list, info, err = client.ListWorkers(nil, nil, nil)
 	assert.Nil(err)
+	assert.Equal(allInfo, info)
 	assert.Equal(workers, list)
 
-	// no matches
-	list, err = client.ListWorkers(missingFilter.Groups, missingFilter.Capabilities)
+	// list first part of all requests
+	list, info, err = client.ListWorkers(nil, nil, fwdPaginator1)
 	assert.Nil(err)
+	assert.Equal(firstInfo, info)
+	assert.Equal(workers[:2], list)
+
+	// list second part of all requests
+	list, info, err = client.ListWorkers(nil, nil, fwdPaginator2)
+	assert.Nil(err)
+	assert.Equal(secondInfo, info)
+	assert.Equal(workers[2:], list)
+
+	// list first part of all requests (backward)
+	list, info, err = client.ListWorkers(nil, nil, backPaginator1)
+	assert.Nil(err)
+	assert.Equal(firstInfo, info)
+	assert.Equal(workers[2:], list)
+
+	// list second part of all requests (backward)
+	list, info, err = client.ListWorkers(nil, nil, backPaginator2)
+	assert.Nil(err)
+	assert.Equal(secondInfo, info)
+	assert.Equal(workers[:2], list)
+
+	// no matches
+	list, info, err = client.ListWorkers(missingFilter, sorter, nil)
+	assert.Nil(err)
+	assert.Equal(emptyInfo, info)
 	assert.Empty(list)
+
+	// list all, sorted by UUID (ascending)
+	sorter.Item = "UUID"
+	list, info, err = client.ListWorkers(nil, sorter, nil)
+	assert.Nil(err)
+	assert.Equal(allInfo, info)
+	assert.Equal(workers, list)
+
+	// list all, sorted by state (descending)
+	sorter.Item = "state"
+	sorter.Order = boruta.SortOrderDesc
+	w2 := []boruta.WorkerInfo{workers[2], workers[0], workers[3], workers[1]}
+	list, info, err = client.ListWorkers(nil, sorter, nil)
+	assert.Nil(err)
+	assert.Equal(allInfo, info)
+	assert.Equal(w2, list)
+
+	// Bad sort item.
+	sorter.Item = "foobarbaz"
+	list, info, err = client.ListWorkers(validFilter, sorter, nil)
+	assert.Empty(list)
+	assert.Nil(info)
+	assert.NotNil(err)
+
+	// Wrong filter type.
+	list, info, err = client.ListWorkers(new(dummyListFilter), sorter, nil)
+	assert.Empty(list)
+	assert.Nil(info)
+	assert.Equal(errors.New("only *filter.Workers type is supported"), err)
 
 	// http.Post failure
 	client.url = "http://nosuchaddress.fail"
-	list, err = client.ListWorkers(nil, nil)
-	assert.Zero(list)
+	list, info, err = client.ListWorkers(nil, nil, nil)
+	assert.Empty(list)
+	assert.Nil(info)
 	assert.NotNil(err)
 }
 
@@ -922,7 +1331,7 @@ func TestGetWorkerInfo(t *testing.T) {
 	path := "/api/v1/workers/"
 	worker := newWorker(validUUID, boruta.IDLE, boruta.Groups{}, nil)
 	header := make(http.Header)
-	header.Set("Boruta-Worker-State", "IDLE")
+	header.Set(util.WorkerStateHdr, "IDLE")
 
 	tests := []*testCase{
 		&testCase{
@@ -1081,7 +1490,7 @@ func TestGetRequestState(t *testing.T) {
 	path := "/api/v1/reqs/"
 
 	header := make(http.Header)
-	header.Set("Boruta-Request-State", string(boruta.DONE))
+	header.Set(util.RequestStateHdr, string(boruta.DONE))
 
 	tests := []*testCase{
 		&testCase{
@@ -1119,7 +1528,7 @@ func TestGetWorkerState(t *testing.T) {
 	path := "/api/v1/workers/"
 
 	header := make(http.Header)
-	header.Set("Boruta-Worker-State", string(boruta.RUN))
+	header.Set(util.WorkerStateHdr, string(boruta.RUN))
 
 	tests := []*testCase{
 		&testCase{
@@ -1158,15 +1567,15 @@ func TestGetJobTimeout(t *testing.T) {
 	date := time.Now().Round(time.Second)
 
 	header := make(http.Header)
-	header.Set("Boruta-Request-State", string(boruta.INPROGRESS))
-	header.Set("Boruta-Job-Timeout", date.Format(util.DateFormat))
+	header.Set(util.RequestStateHdr, string(boruta.INPROGRESS))
+	header.Set(util.JobTimeoutHdr, date.Format(util.DateFormat))
 
 	wait := make(http.Header)
-	wait.Set("Boruta-Request-State", string(boruta.WAIT))
+	wait.Set(util.RequestStateHdr, string(boruta.WAIT))
 
 	bad := make(http.Header)
-	bad.Set("Boruta-Request-State", string(boruta.INPROGRESS))
-	bad.Set("Boruta-Job-Timeout", "fail")
+	bad.Set(util.RequestStateHdr, string(boruta.INPROGRESS))
+	bad.Set(util.JobTimeoutHdr, "fail")
 
 	tests := []*testCase{
 		&testCase{
@@ -1238,9 +1647,9 @@ func TestVersion(t *testing.T) {
 	}
 
 	header := make(http.Header)
-	header.Set("Boruta-Server-Version", valid.Server)
-	header.Set("Boruta-API-Version", valid.API)
-	header.Set("Boruta-API-State", valid.State)
+	header.Set(util.ServerVersionHdr, valid.Server)
+	header.Set(util.APIVersionHdr, valid.API)
+	header.Set(util.APIStateHdr, valid.State)
 
 	tests := []*testCase{
 		&testCase{

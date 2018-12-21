@@ -17,6 +17,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"net/http"
@@ -65,7 +66,6 @@ type requestTest struct {
 	json        string
 	contentType string
 	status      int
-	header      http.Header
 }
 
 type allMocks struct {
@@ -147,15 +147,18 @@ func testFromTempl(templ *requestTest, name string, path string,
 	return
 }
 
-func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups, caps boruta.Capabilities) (w boruta.WorkerInfo) {
-	if caps == nil {
-		caps = make(boruta.Capabilities)
+func newWorker(uuid string, state boruta.WorkerState, groups boruta.Groups,
+	caps boruta.Capabilities) (w boruta.WorkerInfo) {
+
+	c := make(boruta.Capabilities)
+	for k, v := range caps {
+		c[k] = v
 	}
-	caps["UUID"] = uuid
+	c["UUID"] = uuid
 	w = boruta.WorkerInfo{
 		WorkerUUID: boruta.WorkerUUID(uuid),
 		State:      state,
-		Caps:       caps,
+		Caps:       c,
 	}
 	if len(groups) != 0 {
 		w.Groups = groups
@@ -190,11 +193,23 @@ func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []request
 
 			// read expected results from file or generate the file
 			tdata := filepath.Join("testdata", test.name+"-"+method+".json")
+			hdata := filepath.Join("testdata", test.name+".headers")
 			body, err := ioutil.ReadAll(resp.Body)
 			assert.Nil(err)
-			if update && resp.StatusCode != http.StatusNoContent &&
-				method != http.MethodHead {
-				err = ioutil.WriteFile(tdata, body, 0644)
+			if update {
+				if resp.StatusCode != http.StatusNoContent &&
+					method != http.MethodHead {
+					err = ioutil.WriteFile(tdata, body, 0644)
+					assert.Nil(err)
+				}
+				hdr := make(http.Header)
+				for k, v := range resp.Header {
+					if k != "Date" {
+						// hdr will be used read-only, so no copy is needed.
+						hdr[k] = v
+					}
+				}
+				err = ioutil.WriteFile(hdata, []byte(jsonMustMarshal(hdr)), 0644)
 				assert.Nil(err)
 			}
 
@@ -216,15 +231,18 @@ func runTests(assert *assert.Assertions, r *httptreemux.TreeMux, tests []request
 				continue
 			}
 			// check Boruta HTTP headers
-			if test.header != nil && len(test.header) > 0 {
-				for k, v := range test.header {
-					assert.Contains(resp.Header, k, tcaseErrStr+" (header)")
-					assert.Equal(v, resp.Header[k], tcaseErrStr+" (header)")
-				}
+			hdr := make(http.Header)
+			headers, err := ioutil.ReadFile(hdata)
+			assert.Nil(err)
+			err = json.Unmarshal(headers, &hdr)
+			assert.Nil(err)
+			for k, v := range hdr {
+				assert.Contains(resp.Header, k, tcaseErrStr+" (header)")
+				assert.Equal(v, resp.Header[k], tcaseErrStr+" (header)")
 			}
 			// check result JSON
 			expected, err := ioutil.ReadFile(tdata)
-			assert.Nil(err, tcaseErrStr)
+			assert.Nil(err)
 			assert.JSONEq(string(expected), string(body), tcaseErrStr+" (JSON)")
 		}
 	}

@@ -146,7 +146,7 @@ type JobInfo struct {
 }
 
 // Group is a set of Workers.
-type Group string
+type Group = string
 
 // Groups is a superset of all instances of Group.
 type Groups []Group
@@ -169,12 +169,6 @@ type WorkerInfo struct {
 	Caps       Capabilities
 }
 
-// ListFilter is used to filter Requests in the Queue.
-type ListFilter interface {
-	// Match tells if request matches the filter.
-	Match(req *ReqInfo) bool
-}
-
 // Requests defines an interaction of a user with Requests Queue.
 type Requests interface {
 	// NewRequest creates a Request with given features and adds it to the Queue.
@@ -189,9 +183,12 @@ type Requests interface {
 	UpdateRequest(reqInfo *ReqInfo) error
 	// GetRequestInfo returns ReqInfo associated with ReqID.
 	GetRequestInfo(reqID ReqID) (ReqInfo, error)
-	// ListRequests returns ReqInfo matching the filter
-	// or all Requests if empty filter is given.
-	ListRequests(filter ListFilter) ([]ReqInfo, error)
+	// ListRequests returns slice of ReqInfo matching the filter (any request matches if filter
+	// is empty or nil).  Returned requests are sorted by given sorter. Matching requests are
+	// divided into pages according to paginator and paginator specified page is returned.
+	// Additional metadata are returned as a pointer to ListInfo.
+	ListRequests(filter ListFilter, sorter *SortInfo, paginator *RequestsPaginator) ([]ReqInfo,
+		*ListInfo, error)
 	// AcquireWorker returns information necessary to access the Worker reserved by the Request
 	// and prolongs access to it. If the Request is in the WAIT state, call to this function
 	// will block until the state changes.
@@ -217,9 +214,12 @@ type Superviser interface {
 // Workers defines all actions that can be done by users and admins on workers.
 // Users (and admins) can also call methods from Requests interface.
 type Workers interface {
-	// ListWorkers returns a list of all Workers matching Groups and Capabilities
-	// or all registered Workers if both arguments are empty.
-	ListWorkers(groups Groups, caps Capabilities) ([]WorkerInfo, error)
+	// ListWorkers returns a slice of Workers matching filter (any worker matches if filter is
+	// empty or nil. The list is sorted according to passed sorter (using default sorting when
+	// it's nil). Matching workers are divided into pages according to paginator and paginator
+	// specified page is returned. Additional metadata are returned as a pointer to ListInfo.
+	ListWorkers(filter ListFilter, sorter *SortInfo, paginator *WorkersPaginator) ([]WorkerInfo,
+		*ListInfo, error)
 	// GetWorkerInfo returns WorkerInfo of specified worker.
 	GetWorkerInfo(uuid WorkerUUID) (WorkerInfo, error)
 

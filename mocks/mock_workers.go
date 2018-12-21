@@ -59,16 +59,17 @@ func (mr *MockWorkersMockRecorder) GetWorkerInfo(arg0 interface{}) *gomock.Call 
 }
 
 // ListWorkers mocks base method
-func (m *MockWorkers) ListWorkers(arg0 boruta.Groups, arg1 boruta.Capabilities) ([]boruta.WorkerInfo, error) {
-	ret := m.ctrl.Call(m, "ListWorkers", arg0, arg1)
+func (m *MockWorkers) ListWorkers(arg0 boruta.ListFilter, arg1 *boruta.SortInfo, arg2 *boruta.WorkersPaginator) ([]boruta.WorkerInfo, *boruta.ListInfo, error) {
+	ret := m.ctrl.Call(m, "ListWorkers", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]boruta.WorkerInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*boruta.ListInfo)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ListWorkers indicates an expected call of ListWorkers
-func (mr *MockWorkersMockRecorder) ListWorkers(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListWorkers", reflect.TypeOf((*MockWorkers)(nil).ListWorkers), arg0, arg1)
+func (mr *MockWorkersMockRecorder) ListWorkers(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListWorkers", reflect.TypeOf((*MockWorkers)(nil).ListWorkers), arg0, arg1, arg2)
 }
 
 // SetGroups mocks base method
