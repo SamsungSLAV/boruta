@@ -113,21 +113,20 @@ func setDefaultAPIRedirect(prefix *httptreemux.Group) {
 }
 
 // NewAPI creates router and registers all available Boruta HTTP APIs on it. It also sets
-// panicHandler for all panics that may occur in any API and enables CORS support. It sets
-// default API version to which requests that miss API version are redirected.
-func NewAPI(requestsAPI boruta.Requests, workersAPI boruta.Workers) (api *API) {
-	api = new(API)
+// panicHandler for all panics that may occur in any API and enables CORS support for provided
+// origins. It sets default API version to which requests that miss API version are redirected.
+func NewAPI(requestsAPI boruta.Requests, workersAPI boruta.Workers, origins []string,
+	age int) (api *API) {
 
+	api = new(API)
 	api.reqs = requestsAPI
 	api.workers = workersAPI
 
 	c := cors.New(cors.Options{
-		//TODO(mwereski): should be configurable.
-		AllowedOrigins: []string{"*"},
+		AllowedOrigins: origins,
 		AllowedMethods: []string{http.MethodGet, http.MethodHead, http.MethodPost},
 		AllowedHeaders: []string{contentTypeHdr},
-		//TODO(mwereski): should be configurable.
-		MaxAge: day,
+		MaxAge:         age,
 	})
 
 	api.r = httptreemux.New()
