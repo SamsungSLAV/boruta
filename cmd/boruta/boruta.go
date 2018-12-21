@@ -31,6 +31,20 @@ import (
 	"github.com/SamsungSLAV/boruta/workers"
 )
 
+// day is 24 hours in seconds.
+const day = 86400
+
+var (
+	// origins contains Origins that should be allowed by CORS.
+	// TODO: this is default value, make it configurable
+	origins = []string{"*"}
+
+	// maxAge contains value that will be used as a 'Access-Control-Max-Age' header value. This
+	// is for CORS.
+	// TODO: this is default value, make it configurable
+	maxAge = day
+)
+
 var (
 	apiAddr = flag.String("api-addr", ":8487", "ip:port address of REST API server.")
 	rpcAddr = flag.String("rpc-addr", ":7175", "ip:port address of Dryad RPC server.")
@@ -45,7 +59,7 @@ func main() {
 	}
 	w := workers.NewWorkerList()
 	r := requests.NewRequestQueue(w, matcher.NewJobsManager(w))
-	a := api.NewAPI(r, w)
+	a := api.NewAPI(r, w, origins, maxAge)
 	err := superviser.StartSuperviserReception(w, *rpcAddr)
 	if err != nil {
 		log.Fatal("RPC register failed:", err)
