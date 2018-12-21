@@ -40,6 +40,12 @@ import (
 var update bool
 
 const (
+	// client
+	CORSRequestOrigin  = "Origin"
+	CORSRequestMethod  = "Access-Control-Request-Method"
+	CORSRequestHeaders = "Access-Control-Request-Headers"
+
+	// server
 	CORSAllowOrigin  = "Access-Control-Allow-Origin"
 	CORSAllowMethods = "Access-Control-Allow-Methods"
 	CORSAllowHeaders = "Access-Control-Allow-Headers"
@@ -52,13 +58,41 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func initTest(t *testing.T) (*assert.Assertions, *API) {
+func initTest(t *testing.T, origins []string, age int) (*assert.Assertions, *API) {
 	wm := workers.NewWorkerList()
-	return assert.New(t), NewAPI(requests.NewRequestQueue(wm, matcher.NewJobsManager(wm)), wm)
+	return assert.New(t), NewAPI(requests.NewRequestQueue(wm, matcher.NewJobsManager(wm)), wm,
+		origins, age)
+}
+
+func prepareHeaders(origin, header, method string, server bool) (hdr http.Header) {
+	keys := make(map[string]string, 4)
+	if server {
+		keys["origin"] = CORSAllowOrigin
+		keys["header"] = CORSAllowHeaders
+		keys["method"] = CORSAllowMethods
+	} else {
+		keys["origin"] = CORSRequestOrigin
+		keys["header"] = CORSRequestHeaders
+		keys["method"] = CORSRequestMethod
+	}
+	hdr = make(http.Header)
+	if origin != "" {
+		hdr.Set(keys["origin"], origin)
+		if server {
+			hdr.Set("Vary", "Origin")
+		}
+	}
+	if header != "" {
+		hdr.Set(keys["header"], header)
+	}
+	if method != "" {
+		hdr.Set(keys["method"], method)
+	}
+	return
 }
 
 func TestPanicHandler(t *testing.T) {
-	assert, api := initTest(t)
+	assert, api := initTest(t, nil, 0)
 	msg := "Test PanicHandler: server panic"
 	otherErr := "some error"
 	tests := [...]struct {
@@ -112,12 +146,15 @@ func TestPanicHandler(t *testing.T) {
 }
 
 func TestNewAPI(t *testing.T) {
-	assert, api := initTest(t)
+	assert, api := initTest(t, nil, 0)
+	assert.NotNil(api)
+	api = nil
+	assert, api = initTest(t, []string{"*"}, 5)
 	assert.NotNil(api)
 }
 
 func TestRedirectToDefault(t *testing.T) {
-	assert, api := initTest(t)
+	assert, api := initTest(t, nil, 0)
 	srv := httptest.NewServer(api.Router)
 	defer srv.Close()
 
@@ -167,42 +204,132 @@ func TestRedirectToDefault(t *testing.T) {
 }
 
 func TestCORS(t *testing.T) {
-	assert, api := initTest(t)
-	var client http.Client
-	srv := httptest.NewServer(api.Router)
 	path := "/api/v1/reqs"
+	wm := workers.NewWorkerList()
+	mr := matcher.NewJobsManager(wm)
+	rq := requests.NewRequestQueue(wm, mr)
+	srvAll := httptest.NewServer(NewAPI(rq, wm, []string{"*"}, 0).Router)
+	srvFoo := httptest.NewServer(NewAPI(rq, wm, []string{"http://foo.bar"}, day).Router)
+	srvNone := httptest.NewServer(NewAPI(rq, wm, []string{""}, 0).Router)
+	srvNil := httptest.NewServer(NewAPI(rq, wm, nil, 0).Router)
+	defer srvAll.Close()
+	defer srvFoo.Close()
+	defer srvNone.Close()
+	defer srvNil.Close()
 
-	// Simple CORS request
-	request, err := http.NewRequest(http.MethodPost, srv.URL+path, nil)
-	assert.Nil(err)
-	request.Header.Set("Origin", "http://foo.bar")
-	resp, err := client.Do(request)
-	assert.Nil(err)
-	assert.Equal("*", resp.Header.Get(CORSAllowOrigin))
+	var tests = [...]struct {
+		name     string
+		client   *http.Client
+		url      string
+		header   http.Header
+		expected http.Header
+		method   string
+		max      int
+	}{
+		{
+			name:     "simple CORS, one allowed, matching",
+			client:   srvFoo.Client(),
+			url:      srvFoo.URL + path,
+			header:   prepareHeaders("http://foo.bar", "", "", false),
+			expected: prepareHeaders("http://foo.bar", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:     "simple CORS, one allowed, scheme not matching",
+			client:   srvFoo.Client(),
+			url:      srvFoo.URL + path,
+			header:   prepareHeaders("https://foo.bar", "", "", false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:     "simple CORS, one allowed, host not matching",
+			client:   srvFoo.Client(),
+			url:      srvFoo.URL + path,
+			header:   prepareHeaders("http://bar.baz", "", "", false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:     "simple CORS, one allowed, port not matching",
+			client:   srvFoo.Client(),
+			url:      srvFoo.URL + path,
+			header:   prepareHeaders("http://foo.bar:81", "", "", false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:     "simple CORS, all allowed",
+			client:   srvAll.Client(),
+			url:      srvAll.URL + path,
+			header:   prepareHeaders("http://foo.bar", "", "", false),
+			expected: prepareHeaders("*", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:     "simple CORS, none allowed",
+			client:   srvNone.Client(),
+			url:      srvNone.URL + path,
+			header:   prepareHeaders("http://foo.bar", "", "", false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:     "simple CORS, none allowed (nil)",
+			client:   srvNil.Client(),
+			url:      srvNil.URL + path,
+			header:   prepareHeaders("http://foo.bar", "", "", false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodGet,
+		},
+		{
+			name:   "preflight CORS, one allowed, matching",
+			client: srvFoo.Client(),
+			url:    srvFoo.URL + path,
+			header: prepareHeaders("http://foo.bar", contentTypeHdr, http.MethodPost,
+				false),
+			expected: prepareHeaders("http://foo.bar", contentTypeHdr, http.MethodPost,
+				true),
+			method: http.MethodOptions,
+			max:    day,
+		},
+		{
+			name:   "preflight CORS, one allowed, headers not matching",
+			client: srvFoo.Client(),
+			url:    srvFoo.URL + path,
+			header: prepareHeaders("http://foo.bar", "Foo: Bar", http.MethodPost,
+				false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodOptions,
+		},
+		{
+			name:   "preflight CORS, one allowed, method not matching",
+			client: srvFoo.Client(),
+			url:    srvFoo.URL + path,
+			header: prepareHeaders("http://foo.bar", contentTypeHdr, http.MethodDelete,
+				false),
+			expected: prepareHeaders("", "", "", true),
+			method:   http.MethodOptions,
+		},
+	}
 
-	// Preflight CORS request
-	request, err = http.NewRequest(http.MethodOptions, srv.URL+path, nil)
-	assert.Nil(err)
-	request.Header.Set("Origin", "http://foo.bar")
-	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	request.Header.Set("Access-Control-Request-Headers", contentTypeHdr)
-	resp, err = client.Do(request)
-	assert.Nil(err)
-	assert.Equal("*", resp.Header.Get(CORSAllowOrigin))
-	assert.Equal(http.MethodPost, resp.Header.Get(CORSAllowMethods))
-	assert.Equal(contentTypeHdr, resp.Header.Get(CORSAllowHeaders))
-	assert.Equal(strconv.Itoa(day), resp.Header.Get(CORSMaxAge))
-	assert.Equal("Origin", resp.Header.Get("Vary"))
-
-	// Preflight CORS request - wrong header
-	request.Header.Set("Access-Control-Request-Headers", "foo")
-	resp, err = client.Do(request)
-	assert.Nil(err)
-	assert.Empty(resp.Header.Get(CORSAllowOrigin))
-	// Preflight CORS request - wrong method
-	request.Header.Del("Access-Control-Request-Headers")
-	request.Header.Set("Access-Control-Request-Method", http.MethodDelete)
-	resp, err = client.Do(request)
-	assert.Nil(err)
-	assert.Empty(resp.Header.Get(CORSAllowOrigin))
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			assert := assert.New(t)
+			req, err := http.NewRequest(tc.method, tc.url, nil)
+			assert.Nil(err)
+			for k, v := range tc.header {
+				req.Header.Set(k, v[0])
+			}
+			resp, err := tc.client.Do(req)
+			assert.Nil(err)
+			for k, v := range tc.expected {
+				assert.Equal(v[0], resp.Header.Get(k))
+			}
+			if tc.max != 0 {
+				assert.Equal(strconv.Itoa(tc.max), resp.Header.Get(CORSMaxAge))
+			}
+		})
+	}
 }
