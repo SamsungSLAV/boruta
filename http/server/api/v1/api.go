@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2019 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -82,11 +82,11 @@ func routerSetHandler(grp *httptreemux.Group, path string, fn reqHandler,
 						data.Job.Timeout.Format(util.DateFormat))
 				}
 			case []boruta.ReqInfo:
-				w.Header().Add(util.RequestCountHdr, strconv.Itoa(len(data)))
+				w.Header().Add(util.ListBatchSizeHdr, strconv.Itoa(len(data)))
 			case boruta.WorkerInfo:
 				w.Header().Add(util.WorkerStateHdr, string(data.State))
 			case []boruta.WorkerInfo:
-				w.Header().Add(util.WorkerCountHdr, strconv.Itoa(len(data)))
+				w.Header().Add(util.ListBatchSizeHdr, strconv.Itoa(len(data)))
 			case *util.BorutaVersion:
 				w.Header().Add(util.ServerVersionHdr, data.Server)
 				w.Header().Add(util.APIVersionHdr, data.API)

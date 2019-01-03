@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2019 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -39,12 +39,12 @@ const (
 	// ListRemainingItemsHdr is HTTP header that is set in response to filtering methods. It contains
 	// number of items that weren't paged through yet.
 	ListRemainingItemsHdr = "Boruta-List-Remaining"
+	// ListBatchSizeHdr is HTTP header that is set in responses to filtering methods. It contains
+	// number of items in the response.
+	ListBatchSizeHdr = "Boruta-List-Batch-Size"
 	// RequestStateHdr is HTTP header that is set in responses that (would) carry boruta.ReqInfo.
 	// It contains state of the request.
 	RequestStateHdr = "Boruta-Request-State"
-	// RequestCountHdr is HTTP header that is set in responses that (would) carry collection of
-	// boruta.ReqInfo items. It contains number of items in the collection.
-	RequestCountHdr = "Boruta-Request-Count"
 	// JobTimeoutHdr is HTTP header that is set in responses that (would) carry boruta.ReqInfo
 	// of request that is in INPROGRESS state. It denotes when timeout will pass and request will
 	// be closed.
@@ -52,18 +52,15 @@ const (
 	// WorkerStateHdr is HTTP header that is set in responses that (would) carry
 	// boruta.WorkerInfo. It contains state of the worker.
 	WorkerStateHdr = "Boruta-Worker-State"
-	// WorkerCountHdr is HTTP header that is set in repsonses that (would) carry collection of
-	// boruta.WorkerInfo items.
-	WorkerCountHdr = "Boruta-Worker-Count"
 	// ServerVersionHdr is HTTP header that is set when Boruta version information is requested.
 	// It contains version of the server.
 	ServerVersionHdr = "Boruta-Server-Version"
 	// APIVersionHdr is HTTP header that is set when Boruta version information is requested. It
 	// contains version of the HTTP API.
-	APIVersionHdr = "Boruta-API-Version"
+	APIVersionHdr = "Boruta-Api-Version"
 	// APIStateHdr is HTTP header that is set when Boruta version information is requested. It
 	// contains state of used API version.
-	APIStateHdr = "Boruta-API-State"
+	APIStateHdr = "Boruta-Api-State"
 )
 
 // API possible states.
