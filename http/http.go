@@ -60,10 +60,10 @@ const (
 	ServerVersionHdr = "Boruta-Server-Version"
 	// APIVersionHdr is HTTP header that is set when Boruta version information is requested. It
 	// contains version of the HTTP API.
-	APIVersionHdr = "Boruta-API-Version"
+	APIVersionHdr = "Boruta-Api-Version"
 	// APIStateHdr is HTTP header that is set when Boruta version information is requested. It
 	// contains state of used API version.
-	APIStateHdr = "Boruta-API-State"
+	APIStateHdr = "Boruta-Api-State"
 )
 
 // API possible states.

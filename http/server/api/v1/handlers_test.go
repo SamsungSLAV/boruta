@@ -995,10 +995,6 @@ func TestDeregisterWorkerHandler(t *testing.T) {
 func TestVersionHandler(t *testing.T) {
 	assert, m, r := initTest(t)
 	defer m.finish()
-	/*header := make(http.Header)
-	header.Set(util.ServerVersionHdr, boruta.Version)
-	header.Set(util.APIVersionHdr, Version)
-	header.Set(util.APIStateHdr, State)*/
 
 	tests := []requestTest{
 		{
