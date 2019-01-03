@@ -126,7 +126,11 @@ func NewAPI(requestsAPI boruta.Requests, workersAPI boruta.Workers, origins []st
 		AllowedOrigins: origins,
 		AllowedMethods: []string{http.MethodGet, http.MethodHead, http.MethodPost},
 		AllowedHeaders: []string{contentTypeHdr},
-		MaxAge:         age,
+		ExposedHeaders: []string{util.ListTotalItemsHdr, util.ListRemainingItemsHdr,
+			util.RequestStateHdr, util.RequestCountHdr, util.JobTimeoutHdr,
+			util.WorkerStateHdr, util.WorkerCountHdr, util.ServerVersionHdr,
+			util.APIVersionHdr, util.APIStateHdr},
+		MaxAge: age,
 	})
 
 	api.r = httptreemux.New()

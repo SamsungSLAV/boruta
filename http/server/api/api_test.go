@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/SamsungSLAV/boruta"
@@ -46,10 +47,11 @@ const (
 	CORSRequestHeaders = "Access-Control-Request-Headers"
 
 	// server
-	CORSAllowOrigin  = "Access-Control-Allow-Origin"
-	CORSAllowMethods = "Access-Control-Allow-Methods"
-	CORSAllowHeaders = "Access-Control-Allow-Headers"
-	CORSMaxAge       = "Access-Control-Max-Age"
+	CORSAllowOrigin   = "Access-Control-Allow-Origin"
+	CORSAllowMethods  = "Access-Control-Allow-Methods"
+	CORSAllowHeaders  = "Access-Control-Allow-Headers"
+	CORSExposeHeaders = "Access-Control-Expose-Headers"
+	CORSMaxAge        = "Access-Control-Max-Age"
 )
 
 func TestMain(m *testing.M) {
@@ -66,16 +68,24 @@ func initTest(t *testing.T, origins []string, age int) (*assert.Assertions, *API
 
 func prepareHeaders(origin, header, method string, server bool) (hdr http.Header) {
 	var originKey, methodKey, headerKey string
+	hdr = make(http.Header)
+	exposedHdrs := []string{util.ListTotalItemsHdr, util.ListRemainingItemsHdr,
+		util.RequestStateHdr, util.RequestCountHdr, util.JobTimeoutHdr,
+		util.WorkerStateHdr, util.WorkerCountHdr, util.ServerVersionHdr,
+		util.APIVersionHdr, util.APIStateHdr}
 	if server {
 		originKey = CORSAllowOrigin
 		headerKey = CORSAllowHeaders
 		methodKey = CORSAllowMethods
+		// Set Exposed-Headers for actual/simple CORS. If method is set then it's prefligth.
+		if origin != "" && method == "" {
+			hdr.Set(CORSExposeHeaders, strings.Join(exposedHdrs, ", "))
+		}
 	} else {
 		originKey = CORSRequestOrigin
 		headerKey = CORSRequestHeaders
 		methodKey = CORSRequestMethod
 	}
-	hdr = make(http.Header)
 	if origin != "" {
 		hdr.Set(originKey, origin)
 		if server {
