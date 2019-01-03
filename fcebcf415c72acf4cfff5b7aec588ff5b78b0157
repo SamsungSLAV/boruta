@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e87c2fe7_2bf7f966",
+        "filename": "http/server/api/api.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-03T15:05:23Z",
+      "side": 1,
+      "message": "Consider:\n// When API version is omitted in HTTP request, server will be redirect user to the default API \n// version (latest stable).",
+      "range": {
+        "startLine": 18,
+        "startChar": 2,
+        "endLine": 19,
+        "endChar": 19
+      },
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f4a90cc4_50528695",
+        "filename": "http/server/api/api.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 127,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-03T15:05:23Z",
+      "side": 1,
+      "message": "what about http.MethodOptions for the preflight? shouldnt they be also added?",
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
