@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a364c8fb_21ee242f",
+        "filename": "cmd/boruta/boruta.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-03T15:18:00Z",
+      "side": 1,
+      "message": "wouldnt it be better to wrap it in a config struct, so even when some more configuration data should be passed to server, api will not change?",
+      "range": {
+        "startLine": 62,
+        "startChar": 24,
+        "endLine": 62,
+        "endChar": 36
+      },
+      "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
