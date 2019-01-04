@@ -2,6 +2,29 @@
   "comments": [
     {
       "key": {
+        "uuid": "4c8607ca_c2054754",
+        "filename": "cmd/boruta/boruta.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2019-01-04T10:02:22Z",
+      "side": 1,
+      "message": "update",
+      "range": {
+        "startLine": 2,
+        "startChar": 23,
+        "endLine": 2,
+        "endChar": 27
+      },
+      "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a364c8fb_21ee242f",
         "filename": "cmd/boruta/boruta.go",
         "patchSetId": 4
@@ -46,6 +69,52 @@
       "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
       "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1eed3035_cb7c06d2",
+        "filename": "http/server/api/api.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2019-01-04T10:02:22Z",
+      "side": 1,
+      "message": "update",
+      "range": {
+        "startLine": 2,
+        "startChar": 23,
+        "endLine": 2,
+        "endChar": 27
+      },
+      "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ec5a60e8_e66926ed",
+        "filename": "http/server/api/api_test.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2019-01-04T10:02:22Z",
+      "side": 1,
+      "message": "update",
+      "range": {
+        "startLine": 2,
+        "startChar": 23,
+        "endLine": 2,
+        "endChar": 27
+      },
+      "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
     }
   ]
 }
