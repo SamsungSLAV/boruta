@@ -2,6 +2,52 @@
   "comments": [
     {
       "key": {
+        "uuid": "86d68f5e_88e85dd2",
+        "filename": "cmd/boruta/boruta.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2019-01-04T10:00:44Z",
+      "side": 1,
+      "message": "update",
+      "range": {
+        "startLine": 2,
+        "startChar": 23,
+        "endLine": 2,
+        "endChar": 27
+      },
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da02fa4e_0a77ab21",
+        "filename": "http/server/api/api.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2019-01-04T10:00:44Z",
+      "side": 1,
+      "message": "update",
+      "range": {
+        "startLine": 2,
+        "startChar": 23,
+        "endLine": 2,
+        "endChar": 27
+      },
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e87c2fe7_2bf7f966",
         "filename": "http/server/api/api.go",
         "patchSetId": 4
@@ -78,6 +124,29 @@
       "side": 1,
       "message": "No, it has no sense. How would you make a preflight request to check if you can make preflight request? These are allowed methods for actual requests.",
       "parentUuid": "f4a90cc4_50528695",
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ce6d9fe3_04c45951",
+        "filename": "http/server/api/api_test.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 1015221
+      },
+      "writtenOn": "2019-01-04T10:00:44Z",
+      "side": 1,
+      "message": "update",
+      "range": {
+        "startLine": 2,
+        "startChar": 23,
+        "endLine": 2,
+        "endChar": 27
+      },
       "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
       "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
       "unresolved": false
