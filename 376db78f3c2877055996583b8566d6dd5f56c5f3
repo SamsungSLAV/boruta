@@ -22,6 +22,30 @@
       "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
       "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f9323e59_d752ae4a",
+        "filename": "cmd/boruta/boruta.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-01-04T09:54:37Z",
+      "side": 1,
+      "message": "Currently there\u0027s no such struct and for sure when it will be created it will be in a separate package. So NewAPI will change nevertheless. Please stop insisting on doing config here. This will be done in its own branch.",
+      "parentUuid": "a364c8fb_21ee242f",
+      "range": {
+        "startLine": 62,
+        "startChar": 24,
+        "endLine": 62,
+        "endChar": 36
+      },
+      "revId": "376db78f3c2877055996583b8566d6dd5f56c5f3",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
     }
   ]
 }
