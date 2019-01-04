@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "60a0010b_03cfcd40",
+        "filename": "http/server/api/api.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-01-04T08:32:46Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "e87c2fe7_2bf7f966",
+      "range": {
+        "startLine": 18,
+        "startChar": 2,
+        "endLine": 19,
+        "endChar": 19
+      },
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f4a90cc4_50528695",
         "filename": "http/server/api/api.go",
         "patchSetId": 4
@@ -39,6 +63,24 @@
       "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
       "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "da63fa61_d07437d2",
+        "filename": "http/server/api/api.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 127,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-01-04T08:32:46Z",
+      "side": 1,
+      "message": "No, it has no sense. How would you make a preflight request to check if you can make preflight request? These are allowed methods for actual requests.",
+      "parentUuid": "f4a90cc4_50528695",
+      "revId": "fcebcf415c72acf4cfff5b7aec588ff5b78b0157",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
     }
   ]
 }
