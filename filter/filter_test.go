@@ -27,10 +27,10 @@ import (
 
 func TestNewRequest(t *testing.T) {
 	assert := assert.New(t)
-	state := string(boruta.WAIT)
+	state := "Waiting"
 	priority := boruta.HiPrio.String()
 	filter := &Requests{
-		State:    state,
+		State:    string(boruta.WAIT),
 		Priority: priority,
 	}
 	assert.Equal(filter, NewRequests(state, priority))

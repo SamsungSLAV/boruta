@@ -60,7 +60,8 @@ func (filter *Requests) Match(elem interface{}) bool {
 		return false
 	}
 
-	if filter.State != "" && string(req.State) != filter.State {
+	state := strings.ToUpper(filter.State)
+	if state != "" && string(req.State) != state {
 		return false
 	}
 
