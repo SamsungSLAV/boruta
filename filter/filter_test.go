@@ -26,14 +26,38 @@ import (
 )
 
 func TestNewRequest(t *testing.T) {
-	assert := assert.New(t)
-	state := string(boruta.WAIT)
+	var statesTests = [...]struct {
+		state string
+		name  string
+	}{
+		{
+			state: "WAITING",
+			name:  "ALLCAPS",
+		},
+		{
+			state: "waiting",
+			name:  "smallcaps",
+		},
+		{
+			state: "Waiting",
+			name:  "CamelCase",
+		},
+		{
+			state: string(boruta.WAIT),
+			name:  "default",
+		},
+	}
 	priority := boruta.HiPrio.String()
 	filter := &Requests{
-		State:    state,
+		State:    string(boruta.WAIT),
 		Priority: priority,
 	}
-	assert.Equal(filter, NewRequests(state, priority))
+	for _, tc := range statesTests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert := assert.New(t)
+			assert.Equal(filter, NewRequests(tc.state, priority))
+		})
+	}
 }
 
 func TestRequestMatch(t *testing.T) {

@@ -18,7 +18,11 @@
 
 package workers
 
-import "github.com/SamsungSLAV/boruta"
+import (
+	"strings"
+
+	"github.com/SamsungSLAV/boruta"
+)
 
 // sorter implements sort.Interface. It allows to sort by worker UUID (default), State or
 // Groups in ascending or descending order. It is used by ListWorkers.
@@ -37,7 +41,8 @@ func newSorter(info *boruta.SortInfo) (*sorter, error) {
 			item:  "uuid",
 		}, nil
 	}
-	switch info.Item {
+	item := strings.ToLower(info.Item)
+	switch item {
 	case "":
 	case "uuid":
 	case "state":
@@ -47,7 +52,7 @@ func newSorter(info *boruta.SortInfo) (*sorter, error) {
 	}
 	return &sorter{
 		order: info.Order,
-		item:  info.Item,
+		item:  item,
 	}, nil
 }
 

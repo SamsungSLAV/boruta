@@ -93,7 +93,8 @@ func TestNewSorter(t *testing.T) {
 	assert.Equal("priority", sorter.item)
 	assert.Equal(boruta.SortOrderDesc, sorter.order)
 
-	si.Item = "deadline"
+	// newSorter should be case insensitive.
+	si.Item = "DeadLine"
 	sorter, err = newSorter(si)
 	assert.Nil(err)
 	assert.Equal("deadline", sorter.item)
@@ -105,7 +106,7 @@ func TestNewSorter(t *testing.T) {
 	assert.Equal("validafter", sorter.item)
 	assert.Equal(boruta.SortOrderDesc, sorter.order)
 
-	si.Item = "state"
+	si.Item = "STATE"
 	sorter, err = newSorter(si)
 	assert.Nil(err)
 	assert.Equal("state", sorter.item)
