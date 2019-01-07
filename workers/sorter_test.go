@@ -38,7 +38,7 @@ func TestNewSorter(t *testing.T) {
 		},
 		{
 			name: "uuid, ascending",
-			info: &boruta.SortInfo{Item: "uuid", Order: boruta.SortOrderAsc},
+			info: &boruta.SortInfo{Item: "UUID", Order: boruta.SortOrderAsc},
 			res:  &sorter{item: "uuid", order: boruta.SortOrderAsc},
 			err:  nil,
 		},
@@ -50,7 +50,7 @@ func TestNewSorter(t *testing.T) {
 		},
 		{
 			name: "groups, descending",
-			info: &boruta.SortInfo{Item: "groups", Order: boruta.SortOrderDesc},
+			info: &boruta.SortInfo{Item: "Groups", Order: boruta.SortOrderDesc},
 			res:  &sorter{item: "groups", order: boruta.SortOrderDesc},
 			err:  nil,
 		},
