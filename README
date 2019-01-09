@@ -97,7 +97,7 @@ Using Boruta
 
 #. Start Boruta server substituting your addresses and ports::
 
-      $ ./boruta --api-address=127.0.0.1:8487 --rpc-address=192.168.0.1:7175
+      $ ./boruta -api-addr=127.0.0.1:8487 -rpc-addr=192.168.0.1:7175
 
 #. Connect to your MuxPi_ and create directory for Dryad agent settings
    on the MuxPi_::
