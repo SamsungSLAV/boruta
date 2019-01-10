@@ -58,6 +58,14 @@ var _ = Describe("WorkerList", func() {
 		wl = NewWorkerList()
 	})
 
+	eventuallyState := func(info *mapWorker, state boruta.WorkerState) {
+		EventuallyWithOffset(1, func() boruta.WorkerState {
+			wl.mutex.RLock()
+			defer wl.mutex.RUnlock()
+			return info.State
+		}).Should(Equal(state))
+	}
+
 	It("should return non-nil new DryadClient every time called", func() {
 		for i := 0; i < 3; i++ {
 			Expect(wl.newDryadClient()).NotTo(BeNil(), "i = %d", i)
@@ -72,10 +80,21 @@ var _ = Describe("WorkerList", func() {
 
 	Describe("Register", func() {
 		var registeredWorkers []string
+		var ctrl *gomock.Controller
+		var dcm *MockDryadClientManager
 		invalidAddr := "addr.invalid"
 
 		BeforeEach(func() {
 			registeredWorkers = make([]string, 0)
+			ctrl = gomock.NewController(GinkgoT())
+			dcm = NewMockDryadClientManager(ctrl)
+			wl.newDryadClient = func() dryad.ClientManager {
+				return dcm
+			}
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
 		})
 
 		compareLists := func() {
@@ -139,28 +158,193 @@ var _ = Describe("WorkerList", func() {
 			Expect(wl.workers[uuid].backgroundOperation).NotTo(BeNil())
 		})
 
-		It("should update the caps when called twice for the same worker", func() {
-			var err error
-			wl.mutex.RLock()
-			Expect(wl.workers).To(BeEmpty())
-			wl.mutex.RUnlock()
-			caps := getRandomCaps()
+		It("should move Worker to IDLE state when it was FAILED and caps/addrs hasn't changed",
+			func() {
+				caps := getRandomCaps()
+				uuid := boruta.WorkerUUID(caps[UUID])
 
-			By("registering worker")
-			err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
-			Expect(err).ToNot(HaveOccurred())
-			registeredWorkers = append(registeredWorkers, caps[UUID])
-			compareLists()
+				gomock.InOrder(
+					dcm.EXPECT().Create(dryadAddr),
+					dcm.EXPECT().Prepare(gomock.Any()).Return(nil),
+					dcm.EXPECT().Close().Do(func() {
+						wl.mutex.RLock()
+						Expect(wl.workers[uuid].State).To(Equal(boruta.PREPARE))
+						wl.mutex.RUnlock()
+					}),
+				)
 
-			By("updating the caps")
-			caps["test-key"] = "test-value"
-			err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
-			Expect(err).ToNot(HaveOccurred())
-			wl.mutex.RLock()
-			Expect(wl.workers[boruta.WorkerUUID(caps[UUID])].Caps).To(Equal(caps))
-			wl.mutex.RUnlock()
-			compareLists()
-		})
+				err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(wl.workers).To(HaveKey(uuid))
+				Expect(wl.workers[uuid].backgroundOperation).NotTo(BeNil())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.MAINTENANCE))
+				err = wl.setState(uuid, boruta.FAIL)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.FAIL))
+				wl.mutex.RUnlock()
+
+				err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				eventuallyState(wl.workers[uuid], boruta.IDLE)
+			})
+
+		It("should move Worker to IDLE state when it was FAILED and caps/ports hasn't changed",
+			func() {
+				caps := getRandomCaps()
+				uuid := boruta.WorkerUUID(caps[UUID])
+				err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(wl.workers).To(HaveKey(uuid))
+				Expect(wl.workers[uuid].backgroundOperation).NotTo(BeNil())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.MAINTENANCE))
+				err = wl.setState(uuid, boruta.FAIL)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.FAIL))
+				wl.mutex.RUnlock()
+
+				daddr := &net.TCPAddr{
+					IP:   net.IPv4(192, 168, 1, 1),
+					Port: dryadAddr.Port,
+				}
+				saddr := &net.TCPAddr{
+					IP:   daddr.IP,
+					Port: sshdAddr.Port,
+				}
+
+				gomock.InOrder(
+					dcm.EXPECT().Create(daddr),
+					dcm.EXPECT().Prepare(gomock.Any()).Return(nil),
+					dcm.EXPECT().Close().Do(func() {
+						wl.mutex.RLock()
+						Expect(wl.workers[uuid].State).To(Equal(boruta.PREPARE))
+						wl.mutex.RUnlock()
+					}),
+				)
+
+				err = wl.Register(caps, daddr.String(), saddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				eventuallyState(wl.workers[uuid], boruta.IDLE)
+			})
+
+		It("should update the caps when called twice for the same worker and set MAINTENANCE",
+			func() {
+				var err error
+				wl.mutex.RLock()
+				Expect(wl.workers).To(BeEmpty())
+				wl.mutex.RUnlock()
+				caps := getRandomCaps()
+				uuid := boruta.WorkerUUID(caps[UUID])
+
+				gomock.InOrder(
+					dcm.EXPECT().Create(dryadAddr),
+					dcm.EXPECT().PutInMaintenance(gomock.Any()).Return(nil),
+					dcm.EXPECT().Close().Do(func() {
+						wl.mutex.RLock()
+						Expect(wl.workers[uuid].State).To(Equal(boruta.BUSY))
+						wl.mutex.RUnlock()
+					}),
+				)
+
+				By("registering worker")
+				err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				registeredWorkers = append(registeredWorkers, caps[UUID])
+				compareLists()
+
+				wl.mutex.Lock()
+				err = wl.setState(uuid, boruta.IDLE)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.IDLE))
+				wl.mutex.Unlock()
+				By("updating the caps")
+				caps2 := make(boruta.Capabilities)
+				caps2[UUID] = caps[UUID]
+				caps2["test-key"] = "test-value"
+				err = wl.Register(caps2, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(wl.workers[boruta.WorkerUUID(caps[UUID])].Caps).To(Equal(caps2))
+				wl.mutex.RUnlock()
+				eventuallyState(wl.workers[uuid], boruta.MAINTENANCE)
+				compareLists()
+			})
+
+		It("should update the ports when called more than once for the same worker and set MAINTENANCE",
+			func() {
+				caps := getRandomCaps()
+				uuid := boruta.WorkerUUID(caps[UUID])
+				err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(wl.workers).To(HaveKey(uuid))
+				Expect(wl.workers[uuid].backgroundOperation).NotTo(BeNil())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.MAINTENANCE))
+				err = wl.setState(uuid, boruta.IDLE)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.IDLE))
+				wl.mutex.RUnlock()
+
+				daddr := &net.TCPAddr{
+					IP:   dryadAddr.IP,
+					Port: dryadAddr.Port + 1,
+				}
+				saddr := &net.TCPAddr{
+					IP:   sshdAddr.IP,
+					Port: sshdAddr.Port + 1,
+				}
+
+				dcm.EXPECT().Create(gomock.Any()).Times(2)
+				dcm.EXPECT().PutInMaintenance(gomock.Any()).Return(nil).Times(2)
+				dcm.EXPECT().Close().Do(func() {
+					wl.mutex.RLock()
+					Expect(wl.workers[uuid].State).To(Equal(boruta.BUSY))
+					wl.mutex.RUnlock()
+				}).Times(2)
+
+				// Changed dryad RPC port.
+				err = wl.Register(caps, daddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				eventuallyState(wl.workers[uuid], boruta.MAINTENANCE)
+
+				wl.mutex.Lock()
+				err = wl.setState(uuid, boruta.IDLE)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.IDLE))
+				wl.mutex.Unlock()
+				// Changed drayd SSH port.
+				err = wl.Register(caps, daddr.String(), saddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				eventuallyState(wl.workers[uuid], boruta.MAINTENANCE)
+			})
+
+		It("shouldn't change state if it wasn't FAILED and nothing has changed",
+			func() {
+				caps := getRandomCaps()
+				uuid := boruta.WorkerUUID(caps[UUID])
+				states := [...]boruta.WorkerState{boruta.MAINTENANCE, boruta.IDLE,
+					boruta.RUN, boruta.PREPARE, boruta.BUSY}
+
+				err := wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+				Expect(err).ToNot(HaveOccurred())
+				wl.mutex.RLock()
+				Expect(wl.workers).To(HaveKey(uuid))
+				Expect(wl.workers[uuid].backgroundOperation).NotTo(BeNil())
+				Expect(wl.workers[uuid].State).To(Equal(boruta.MAINTENANCE))
+				wl.mutex.RUnlock()
+
+				for _, state := range states {
+					wl.mutex.Lock()
+					wl.workers[uuid].State = state
+					wl.mutex.Unlock()
+					err = wl.Register(caps, dryadAddr.String(), sshdAddr.String())
+					Expect(err).ToNot(HaveOccurred())
+					wl.mutex.Lock()
+					Expect(wl.workers[uuid].State).To(Equal(state))
+					wl.mutex.Unlock()
+				}
+			})
 
 		It("should work when called once", func() {
 			var err error
@@ -323,13 +507,6 @@ var _ = Describe("WorkerList", func() {
 			noWorker := boruta.WorkerUUID("There's no such worker")
 			putStr := "maintenance"
 
-			eventuallyState := func(info *mapWorker, state boruta.WorkerState) {
-				EventuallyWithOffset(1, func() boruta.WorkerState {
-					wl.mutex.RLock()
-					defer wl.mutex.RUnlock()
-					return info.State
-				}).Should(Equal(state))
-			}
 			eventuallyKey := func(info *mapWorker, match types.GomegaMatcher) {
 				EventuallyWithOffset(1, func() *rsa.PrivateKey {
 					wl.mutex.RLock()

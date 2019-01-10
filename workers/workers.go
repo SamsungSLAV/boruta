@@ -38,7 +38,8 @@ const UUID string = "UUID"
 
 // sizeRSA is a length of the RSA key.
 // It is a variable for test purposes.
-var sizeRSA = 4096
+//var sizeRSA = 4096
+var sizeRSA = 2048
 
 // backgroundOperationsBufferSize defines buffer size of the channel
 // used for communication with background goroutine launched for every
@@ -155,10 +156,26 @@ func (wl *WorkerList) Register(caps boruta.Capabilities, dryadAddress string,
 	defer wl.mutex.Unlock()
 	worker, registered := wl.workers[uuid]
 	if registered {
+		newState := worker.State
+		// If worker was in FAIL state (probably due to network issues) and tries to
+		// register then it  means that it is in proper state now.
+		if newState == boruta.FAIL {
+			newState = boruta.PREPARE
+		}
+		// In case of change that required manual action dryad should be in MAINTENANCE
+		// state.
+		if worker.sshd.Port != sshd.Port || worker.dryad.Port != dryad.Port ||
+			!reflect.DeepEqual(worker.Caps, caps) {
+
+			newState = boruta.BUSY
+		}
 		// Subsequent Register calls update the caps and addresses.
 		worker.Caps = caps
 		worker.dryad = dryad
 		worker.sshd = sshd
+		if newState != worker.State {
+			wl.setState(uuid, newState)
+		}
 	} else {
 		c := make(chan boruta.WorkerState, backgroundOperationsBufferSize)
 		wl.workers[uuid] = &mapWorker{
