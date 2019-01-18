@@ -1,0 +1,14 @@
+# Boruta command line interface config file example.
+
+servers: # Server to connect to.
+  - default: testoslav
+  - testoslav:
+      name: "some-name" # Alias to refer to the server in CLI.
+      host: "localhost" # Boruta server address/domain.
+      port: 8487 # Boruta server port.
+  - prodslav:
+      name: "some-other-name" # Must be unique
+      host: "192.120.120.120"
+      port: 8487
+output: # Options to control CLI output.
+  pretty: true # Default value, overriden with flag.
