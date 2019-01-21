@@ -735,6 +735,21 @@ func TestListRequests(t *testing.T) {
 			name: "get page before 1st item",
 		},
 		{
+			f: nil,
+			s: nil,
+			p: &boruta.RequestsPaginator{
+				ID:        boruta.ReqID(0),
+				Direction: boruta.DirectionBackward,
+				Limit:     5,
+			},
+			result: getResults(12, 13, 14, 15, 16),
+			info: &boruta.ListInfo{
+				TotalItems:     16,
+				RemainingItems: 11,
+			},
+			name: "get first page when paginating backwards",
+		},
+		{
 			f: &filter.Requests{
 				State:    string(notFoundState),
 				Priority: notFoundPrio.String(),
