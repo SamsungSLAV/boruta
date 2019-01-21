@@ -344,6 +344,9 @@ func (reqs *ReqsCollection) ListRequests(filter boruta.ListFilter, si *boruta.So
 		elems = min(uint64(paginator.Limit), listInfo.TotalItems-index)
 		listInfo.RemainingItems = listInfo.TotalItems - index - elems
 	} else {
+		if paginator.ID == boruta.ReqID(0) {
+			index = uint64(len(res))
+		}
 		elems = min(uint64(paginator.Limit), index)
 		listInfo.RemainingItems = index - elems
 		index -= elems
