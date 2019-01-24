@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d970e85c_86b2cf4d",
+        "filename": "filter/filter_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:42:11Z",
+      "side": 1,
+      "message": "maybe a separate TC? while reading this change it is clear that it is supposed to test case-insensitivity, but it will not be obvious later. please consider a comment or even better adding separate TC for case sensitivity check",
+      "range": {
+        "startLine": 30,
+        "startChar": 3,
+        "endLine": 33,
+        "endChar": 32
+      },
+      "revId": "c10d652cae1a9913e3a92b9d97f5384cf41ef257",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6ac9949a_d64e0e28",
+        "filename": "requests/sorter_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:42:11Z",
+      "side": 1,
+      "message": "maybe a comment // should be case insensitive",
+      "range": {
+        "startLine": 96,
+        "startChar": 0,
+        "endLine": 96,
+        "endChar": 21
+      },
+      "revId": "c10d652cae1a9913e3a92b9d97f5384cf41ef257",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "61a0e0bf_b0953a3d",
+        "filename": "workers/sorter_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:42:11Z",
+      "side": 1,
+      "message": "same issue as with rest test file changes",
+      "range": {
+        "startLine": 41,
+        "startChar": 33,
+        "endLine": 41,
+        "endChar": 37
+      },
+      "revId": "c10d652cae1a9913e3a92b9d97f5384cf41ef257",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
