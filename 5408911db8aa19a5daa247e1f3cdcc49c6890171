@@ -1,0 +1,188 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f0c1f3ea_db744cc2",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "creates",
+      "range": {
+        "startLine": 10,
+        "startChar": 55,
+        "endLine": 10,
+        "endChar": 58
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0bd23c9e_618f2e06",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "FAILED state,",
+      "range": {
+        "startLine": 11,
+        "startChar": 17,
+        "endLine": 11,
+        "endChar": 23
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7568c6a3_0e55832d",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": ",",
+      "range": {
+        "startLine": 11,
+        "startChar": 45,
+        "endLine": 11,
+        "endChar": 46
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7f4d5e4e_3ff0fb89",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "... to config file",
+      "range": {
+        "startLine": 12,
+        "startChar": 60,
+        "endLine": 12,
+        "endChar": 67
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4cf9f459_5ce95ac5",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "e.g.\n\npreviously in the sentence you specify that ANY changes work so caps, port should be example",
+      "range": {
+        "startLine": 15,
+        "startChar": 52,
+        "endLine": 15,
+        "endChar": 54
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cb4c2b64_d9fcc6e0",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "IP addres change of dryad (not IP of Boruta that dryad is connecting to). i think you meant that IP change of dryad will not put the device in MAINTENANCE state",
+      "range": {
+        "startLine": 16,
+        "startChar": 37,
+        "endLine": 17,
+        "endChar": 7
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "22aed7ee_3cf087de",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "err, when admin sets dryad state to FAILED (due to some issues that he will work on later) dryad will go to idle on its own? this doesnt seem right.",
+      "range": {
+        "startLine": 18,
+        "startChar": 3,
+        "endLine": 19,
+        "endChar": 26
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e46e6a52_f07b14a7",
+        "filename": "workers/workers.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 161,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-01-24T15:54:40Z",
+      "side": 1,
+      "message": "this seems like FAIL state is only for network issues :(",
+      "range": {
+        "startLine": 160,
+        "startChar": 2,
+        "endLine": 161,
+        "endChar": 60
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
