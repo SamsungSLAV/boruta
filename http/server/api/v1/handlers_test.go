@@ -1,4 +1,4 @@
-/* *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+/* *  Copyright (c) 2017-2019 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -995,10 +995,6 @@ func TestDeregisterWorkerHandler(t *testing.T) {
 func TestVersionHandler(t *testing.T) {
 	assert, m, r := initTest(t)
 	defer m.finish()
-	/*header := make(http.Header)
-	header.Set(util.ServerVersionHdr, boruta.Version)
-	header.Set(util.APIVersionHdr, Version)
-	header.Set(util.APIStateHdr, State)*/
 
 	tests := []requestTest{
 		{

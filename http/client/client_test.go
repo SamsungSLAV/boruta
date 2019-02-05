@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2019 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -688,12 +688,12 @@ func TestListRequests(t *testing.T) {
 
 	missingFilter := filter.NewRequests("INPROGRESS", "2")
 	missingHeader := make(http.Header)
-	missingHeader.Set(util.RequestCountHdr, "0")
+	missingHeader.Set(util.ListBatchSizeHdr, "0")
 	validFilter := filter.NewRequests("WAIT", "")
 	validHeader := make(http.Header)
-	validHeader.Set(util.RequestCountHdr, "2")
+	validHeader.Set(util.ListBatchSizeHdr, "2")
 	nilHeader := make(http.Header)
-	nilHeader.Set(util.RequestCountHdr, "4")
+	nilHeader.Set(util.ListBatchSizeHdr, "4")
 	malformedHeader := make(http.Header)
 	malformedHeader.Set(util.ListTotalItemsHdr, "foo")
 
@@ -1115,14 +1115,14 @@ func TestListWorkers(t *testing.T) {
 		Capabilities: map[string]string{"architecture": "AArch64"},
 	}
 	validHeader := make(http.Header)
-	validHeader.Set(util.WorkerCountHdr, "2")
+	validHeader.Set(util.ListBatchSizeHdr, "2")
 	allHeader := make(http.Header)
-	allHeader.Set(util.WorkerCountHdr, "4")
+	allHeader.Set(util.ListBatchSizeHdr, "4")
 	missingFilter := &filter.Workers{
 		Groups: boruta.Groups{"Fern Flower"},
 	}
 	missingHeader := make(http.Header)
-	missingHeader.Set(util.WorkerCountHdr, "0")
+	missingHeader.Set(util.ListBatchSizeHdr, "0")
 
 	tests := []*testCase{
 		&testCase{
