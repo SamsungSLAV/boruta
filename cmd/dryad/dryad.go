@@ -110,7 +110,7 @@ func main() {
 
 	rusalka := dryad.NewRusalka(dev, configuration.User.Name, configuration.User.Groups)
 
-	l, err := net.Listen("tcp", configuration.Address)
+	l, err := net.Listen("tcp", configuration.Port)
 	exitOnErr("can't listen on port:", err)
 	defer l.Close()
 
