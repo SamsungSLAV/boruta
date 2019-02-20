@@ -38,6 +38,7 @@ const DefaultSSHPort = 22
 func NewConf() *General {
 	return &General{
 		Address:   fmt.Sprintf(":%d", DefaultRPCPort),
+                Port:      fmt.Sprintf(":%d", DefaultRPCPort),
 		SSHAdress: fmt.Sprintf(":%d", DefaultSSHPort),
 		Caps:      boruta.Capabilities(map[string]string{}),
 		User: &User{
@@ -60,8 +61,10 @@ type User struct {
 
 // General is a base struct of configuration.
 type General struct {
-	// Address is used to listen for connection from Boruta.
+	// Address which Boruta will use for access dryad.
 	Address string `toml:"listen_address"`
+        // Port is used to listen for connection from Boruta.
+        Port string `toml:"listen_port"`
 	// BorutaAddress is used to connect to Boruta server.
 	BorutaAddress string `toml:"boruta_address"`
 	// SSHAdress is a ssh daemon listen address.
