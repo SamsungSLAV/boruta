@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "23dfe5a6_b08e94cd",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f0c1f3ea_db744cc2",
+      "range": {
+        "startLine": 10,
+        "startChar": 55,
+        "endLine": 10,
+        "endChar": 58
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0bd23c9e_618f2e06",
         "filename": "/COMMIT_MSG",
         "patchSetId": 1
@@ -71,6 +95,54 @@
     },
     {
       "key": {
+        "uuid": "773a250b_7d03c84e",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0bd23c9e_618f2e06",
+      "range": {
+        "startLine": 11,
+        "startChar": 17,
+        "endLine": 11,
+        "endChar": 23
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "b7501b4b_38c774c1",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7568c6a3_0e55832d",
+      "range": {
+        "startLine": 11,
+        "startChar": 45,
+        "endLine": 11,
+        "endChar": 46
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "7f4d5e4e_3ff0fb89",
         "filename": "/COMMIT_MSG",
         "patchSetId": 1
@@ -82,6 +154,30 @@
       "writtenOn": "2019-01-24T15:54:40Z",
       "side": 1,
       "message": "... to config file",
+      "range": {
+        "startLine": 12,
+        "startChar": 60,
+        "endLine": 12,
+        "endChar": 67
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7f16ff37_f73b6907",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "What about other changes (like installing additional software, upgrades or swapping SD card)?",
+      "parentUuid": "7f4d5e4e_3ff0fb89",
       "range": {
         "startLine": 12,
         "startChar": 60,
@@ -117,6 +213,30 @@
     },
     {
       "key": {
+        "uuid": "40d86a26_60e4d90a",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "Are there any other things besides caps and ports?",
+      "parentUuid": "4cf9f459_5ce95ac5",
+      "range": {
+        "startLine": 15,
+        "startChar": 52,
+        "endLine": 15,
+        "endChar": 54
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "cb4c2b64_d9fcc6e0",
         "filename": "/COMMIT_MSG",
         "patchSetId": 1
@@ -140,6 +260,30 @@
     },
     {
       "key": {
+        "uuid": "300cf2d2_ac55c224",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cb4c2b64_d9fcc6e0",
+      "range": {
+        "startLine": 16,
+        "startChar": 37,
+        "endLine": 17,
+        "endChar": 7
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "22aed7ee_3cf087de",
         "filename": "/COMMIT_MSG",
         "patchSetId": 1
@@ -160,6 +304,30 @@
       "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
       "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a794d180_62d42863",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-26T11:22:15Z",
+      "side": 1,
+      "message": "Admin doesn\u0027t put dryad to FAILED state.",
+      "parentUuid": "22aed7ee_3cf087de",
+      "range": {
+        "startLine": 18,
+        "startChar": 3,
+        "endLine": 19,
+        "endChar": 26
+      },
+      "revId": "5408911db8aa19a5daa247e1f3cdcc49c6890171",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": false
     },
     {
       "key": {
