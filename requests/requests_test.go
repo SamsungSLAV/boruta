@@ -418,6 +418,7 @@ func TestListRequests(t *testing.T) {
 
 	notFoundPrio := req.Priority - 1
 	notFoundState := boruta.INVALID
+	notFoundReqID := boruta.ReqID(15190)
 	var filterTests = [...]struct {
 		f      *filter.Requests
 		s      *boruta.SortInfo
@@ -429,8 +430,8 @@ func TestListRequests(t *testing.T) {
 	}{
 		{
 			f: &filter.Requests{
-				State:    string(boruta.WAIT),
-				Priority: req.Priority.String(),
+				States:     []boruta.ReqState{boruta.WAIT},
+				Priorities: []boruta.Priority{req.Priority},
 			},
 			s:      si,
 			p:      nil,
@@ -443,8 +444,8 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(boruta.WAIT),
-				Priority: (req.Priority + 1).String(),
+				States:     []boruta.ReqState{boruta.WAIT},
+				Priorities: []boruta.Priority{req.Priority + 1},
 			},
 			s:      si,
 			p:      nil,
@@ -457,8 +458,8 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(boruta.DONE),
-				Priority: req.Priority.String(),
+				States:     []boruta.ReqState{boruta.DONE},
+				Priorities: []boruta.Priority{req.Priority},
 			},
 			s:      nil,
 			p:      nil,
@@ -471,8 +472,8 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(boruta.DONE),
-				Priority: (req.Priority + 1).String(),
+				States:     []boruta.ReqState{boruta.DONE},
+				Priorities: []boruta.Priority{req.Priority + 1},
 			},
 			s:      nil,
 			p:      nil,
@@ -485,8 +486,37 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    "",
-				Priority: req.Priority.String(),
+				IDs:        []boruta.ReqID{0, 3, 6, 9, 12, 15},
+				States:     []boruta.ReqState{boruta.DONE},
+				Priorities: []boruta.Priority{req.Priority},
+			},
+			s:      nil,
+			p:      nil,
+			result: getResults(3, 9, 15),
+			info: &boruta.ListInfo{
+				TotalItems:     3,
+				RemainingItems: 0,
+			},
+			name: "filter by DONE state, higher priority and reqid%3 == 0",
+		},
+		{
+			f: &filter.Requests{
+				IDs:        []boruta.ReqID{0, 3, 6, 9, 12, 15},
+				States:     []boruta.ReqState{boruta.DONE},
+				Priorities: []boruta.Priority{req.Priority + 1},
+			},
+			s:      nil,
+			p:      nil,
+			result: getResults(6, 12),
+			info: &boruta.ListInfo{
+				TotalItems:     2,
+				RemainingItems: 0,
+			},
+			name: "filter by DONE state, lower priority and reqid%3 == 0",
+		},
+		{
+			f: &filter.Requests{
+				Priorities: []boruta.Priority{req.Priority},
 			},
 			s:      nil,
 			p:      nil,
@@ -499,8 +529,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    "",
-				Priority: (req.Priority + 1).String(),
+				Priorities: []boruta.Priority{req.Priority + 1},
 			},
 			s:      nil,
 			p:      nil,
@@ -513,8 +542,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    "",
-				Priority: (req.Priority + 1).String(),
+				Priorities: []boruta.Priority{req.Priority + 1},
 			},
 			s: si,
 			p: &boruta.RequestsPaginator{
@@ -531,8 +559,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    "",
-				Priority: (req.Priority + 1).String(),
+				Priorities: []boruta.Priority{req.Priority + 1},
 			},
 			s: si,
 			p: &boruta.RequestsPaginator{
@@ -549,8 +576,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    "",
-				Priority: (req.Priority + 1).String(),
+				Priorities: []boruta.Priority{req.Priority + 1},
 			},
 			s: si,
 			p: &boruta.RequestsPaginator{
@@ -567,8 +593,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(boruta.WAIT),
-				Priority: "",
+				States: []boruta.ReqState{boruta.WAIT},
 			},
 			s:      si,
 			p:      nil,
@@ -581,8 +606,7 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(boruta.DONE),
-				Priority: "",
+				States: []boruta.ReqState{boruta.DONE},
 			},
 			s:      nil,
 			p:      nil,
@@ -592,6 +616,19 @@ func TestListRequests(t *testing.T) {
 				RemainingItems: 0,
 			},
 			name: "filter by DONE state only",
+		},
+		{
+			f: &filter.Requests{
+				IDs: []boruta.ReqID{0, 3, 6, 9, 12, 15},
+			},
+			s:      nil,
+			p:      nil,
+			result: getResults(3, 6, 9, 12, 15),
+			info: &boruta.ListInfo{
+				TotalItems:     5,
+				RemainingItems: 0,
+			},
+			name: "filter by reqid%3 == 0 only",
 		},
 		{
 			f:      nil,
@@ -605,10 +642,7 @@ func TestListRequests(t *testing.T) {
 			name: "nil filter",
 		},
 		{
-			f: &filter.Requests{
-				State:    "",
-				Priority: "",
-			},
+			f:      &filter.Requests{},
 			s:      nil,
 			p:      nil,
 			result: getResults(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
@@ -751,8 +785,9 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(notFoundState),
-				Priority: notFoundPrio.String(),
+				IDs:        []boruta.ReqID{notFoundReqID},
+				States:     []boruta.ReqState{notFoundState},
+				Priorities: []boruta.Priority{notFoundPrio},
 			},
 			s: si,
 			p: nil,
@@ -761,12 +796,13 @@ func TestListRequests(t *testing.T) {
 				RemainingItems: 0,
 			},
 			result: getResults(),
-			name:   "missing state and priority in filter",
+			name:   "missing state, priority and reqid in filter",
 		},
 		{
 			f: &filter.Requests{
-				State:    string(boruta.WAIT),
-				Priority: notFoundPrio.String(),
+				IDs:        []boruta.ReqID{0, 3, 6, 9, 12, 15},
+				States:     []boruta.ReqState{boruta.WAIT},
+				Priorities: []boruta.Priority{notFoundPrio},
 			},
 			s:      si,
 			p:      nil,
@@ -779,8 +815,9 @@ func TestListRequests(t *testing.T) {
 		},
 		{
 			f: &filter.Requests{
-				State:    string(notFoundState),
-				Priority: req.Priority.String(),
+				IDs:        []boruta.ReqID{0, 3, 6, 9, 12, 15},
+				States:     []boruta.ReqState{notFoundState},
+				Priorities: []boruta.Priority{req.Priority},
 			},
 			s:      si,
 			p:      nil,
@@ -790,6 +827,21 @@ func TestListRequests(t *testing.T) {
 				RemainingItems: 0,
 			},
 			name: "missing state in filter",
+		},
+		{
+			f: &filter.Requests{
+				IDs:        []boruta.ReqID{notFoundReqID},
+				States:     []boruta.ReqState{boruta.WAIT},
+				Priorities: []boruta.Priority{req.Priority},
+			},
+			s:      si,
+			p:      nil,
+			result: getResults(),
+			info: &boruta.ListInfo{
+				TotalItems:     0,
+				RemainingItems: 0,
+			},
+			name: "missing reqid in filter",
 		},
 		{
 			f:    nil,

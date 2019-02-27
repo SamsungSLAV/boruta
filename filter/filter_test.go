@@ -26,37 +26,82 @@ import (
 )
 
 func TestNewRequest(t *testing.T) {
-	var statesTests = [...]struct {
-		state string
-		name  string
+	assert := assert.New(t)
+
+	var newRequestTests = [...]struct {
+		caseName       string
+		ids            []boruta.ReqID
+		priorities     []boruta.Priority
+		states         []boruta.ReqState
+		expectedStates []boruta.ReqState
 	}{
 		{
-			state: "WAITING",
-			name:  "ALLCAPS",
+			caseName:   "mix of values",
+			ids:        []boruta.ReqID{3, 5, 7, 11},
+			priorities: []boruta.Priority{boruta.HiPrio, boruta.Priority(127)},
+			states: []boruta.ReqState{
+				boruta.WAIT,
+				boruta.ReqState("  done  "),
+				boruta.ReqState("Failed  "),
+				boruta.ReqState("  InVaLiD"),
+			},
+			expectedStates: []boruta.ReqState{
+				boruta.WAIT,
+				boruta.DONE,
+				boruta.FAILED,
+				boruta.INVALID,
+			},
 		},
 		{
-			state: "waiting",
-			name:  "smallcaps",
+			caseName:       "nil values",
+			ids:            nil,
+			priorities:     nil,
+			states:         nil,
+			expectedStates: nil,
 		},
 		{
-			state: "Waiting",
-			name:  "CamelCase",
+			caseName:       "single values",
+			ids:            []boruta.ReqID{42},
+			priorities:     []boruta.Priority{boruta.HiPrio},
+			states:         []boruta.ReqState{boruta.WAIT},
+			expectedStates: []boruta.ReqState{boruta.WAIT},
 		},
 		{
-			state: string(boruta.WAIT),
-			name:  "default",
+			caseName:       "empty slices",
+			ids:            []boruta.ReqID{},
+			priorities:     []boruta.Priority{},
+			states:         []boruta.ReqState{},
+			expectedStates: []boruta.ReqState{},
 		},
 	}
-	priority := boruta.HiPrio.String()
-	filter := &Requests{
-		State:    string(boruta.WAIT),
-		Priority: priority,
-	}
-	for _, tc := range statesTests {
-		t.Run(tc.name, func(t *testing.T) {
-			assert := assert.New(t)
-			assert.Equal(filter, NewRequests(tc.state, priority))
-		})
+
+	for _, nrtest := range newRequestTests {
+		filter := NewRequests(nrtest.ids, nrtest.priorities, nrtest.states)
+		assert.NotNil(filter, nrtest.caseName)
+
+		// Verify IDs.
+		assert.Len(filter.IDs, len(nrtest.ids), nrtest.caseName)
+		if len(nrtest.ids) > 0 {
+			assert.Equal(nrtest.ids, filter.IDs, nrtest.caseName)
+		} else {
+			assert.Nil(filter.IDs)
+		}
+
+		// Verify Priorities.
+		assert.Len(filter.Priorities, len(nrtest.priorities), nrtest.caseName)
+		if len(nrtest.priorities) > 0 {
+			assert.Equal(nrtest.priorities, filter.Priorities, nrtest.caseName)
+		} else {
+			assert.Nil(filter.Priorities)
+		}
+
+		// Verify States.
+		assert.Len(filter.States, len(nrtest.states), nrtest.caseName)
+		if len(nrtest.states) > 0 {
+			assert.Equal(nrtest.expectedStates, filter.States, nrtest.caseName)
+		} else {
+			assert.Nil(filter.States)
+		}
 	}
 }
 
@@ -69,47 +114,104 @@ func TestRequestMatch(t *testing.T) {
 	}
 
 	var statesTests = [...]struct {
-		state  string
+		states []boruta.ReqState
 		result bool
 	}{
 		{
-			state:  string(boruta.WAIT),
+			states: []boruta.ReqState{boruta.WAIT},
 			result: true,
 		},
 		{
-			state:  string(boruta.INVALID),
+			states: []boruta.ReqState{boruta.WAIT, boruta.FAILED},
+			result: true,
+		},
+		{
+			states: []boruta.ReqState{boruta.FAILED},
 			result: false,
 		},
 		{
-			state:  "",
+			states: []boruta.ReqState{boruta.FAILED, boruta.INVALID},
+			result: false,
+		},
+		{
+			states: nil,
+			result: true,
+		},
+		{
+			states: []boruta.ReqState{},
 			result: true,
 		},
 	}
 
 	var priorityTests = [...]struct {
-		priority string
-		result   bool
+		priorities []boruta.Priority
+		result     bool
 	}{
 		{
-			priority: req.Priority.String(),
-			result:   true,
+			priorities: []boruta.Priority{req.Priority},
+			result:     true,
 		},
 		{
-			priority: (req.Priority + 1).String(),
-			result:   false,
+			priorities: []boruta.Priority{req.Priority, req.Priority + 1},
+			result:     true,
 		},
 		{
-			priority: "",
-			result:   true,
+			priorities: []boruta.Priority{req.Priority + 1},
+			result:     false,
+		},
+		{
+			priorities: []boruta.Priority{req.Priority + 1, req.Priority - 1},
+			result:     false,
+		},
+		{
+			priorities: []boruta.Priority{},
+			result:     true,
+		},
+		{
+			priorities: nil,
+			result:     true,
+		},
+	}
+
+	var idsTests = [...]struct {
+		ids    []boruta.ReqID
+		result bool
+	}{
+		{
+			ids:    []boruta.ReqID{req.ID},
+			result: true,
+		},
+		{
+			ids:    []boruta.ReqID{req.ID, req.ID + 1},
+			result: true,
+		},
+		{
+			ids:    []boruta.ReqID{req.ID + 1},
+			result: false,
+		},
+		{
+			ids:    []boruta.ReqID{req.ID + 1, req.ID + 2},
+			result: false,
+		},
+		{
+			ids:    []boruta.ReqID{},
+			result: true,
+		},
+		{
+			ids:    nil,
+			result: true,
 		},
 	}
 
 	var filter Requests
 	for _, stest := range statesTests {
-		filter.State = stest.state
+		filter.States = stest.states
 		for _, ptest := range priorityTests {
-			filter.Priority = ptest.priority
-			assert.Equal(stest.result && ptest.result, filter.Match(&req))
+			filter.Priorities = ptest.priorities
+			for _, idstest := range idsTests {
+				filter.IDs = idstest.ids
+				assert.Equal(stest.result && ptest.result && idstest.result, filter.Match(&req))
+			}
 		}
 	}
 	assert.False(filter.Match(nil))
