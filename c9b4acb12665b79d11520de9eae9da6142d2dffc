@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fedd2520_0009eef1",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-02-27T10:41:56Z",
+      "side": 1,
+      "message": "(feel free to ignroe) Previously (before this commit)",
+      "range": {
+        "startLine": 9,
+        "startChar": 0,
+        "endLine": 9,
+        "endChar": 9
+      },
+      "revId": "c9b4acb12665b79d11520de9eae9da6142d2dffc",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "94eff19d_967ff9b7",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-02-27T10:41:56Z",
+      "side": 1,
+      "message": "(feel free to ignore) misspelled",
+      "range": {
+        "startLine": 14,
+        "startChar": 32,
+        "endLine": 14,
+        "endChar": 42
+      },
+      "revId": "c9b4acb12665b79d11520de9eae9da6142d2dffc",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
