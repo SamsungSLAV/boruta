@@ -686,10 +686,11 @@ func TestListRequests(t *testing.T) {
 		Limit:     2,
 	}
 
-	missingFilter := filter.NewRequests("INPROGRESS", "2")
+	missingFilter := filter.NewRequests(nil, []boruta.Priority{2},
+		[]boruta.ReqState{boruta.INPROGRESS})
 	missingHeader := make(http.Header)
 	missingHeader.Set(util.ListBatchSizeHdr, "0")
-	validFilter := filter.NewRequests("WAIT", "")
+	validFilter := filter.NewRequests(nil, nil, []boruta.ReqState{boruta.WAIT})
 	validHeader := make(http.Header)
 	validHeader.Set(util.ListBatchSizeHdr, "2")
 	nilHeader := make(http.Header)

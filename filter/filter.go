@@ -33,26 +33,63 @@ type Workers struct {
 }
 
 // Requests implements ListFilter interface. Currently it is possible to
-// filter by state and priority.
+// filter by request ID, state and priority. Request matches filter if any of
+// items listed in filter slices match request's data.
+// Empty slice ignores filter for that type.
 type Requests struct {
-	State    string
-	Priority string
+	IDs        []boruta.ReqID
+	Priorities []boruta.Priority
+	States     []boruta.ReqState
 }
 
 // NewRequests returns pointer to initialized Requests structure.
-func NewRequests(state, priority string) *Requests {
-	return &Requests{
-		State:    strings.TrimSpace(strings.ToUpper(state)),
-		Priority: strings.TrimSpace(priority),
+func NewRequests(ids []boruta.ReqID, priorities []boruta.Priority,
+	states []boruta.ReqState) *Requests {
+	ret := &Requests{}
+	ret.IDs = append(ret.IDs, ids...)
+	ret.Priorities = append(ret.Priorities, priorities...)
+	for _, s := range states {
+		state := boruta.ReqState(strings.TrimSpace(strings.ToUpper(string(s))))
+		ret.States = append(ret.States, state)
 	}
+	return ret
+}
+
+// reqIDInSlice is a helper function verifying if a ReqID is found in a slice.
+func reqIDInSlice(id boruta.ReqID, list []boruta.ReqID) bool {
+	for _, elem := range list {
+		if elem == id {
+			return true
+		}
+	}
+	return false
+}
+
+// priorityInSlice is a helper function verifying if a Priority is found in a slice.
+func priorityInSlice(priority boruta.Priority, list []boruta.Priority) bool {
+	for _, elem := range list {
+		if elem == priority {
+			return true
+		}
+	}
+	return false
+}
+
+// reqStateInSlice is a helper function verifying if a ReqState is found in a slice.
+func reqStateInSlice(state boruta.ReqState, list []boruta.ReqState) bool {
+	for _, elem := range list {
+		if elem == state {
+			return true
+		}
+	}
+	return false
 }
 
 // Match is implementation of ListFilter interface. It checks if given ReqInfo
-// matches ListFilter. For now only exact matches are possible, but in the future
+// matches ListFilter. For now only one of matches are possible, but in the future
 // following functionality should be added:
 // * comparison,
 // * ranges,
-// * one of given,
 // * except of.
 func (filter *Requests) Match(elem interface{}) bool {
 	req, ok := elem.(*boruta.ReqInfo)
@@ -60,12 +97,15 @@ func (filter *Requests) Match(elem interface{}) bool {
 		return false
 	}
 
-	if filter.State != "" && string(req.State) != filter.State {
+	if len(filter.IDs) > 0 && !reqIDInSlice(req.ID, filter.IDs) {
 		return false
 	}
 
-	priority := req.Priority.String()
-	if filter.Priority != "" && priority != filter.Priority {
+	if len(filter.States) > 0 && !reqStateInSlice(req.State, filter.States) {
+		return false
+	}
+
+	if len(filter.Priorities) > 0 && !priorityInSlice(req.Priority, filter.Priorities) {
 		return false
 	}
 
