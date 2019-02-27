@@ -310,7 +310,7 @@ func TestListRequestsHandler(t *testing.T) {
 	filterPath := "/api/v1/reqs/list"
 	malformedJSONTest := testFromTempl(malformedJSONTestTempl, prefix, filterPath, methods...)
 
-	validFilter := filter.NewRequests("WAIT", "")
+	validFilter := filter.NewRequests(nil, nil, []boruta.ReqState{boruta.WAIT})
 	m.rq.EXPECT().ListRequests(validFilter, defaultSorter, nil).Return(reqs[:2], nil, nil)
 	m.rq.EXPECT().ListRequests(validFilter, sorterAsc, nil).Return(reqs[:2], validInfo, nil)
 	m.rq.EXPECT().ListRequests(validFilter, sorterDesc, nil).Return([]boruta.ReqInfo{reqs[1],
@@ -318,7 +318,7 @@ func TestListRequestsHandler(t *testing.T) {
 	m.rq.EXPECT().ListRequests(validFilter, sorterBad, nil).Return([]boruta.ReqInfo{}, nil,
 		boruta.ErrWrongSortItem)
 
-	emptyFilter := filter.NewRequests("", "")
+	emptyFilter := filter.NewRequests(nil, nil, nil)
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, nil).Return(reqs, secondInfo, nil)
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, fwdPaginator1).Return(reqs[:2], firstInfo, nil)
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, fwdPaginator2).Return(reqs[2:], secondInfo, nil)
@@ -326,11 +326,11 @@ func TestListRequestsHandler(t *testing.T) {
 	m.rq.EXPECT().ListRequests(emptyFilter, nil, backPaginator2).Return(reqs[:2], secondInfo, nil)
 	m.rq.EXPECT().ListRequests(nil, nil, nil).Return(reqs, secondInfo, nil).Times(2)
 
-	missingFilter := filter.NewRequests("INVALID", "")
+	missingFilter := filter.NewRequests(nil, nil, []boruta.ReqState{boruta.INVALID})
 	m.rq.EXPECT().ListRequests(missingFilter, nil, nil).Return([]boruta.ReqInfo{}, nil, nil)
 
 	// Currently ListRequests doesn't return any error hence the meaningless values.
-	badFilter := filter.NewRequests("FAIL", "-1")
+	badFilter := filter.NewRequests(nil, []boruta.Priority{99}, []boruta.ReqState{"NoSuchState"})
 	m.rq.EXPECT().ListRequests(badFilter, nil, nil).Return([]boruta.ReqInfo{}, nil,
 		errors.New("foo bar: pizza failed"))
 
