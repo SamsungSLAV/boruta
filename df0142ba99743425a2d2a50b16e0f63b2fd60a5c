@@ -1,0 +1,159 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a3357be2_617b56fa",
+        "filename": "filter/filter.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "IDs, states and priorities.",
+      "range": {
+        "startLine": 36,
+        "startChar": 21,
+        "endLine": 36,
+        "endChar": 43
+      },
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d2121255_26e29343",
+        "filename": "filter/filter.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "or nil",
+      "range": {
+        "startLine": 38,
+        "startChar": 3,
+        "endLine": 38,
+        "endChar": 8
+      },
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3fd198f8_9e5f7894",
+        "filename": "filter/filter.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "Please add empty line.",
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "55b046da_baad9010",
+        "filename": "filter/filter.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "That\u0027s not true. There\u0027s \u0027OR\u0027 when matching element with single filter members but \u0027AND\u0027 for all members of filter.",
+      "range": {
+        "startLine": 89,
+        "startChar": 23,
+        "endLine": 89,
+        "endChar": 63
+      },
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7a4c136c_d14ac8e0",
+        "filename": "filter/filter_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "Why \u0027caseName\u0027? Everywhere just \u0027name\u0027 is used.",
+      "range": {
+        "startLine": 32,
+        "startChar": 2,
+        "endLine": 32,
+        "endChar": 10
+      },
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "208e7223_374982d6",
+        "filename": "filter/filter_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "tcase probably would be better name",
+      "range": {
+        "startLine": 78,
+        "startChar": 8,
+        "endLine": 78,
+        "endChar": 14
+      },
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e0b0b1a0_0b836e28",
+        "filename": "requests/requests_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 421,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-02-28T14:00:44Z",
+      "side": 1,
+      "message": "Please get rid of magic number. There\u0027s reqCnt, so you can use reqCnt+1. Alternatively you may use len(rqueue.requests)+1.",
+      "range": {
+        "startLine": 421,
+        "startChar": 31,
+        "endLine": 421,
+        "endChar": 36
+      },
+      "revId": "df0142ba99743425a2d2a50b16e0f63b2fd60a5c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
