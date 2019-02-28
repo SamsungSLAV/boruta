@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bb6737be_aac9d34c",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 3
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-02-28T16:02:43Z",
+      "side": 1,
+      "message": "If possible add reasons for this change -\nto unify weles and boruta servers behaviour\nto implement new boruta api in weles easier",
+      "range": {
+        "startLine": 23,
+        "startChar": 24,
+        "endLine": 23,
+        "endChar": 28
+      },
+      "revId": "a2ae04ad3f2ae96b296a857724eaf6e0e1aa948c",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}

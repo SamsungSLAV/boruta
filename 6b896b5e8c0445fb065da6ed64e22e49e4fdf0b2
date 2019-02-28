@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f27ccce4_242ea274",
+        "filename": "requests/requests_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 489,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-02-28T16:02:43Z",
+      "side": 0,
+      "message": "it seems to me like this stringer is not used anymore, maybe we should remove it? (or will it be used by clients or sth?)",
+      "range": {
+        "startLine": 489,
+        "startChar": 21,
+        "endLine": 489,
+        "endChar": 36
+      },
+      "revId": "6b896b5e8c0445fb065da6ed64e22e49e4fdf0b2",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
