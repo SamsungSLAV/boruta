@@ -1608,8 +1608,8 @@ var _ = Describe("WorkerList", func() {
 					workers, info, err := wl2.ListWorkers(nil, nil, nil)
 					Expect(err).To(BeNil())
 					Expect(info.TotalItems).To(Equal(uint64(n)))
-					Expect(info.RemainingItems).To(Equal(uint64(n - boruta.MaxPageLimit)))
-					Expect(len(workers)).To(Equal(boruta.MaxPageLimit))
+					Expect(info.RemainingItems).To(Equal(uint64(n - int(boruta.MaxPageLimit))))
+					Expect(len(workers)).To(Equal(int(boruta.MaxPageLimit)))
 				})
 
 			It("should return an error when SortInfo has unknown item", func() {

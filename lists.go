@@ -47,7 +47,7 @@ const (
 	DirectionBackward ListDirection = true
 
 	// MaxPageLimit denotes maximum value that pageInfo.Limit can be.
-	MaxPageLimit = math.MaxUint16
+	MaxPageLimit = uint16(math.MaxUint16)
 )
 
 // SortInfo contains information needed to sort collections in Boruta (requests, workers).

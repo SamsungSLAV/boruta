@@ -909,15 +909,15 @@ func TestListRequests(t *testing.T) {
 		nil).AnyTimes()
 	wm.EXPECT().SetChangeListener(gomock.Any())
 	rqueue2 := NewRequestQueue(wm, jm)
-	for i := 0; i < boruta.MaxPageLimit+reqsCnt; i++ {
+	for i := 0; i < int(boruta.MaxPageLimit)+reqsCnt; i++ {
 		rqueue2.NewRequest(req.Caps, req.Priority, req.Owner, tomorrow, nextWeek)
 	}
-	assert.Equal(t, boruta.MaxPageLimit+reqsCnt, len(rqueue2.requests))
+	assert.Equal(t, int(boruta.MaxPageLimit)+reqsCnt, len(rqueue2.requests))
 	t.Run(name, func(t *testing.T) {
 		assert := assert.New(t)
 		resp, info, err := rqueue2.ListRequests(nil, nil, &boruta.RequestsPaginator{Limit: 0})
 		assert.Nil(err)
-		assert.EqualValues(boruta.MaxPageLimit+reqsCnt, info.TotalItems)
+		assert.EqualValues(int(boruta.MaxPageLimit)+reqsCnt, info.TotalItems)
 		assert.EqualValues(boruta.MaxPageLimit, len(resp))
 		assert.EqualValues(reqsCnt, info.RemainingItems)
 	})
