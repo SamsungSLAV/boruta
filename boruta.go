@@ -28,7 +28,6 @@ package boruta
 import (
 	"crypto/rsa"
 	"net"
-	"strconv"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -89,20 +88,8 @@ func (caps Capabilities) GetWorkerUUID() WorkerUUID {
 // ReqID refers to the Request created by the User.
 type ReqID uint64
 
-// String returns string representation of ReqID. This is implementation of
-// fmt.Stringer interface.
-func (id ReqID) String() string {
-	return strconv.FormatUint(uint64(id), 10)
-}
-
 // Priority is the importance of the Request. Lower - more important.
 type Priority uint8
-
-// String returns string representation of Priority. This is implementation of
-// fmt.Stringer interface.
-func (p Priority) String() string {
-	return strconv.FormatUint(uint64(p), 10)
-}
 
 const (
 	// HiPrio - most important priority (minimum value).

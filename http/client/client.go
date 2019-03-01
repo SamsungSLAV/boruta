@@ -32,6 +32,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
@@ -224,7 +225,7 @@ func (client *BorutaClient) NewRequest(caps boruta.Capabilities,
 
 // CloseRequest closes or cancels Boruta request.
 func (client *BorutaClient) CloseRequest(reqID boruta.ReqID) error {
-	path := client.url + "reqs/" + reqID.String() + "/close"
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqID), 10) + "/close"
 	resp, err := http.Post(path, "", nil)
 	if err != nil {
 		return err
@@ -250,7 +251,7 @@ func (client *BorutaClient) UpdateRequest(reqInfo *boruta.ReqInfo) error {
 	if err != nil {
 		return err
 	}
-	path := client.url + "reqs/" + reqInfo.ID.String()
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqInfo.ID), 10)
 	resp, err := http.Post(path, contentType, bytes.NewReader(req))
 	if err != nil {
 		return err
@@ -261,7 +262,7 @@ func (client *BorutaClient) UpdateRequest(reqInfo *boruta.ReqInfo) error {
 // GetRequestInfo queries Boruta server for details about given request ID.
 func (client *BorutaClient) GetRequestInfo(reqID boruta.ReqID) (boruta.ReqInfo, error) {
 	var reqInfo boruta.ReqInfo
-	path := client.url + "reqs/" + reqID.String()
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqID), 10)
 	resp, err := http.Get(path)
 	if err != nil {
 		return reqInfo, err
@@ -314,7 +315,7 @@ func (client *BorutaClient) ListRequests(f boruta.ListFilter, s *boruta.SortInfo
 // is issued because requests need to have assigned worker.
 func (client *BorutaClient) AcquireWorker(reqID boruta.ReqID) (boruta.AccessInfo, error) {
 	var accInfo boruta.AccessInfo
-	path := client.url + "reqs/" + reqID.String() + "/acquire_worker"
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqID), 10) + "/acquire_worker"
 	resp, err := http.Post(path, "", nil)
 	if err != nil {
 		return accInfo, err
@@ -342,7 +343,7 @@ func (client *BorutaClient) AcquireWorker(reqID boruta.ReqID) (boruta.AccessInfo
 // If not called, Boruta server will terminate the tunnel when ReqInfo.Job.Timeout
 // passes, and change state of request to CLOSED.
 func (client *BorutaClient) ProlongAccess(reqID boruta.ReqID) error {
-	path := client.url + "reqs/" + reqID.String() + "/prolong"
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqID), 10) + "/prolong"
 	resp, err := http.Post(path, "", nil)
 	if err != nil {
 		return err
@@ -443,7 +444,7 @@ func (client *BorutaClient) Deregister(uuid boruta.WorkerUUID) error {
 // should always check for an error before proceeding with actions dependent on
 // request state.
 func (client *BorutaClient) GetRequestState(reqID boruta.ReqID) (boruta.ReqState, error) {
-	path := client.url + "reqs/" + reqID.String()
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqID), 10)
 	headers, err := getHeaders(path)
 	if err != nil {
 		return boruta.FAILED, err
@@ -465,7 +466,7 @@ func (client *BorutaClient) GetWorkerState(uuid boruta.WorkerUUID) (boruta.Worke
 // reqID will timeout. The request must be in INPROGRESS state.
 func (client *BorutaClient) GetJobTimeout(reqID boruta.ReqID) (time.Time, error) {
 	var t time.Time
-	path := client.url + "reqs/" + reqID.String()
+	path := client.url + "reqs/" + strconv.FormatUint(uint64(reqID), 10)
 	headers, err := getHeaders(path)
 	if err != nil {
 		return t, err
