@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b403763e_03de7806",
+        "filename": "filter/filter.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1015210
+      },
+      "writtenOn": "2019-03-01T09:07:49Z",
+      "side": 1,
+      "message": "This isn\u0027t true (as in previous patchsets in Match docstring).",
+      "range": {
+        "startLine": 36,
+        "startChar": 49,
+        "endLine": 37,
+        "endChar": 54
+      },
+      "revId": "d3a909652dba49c84e3e2ae4b85b95acadb514bb",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
