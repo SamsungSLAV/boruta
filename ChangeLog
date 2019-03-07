@@ -1,3 +1,20 @@
+Release 0.2.0 - Thu Mar. 07 2019 - Maciej Wereski <m.wereski@partner.samsung.com>
+================================================================================
+* Added README
+* HTTP API:
+  - sorting and pagination support for filtering requests and workers was added
+  - listing methods signatures were changed to allow pagination and sorting
+  - GET on api/v1/reqs and api/v1/workers was removed as pagination is
+  mandatory so it may be impossible to get all items in some cases
+  - single fields in Requests filter (Priority, State) were replaced by slices
+    ('any of' behaviour). Slice of IDs was added.
+  - CORS support was added
+  - names of Boruta-specific headers were unified
+* Dryad state behaviour during successive registers:
+  - if there are changes in the Drayd config then it'll be put in MAINTENANCE
+  - otherwise if it is in FAILED state it will be put in IDLE state
+* other small fixes and tests improvements
+
 Release 0.1.0 - Mon Oct. 09 2018 - Maciej Wereski <m.wereski@partner.samsung.com>
 ================================================================================
 * Dryad support:
