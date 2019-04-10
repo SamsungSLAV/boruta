@@ -37,7 +37,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 var _ = Describe("WorkerList", func() {

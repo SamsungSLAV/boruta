@@ -31,7 +31,7 @@ import (
 	dryad_rpc "github.com/SamsungSLAV/boruta/rpc/dryad"
 	superviser_rpc "github.com/SamsungSLAV/boruta/rpc/superviser"
 	"github.com/SamsungSLAV/muxpi/sw/nanopi/stm"
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 var (
