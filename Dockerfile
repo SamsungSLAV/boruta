@@ -1,11 +1,8 @@
-FROM golang:1.11.1-stretch
+FROM golang:1.12
 LABEL maintainer="Alexander Mazuruk <a.mazuruk@samsung.com>"
 
-ENV PROJECT="github.com/SamsungSLAV/boruta"
-
-RUN go get -d "${PROJECT}/..."
-
-WORKDIR "${GOPATH}/src/${PROJECT}"
+WORKDIR /build
+COPY . /build/
 
 # Build Boruta server.
 RUN go build -o /boruta cmd/boruta/boruta.go
