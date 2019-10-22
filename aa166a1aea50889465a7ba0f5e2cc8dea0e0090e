@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cfc575a4_40caffe4",
+        "filename": "Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2019-10-22T11:37:22Z",
+      "side": 1,
+      "message": "I don\u0027t think .git/ should be added to Docker context\n\nConsider adding: \n .git/\n\nto:\n .dockerignore\n\nhttps://codefresh.io/docker-tutorial/not-ignore-dockerignore-2/ (#2)",
+      "range": {
+        "startLine": 5,
+        "startChar": 0,
+        "endLine": 5,
+        "endChar": 14
+      },
+      "revId": "aa166a1aea50889465a7ba0f5e2cc8dea0e0090e",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
