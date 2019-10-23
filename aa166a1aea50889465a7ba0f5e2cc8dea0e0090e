@@ -46,6 +46,23 @@
       "revId": "aa166a1aea50889465a7ba0f5e2cc8dea0e0090e",
       "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ebf869e2_0e583782",
+        "filename": "Dockerfile",
+        "patchSetId": 1
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 1015231
+      },
+      "writtenOn": "2019-10-23T12:24:13Z",
+      "side": 1,
+      "message": "we could add explicit GOOS and GOARCH here like in L12 for consistency",
+      "revId": "aa166a1aea50889465a7ba0f5e2cc8dea0e0090e",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
     }
   ]
 }
