@@ -18,6 +18,7 @@ package workers_test
 
 import (
 	"math/rand"
+	"strconv"
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/filter"
@@ -54,7 +55,7 @@ var _ = Describe("WorkerList", func() {
 		caps := make([]boruta.Capabilities, maximumWorkers)
 		for i := 0; i < maximumWorkers; i++ {
 			caps[i] = getRandomCaps()
-			caps[i][matchingCaps] = string(i % maximumCaps)
+			caps[i][matchingCaps] = strconv.Itoa(i % maximumCaps)
 		}
 		b.Time("register", func() {
 			for i := 0; i < maximumWorkers; i++ {
@@ -66,8 +67,8 @@ var _ = Describe("WorkerList", func() {
 			err := wl.SetGroups(boruta.WorkerUUID(caps[i][workers.UUID]),
 				boruta.Groups{
 					"TestGroup",
-					boruta.Group(i % (maximumGroups / 2)),
-					boruta.Group(i % maximumGroups),
+					boruta.Group(strconv.Itoa(i % (maximumGroups / 2))),
+					boruta.Group(strconv.Itoa(i % maximumGroups)),
 				})
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -75,8 +76,8 @@ var _ = Describe("WorkerList", func() {
 		groupWithCaps := make([]boruta.Groups, maximumListTests)
 		for v := 0; v < maximumListTests; v++ {
 			groupWithCaps[v] = boruta.Groups{
-				boruta.Group(rand.Intn(maximumGroups)),
-				boruta.Group(rand.Intn(maximumCaps)),
+				boruta.Group(strconv.Itoa(rand.Intn(maximumGroups))),
+				boruta.Group(strconv.Itoa(rand.Intn(maximumCaps))),
 			}
 		}
 		b.Time("list all", func() {
