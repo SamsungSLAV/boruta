@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "d16ec2f4_1ce5529b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2021-08-13T11:04:37Z",
+      "side": 1,
+      "message": "This patch can be reverified by running \"go vet\" from recent Go release (1.15+) or even better \"go test\"\n\nVerified on Go 1.16",
+      "revId": "498c73309f2da47f0364827eeb5da4068cf3b4c6",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735"
+    }
+  ]
+}
