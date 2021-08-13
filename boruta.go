@@ -34,7 +34,7 @@ import (
 )
 
 // Version of Boruta.
-const Version string = "0.2.0"
+const Version string = "0.2.1"
 
 // ReqState denotes state of the Request.
 type ReqState string
