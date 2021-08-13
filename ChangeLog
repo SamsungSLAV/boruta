@@ -1,3 +1,11 @@
+Release 0.2.1 - Fri Aug. 13 2021 - Paweł Wieczorek <pawel.wieczorek@collabora.com>
+================================================================================
+* Added support for Go modules
+* Changed used UUID library
+* Updated imports after migration from Tizen.org to GitHub.com
+* Updated Go version for default build envinronment (Docker)
+* other small fixes and tests improvements
+
 Release 0.2.0 - Thu Mar. 07 2019 - Maciej Wereski <m.wereski@partner.samsung.com>
 ================================================================================
 * Added README
