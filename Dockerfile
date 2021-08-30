@@ -1,4 +1,4 @@
-FROM golang:1.12
+FROM golang:1.17
 LABEL maintainer="Alexander Mazuruk <a.mazuruk@samsung.com>"
 
 WORKDIR /build
