@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "cdad9790_8d5f4acf",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1015220
+      },
+      "writtenOn": "2021-08-30T16:35:19Z",
+      "side": 1,
+      "message": "Docker container builds and produces all required binaries successfully",
+      "revId": "200adeb561a04eb6d60a3c05c0bbdb64e4f20f40",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735"
+    }
+  ]
+}
