@@ -29,7 +29,7 @@ import (
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/mocks"
-	"github.com/dimfeld/httptreemux"
+	"github.com/dimfeld/httptreemux/v5"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

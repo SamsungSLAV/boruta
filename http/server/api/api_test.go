@@ -34,7 +34,7 @@ import (
 	"github.com/SamsungSLAV/boruta/matcher"
 	"github.com/SamsungSLAV/boruta/requests"
 	"github.com/SamsungSLAV/boruta/workers"
-	"github.com/dimfeld/httptreemux"
+	"github.com/dimfeld/httptreemux/v5"
 	"github.com/stretchr/testify/assert"
 )
 

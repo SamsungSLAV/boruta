@@ -19,16 +19,19 @@
 package types
 
 import (
+	"crypto/ed25519"
 	"crypto/rsa"
 	"encoding/gob"
 
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
 )
 
 func init() {
 	var rsaKey rsa.PublicKey
-	var ed25519Key ed25519.PublicKey
+	ed25519Key, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic("this should never happen: generating ed25519 key failed: " + err.Error())
+	}
 	for _, foreignKey := range []interface{}{&rsaKey, ed25519Key} {
 		sshKey, err := ssh.NewPublicKey(foreignKey)
 		if err != nil {
