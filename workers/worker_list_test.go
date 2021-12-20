@@ -32,12 +32,12 @@ import (
 	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/rpc/dryad"
 
+	"github.com/gofrs/uuid"
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/gofrs/uuid"
 )
 
 var _ = Describe("WorkerList", func() {

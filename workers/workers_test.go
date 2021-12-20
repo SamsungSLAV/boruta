@@ -24,9 +24,9 @@ import (
 	"github.com/SamsungSLAV/boruta/filter"
 	"github.com/SamsungSLAV/boruta/workers"
 
+	"github.com/gofrs/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/gofrs/uuid"
 )
 
 var _ = Describe("WorkerList", func() {

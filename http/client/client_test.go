@@ -397,14 +397,14 @@ func TestGetHeaders(t *testing.T) {
 	request.Set("Boruta-Job-Timeout", date)
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid worker
 			name:   prefix + "worker",
 			path:   pathW + validUUID,
 			status: http.StatusNoContent,
 			header: worker,
 		},
-		&testCase{
+		{
 			// valid request
 			name:   prefix + "request",
 			path:   pathR + "1",
@@ -412,7 +412,7 @@ func TestGetHeaders(t *testing.T) {
 			header: request,
 		},
 
-		&testCase{
+		{
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        pathW + invalidID,
@@ -457,7 +457,7 @@ func TestNewRequest(t *testing.T) {
 	badPrio := req
 	badPrio.Priority = boruta.Priority(32)
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:        prefix + "valid",
 			path:        path,
@@ -465,7 +465,7 @@ func TestNewRequest(t *testing.T) {
 			contentType: contentJSON,
 			status:      http.StatusCreated,
 		},
-		&testCase{
+		{
 			// bad request - priority out of bounds
 			name:        prefix + "bad-prio",
 			path:        path,
@@ -504,13 +504,13 @@ func TestCloseRequest(t *testing.T) {
 	prefix := "close-req-"
 	path := "/api/v1/reqs/"
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:   prefix + "valid",
 			path:   path + "1" + "/close",
 			status: http.StatusNoContent,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "missing",
 			path:        path + "2" + "/close",
@@ -559,7 +559,7 @@ func TestUpdateRequest(t *testing.T) {
 	reqinfo.ValidAfter = validAfter
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:        prefix + "valid",
 			path:        path + "1",
@@ -567,7 +567,7 @@ func TestUpdateRequest(t *testing.T) {
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "missing",
 			path:        path + "2",
@@ -603,14 +603,14 @@ func TestGetRequestInfo(t *testing.T) {
 	path := "/api/v1/reqs/"
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:        prefix,
 			path:        path + "1",
 			contentType: contentJSON,
 			status:      http.StatusOK,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "-missing",
 			path:        path + "2",
@@ -709,7 +709,7 @@ func TestListRequests(t *testing.T) {
 	}
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid filter
 			name: prefix + "valid-filter",
 			path: path,
@@ -721,7 +721,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, validInfo),
 		},
-		&testCase{
+		{
 			// Valid filter with sorter - list some requests sorted by priority (ascending).
 			name: prefix + "valid-filter-sort-asc",
 			path: path,
@@ -733,7 +733,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, validInfo),
 		},
-		&testCase{
+		{
 			// Valid filter with sorter - list some requests sorted by state (descending).
 			// As state is equal - this will be sorted by ID.
 			name: prefix + "valid-filter-sort-desc",
@@ -746,7 +746,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, validInfo),
 		},
-		&testCase{
+		{
 			// nil filter - list all
 			name:        prefix + "nil",
 			path:        path,
@@ -799,7 +799,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(nilHeader, secondInfo),
 		},
-		&testCase{
+		{
 			// no requests matched
 			name: prefix + "nomatch-all",
 			path: path,
@@ -811,7 +811,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(missingHeader, &boruta.ListInfo{}),
 		},
-		&testCase{
+		{
 			// missing headers
 			name: prefix + "missing-headers",
 			path: path,
@@ -824,7 +824,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      missingHeader,
 		},
-		&testCase{
+		{
 			// malformed headers
 			name: prefix + "malformed-headers",
 			path: path,
@@ -836,7 +836,7 @@ func TestListRequests(t *testing.T) {
 			status:      http.StatusOK,
 			header:      malformedHeader,
 		},
-		&testCase{
+		{
 			// Bad sort item.
 			name: prefix + "bad-sorter-item",
 			path: path,
@@ -959,21 +959,21 @@ func TestAcquireWorker(t *testing.T) {
 	}
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:        prefix + "valid",
 			path:        path + "1/acquire_worker",
 			contentType: contentJSON,
 			status:      http.StatusOK,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "missing",
 			path:        path + "2/acquire_worker",
 			contentType: contentJSON,
 			status:      http.StatusNotFound,
 		},
-		&testCase{
+		{
 			// bad key request
 			name:        prefix + "badkey",
 			path:        path + "3/acquire_worker",
@@ -1029,14 +1029,14 @@ func TestProlongAccess(t *testing.T) {
 	path := "/api/v1/reqs/"
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:        prefix + "valid",
 			path:        path + "1/prolong",
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "missing",
 			path:        path + "2/prolong",
@@ -1126,7 +1126,7 @@ func TestListWorkers(t *testing.T) {
 	missingHeader.Set(util.ListBatchSizeHdr, "0")
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name: prefix + "valid-filter",
 			path: path,
@@ -1138,7 +1138,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, validInfo),
 		},
-		&testCase{
+		{
 			// list all
 			name: prefix + "empty-filter",
 			path: path,
@@ -1150,7 +1150,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(allHeader, allInfo),
 		},
-		&testCase{
+		{
 			// list all - sorted by uuid, ascending
 			name: prefix + "empty-filter-sort-asc",
 			path: path,
@@ -1162,7 +1162,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(allHeader, allInfo),
 		},
-		&testCase{
+		{
 			// list all - sorted by state, descending
 			name: prefix + "empty-filter-sort-desc",
 			path: path,
@@ -1174,7 +1174,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(allHeader, allInfo),
 		},
-		&testCase{
+		{
 			// list first part of all requests
 			name: prefix + "paginator-fwd1",
 			path: path,
@@ -1185,7 +1185,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, firstInfo),
 		},
-		&testCase{
+		{
 			// list second part of all requests
 			name: prefix + "paginator-fwd2",
 			path: path,
@@ -1196,7 +1196,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, secondInfo),
 		},
-		&testCase{
+		{
 			// list first part of all requests (backward)
 			name: prefix + "paginator-back1",
 			path: path,
@@ -1207,7 +1207,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, firstInfo),
 		},
-		&testCase{
+		{
 			// list second part of all requests (backward)
 			name: prefix + "paginator-back2",
 			path: path,
@@ -1218,7 +1218,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(validHeader, secondInfo),
 		},
-		&testCase{
+		{
 			// no matches
 			name: prefix + "nomatch",
 			path: path,
@@ -1230,7 +1230,7 @@ func TestListWorkers(t *testing.T) {
 			status:      http.StatusOK,
 			header:      updateHeaders(missingHeader, &boruta.ListInfo{}),
 		},
-		&testCase{
+		{
 			// Bad sort item.
 			name: prefix + "bad-sorter-item",
 			path: path,
@@ -1335,7 +1335,7 @@ func TestGetWorkerInfo(t *testing.T) {
 	header.Set(util.WorkerStateHdr, "IDLE")
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid
 			name:        prefix + "valid",
 			path:        path + validUUID,
@@ -1343,7 +1343,7 @@ func TestGetWorkerInfo(t *testing.T) {
 			status:      http.StatusOK,
 			header:      header,
 		},
-		&testCase{
+		{
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID,
@@ -1378,7 +1378,7 @@ func TestSetState(t *testing.T) {
 	path := "/api/v1/workers/"
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid
 			name:        prefix + "valid",
 			path:        path + validUUID + "/setstate",
@@ -1386,7 +1386,7 @@ func TestSetState(t *testing.T) {
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
-		&testCase{
+		{
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID + "/setstate",
@@ -1417,7 +1417,7 @@ func TestSetGroups(t *testing.T) {
 	groups := boruta.Groups{"foo", "bar"}
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid
 			name:        prefix + "valid",
 			path:        path + validUUID + "/setgroups",
@@ -1425,7 +1425,7 @@ func TestSetGroups(t *testing.T) {
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
-		&testCase{
+		{
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID + "/setgroups",
@@ -1455,14 +1455,14 @@ func TestDeregister(t *testing.T) {
 	path := "/api/v1/workers/"
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid
 			name:        prefix + "valid",
 			path:        path + validUUID + "/deregister",
 			contentType: contentJSON,
 			status:      http.StatusNoContent,
 		},
-		&testCase{
+		{
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID + "/deregister",
@@ -1494,14 +1494,14 @@ func TestGetRequestState(t *testing.T) {
 	header.Set(util.RequestStateHdr, string(boruta.DONE))
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:   prefix + "valid",
 			path:   path + "1",
 			status: http.StatusNoContent,
 			header: header,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "missing",
 			path:        path + "2",
@@ -1532,14 +1532,14 @@ func TestGetWorkerState(t *testing.T) {
 	header.Set(util.WorkerStateHdr, string(boruta.RUN))
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid
 			name:   prefix + "valid",
 			path:   path + validUUID,
 			status: http.StatusNoContent,
 			header: header,
 		},
-		&testCase{
+		{
 			// invalid UUID
 			name:        prefix + "bad-uuid",
 			path:        path + invalidID,
@@ -1579,28 +1579,28 @@ func TestGetJobTimeout(t *testing.T) {
 	bad.Set(util.JobTimeoutHdr, "fail")
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:   prefix + "valid",
 			path:   path + "1",
 			status: http.StatusNoContent,
 			header: header,
 		},
-		&testCase{
+		{
 			// request in wrong state
 			name:   prefix + "wrong-state",
 			path:   path + "2",
 			status: http.StatusNoContent,
 			header: wait,
 		},
-		&testCase{
+		{
 			// missing request
 			name:        prefix + "missing",
 			path:        path + "3",
 			contentType: contentJSON,
 			status:      http.StatusNotFound,
 		},
-		&testCase{
+		{
 			// invalid date format
 			name:        prefix + "bad-date",
 			path:        path + "4",
@@ -1653,7 +1653,7 @@ func TestVersion(t *testing.T) {
 	header.Set(util.APIStateHdr, valid.State)
 
 	tests := []*testCase{
-		&testCase{
+		{
 			// valid request
 			name:   name,
 			path:   path,

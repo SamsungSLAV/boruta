@@ -111,8 +111,8 @@ func TestSorterSwap(t *testing.T) {
 
 	sorter := &sorter{
 		list: []boruta.WorkerInfo{
-			boruta.WorkerInfo{WorkerUUID: "foo"},
-			boruta.WorkerInfo{WorkerUUID: "bar"},
+			{WorkerUUID: "foo"},
+			{WorkerUUID: "bar"},
 		},
 	}
 	assert.EqualValues("foo", sorter.list[0].WorkerUUID)
@@ -132,10 +132,10 @@ func TestSorterLess(t *testing.T) {
 			name: "with default sorter",
 			sorter: &sorter{
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 					},
 				},
@@ -146,10 +146,10 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "uuid",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 					},
 				},
@@ -160,11 +160,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "state",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						State:      boruta.FAIL,
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						State:      boruta.IDLE,
 					},
@@ -176,11 +176,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "state",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						State:      boruta.IDLE,
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						State:      boruta.IDLE,
 					},
@@ -192,10 +192,10 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"aaa"},
 					},
@@ -207,11 +207,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						Groups:     boruta.Groups{"aaa"},
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"bbb"},
 					},
@@ -223,11 +223,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"aaa"},
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						Groups:     boruta.Groups{"aaa"},
 					},
@@ -239,11 +239,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						Groups:     boruta.Groups{"aaa", "bbb"},
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"bbb"},
 					},
@@ -255,11 +255,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						Groups:     boruta.Groups{"aaa", "bbb"},
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"aab", "bbb"},
 					},
@@ -271,11 +271,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						Groups:     boruta.Groups{"aaa", "bbb"},
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"aaa", "bbb", "ccc"},
 					},
@@ -287,11 +287,11 @@ func TestSorterLess(t *testing.T) {
 			sorter: &sorter{
 				item: "groups",
 				list: []boruta.WorkerInfo{
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "baz",
 						Groups:     boruta.Groups{"AAA", "BBB", "CCC"},
 					},
-					boruta.WorkerInfo{
+					{
 						WorkerUUID: "bar",
 						Groups:     boruta.Groups{"aaa", "bbb", "ccc"},
 					},
