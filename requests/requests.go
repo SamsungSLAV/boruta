@@ -87,7 +87,7 @@ func (reqs *ReqsCollection) NewRequest(caps boruta.Capabilities,
 	deadline time.Time) (boruta.ReqID, error) {
 
 	req := &boruta.ReqInfo{
-		ID:         boruta.ReqID(len(reqs.requests) + 1),
+		ID:         boruta.ReqID(0), // proper ID will be generated in critical section
 		Priority:   priority,
 		Owner:      owner,
 		Deadline:   deadline,
@@ -121,6 +121,7 @@ func (reqs *ReqsCollection) NewRequest(caps boruta.Capabilities,
 	// TODO(mwereski): Check if capabilities can be satisfied.
 
 	reqs.mutex.Lock()
+	req.ID = boruta.ReqID(len(reqs.requests) + 1)
 	reqs.queue.pushRequest(req)
 	reqs.requests[req.ID] = req
 	reqs.mutex.Unlock()
