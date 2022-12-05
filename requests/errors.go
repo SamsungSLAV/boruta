@@ -28,7 +28,7 @@ var (
 	// ErrInvalidTimeRange means that requested ValidAfter date is after Deadline value.
 	ErrInvalidTimeRange = errors.New("requested time range illegal - ValidAfter must be before Deadline")
 	// ErrDeadlineInThePast means that requested Deadline date is in the past.
-	ErrDeadlineInThePast = errors.New("Deadline in the past")
+	ErrDeadlineInThePast = errors.New("deadline in the past")
 	// ErrWorkerNotAssigned means that user tries to call method which regards
 	// worker although worker wasn't assigned yet.
 	ErrWorkerNotAssigned = errors.New("worker not assigned")
