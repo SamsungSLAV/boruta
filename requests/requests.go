@@ -143,7 +143,8 @@ func (reqs *ReqsCollection) closeRequest(req *boruta.ReqInfo) {
 		return
 	}
 	worker := req.Job.WorkerUUID
-	reqs.jobs.Finish(worker, true)
+	// TODO log logic error, but continue service.
+	_ = reqs.jobs.Finish(worker, true)
 }
 
 // CloseRequest is part of implementation of Requests interface.
@@ -556,6 +557,7 @@ func (reqs *ReqsCollection) OnWorkerFail(worker boruta.WorkerUUID) {
 	if !ok {
 		panic("request related to job not found")
 	}
-	reqs.jobs.Finish(worker, false)
+	// TODO log logic error, but continue service.
+	_ = reqs.jobs.Finish(worker, false)
 	req.State = boruta.FAILED
 }
