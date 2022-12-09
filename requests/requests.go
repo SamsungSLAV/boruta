@@ -385,8 +385,8 @@ func (reqs *ReqsCollection) AcquireWorker(reqID boruta.ReqID) (boruta.AccessInfo
 // the request has acquired worker that to extend time for which the worker is
 // assigned to the request.
 func (reqs *ReqsCollection) ProlongAccess(reqID boruta.ReqID) error {
-	reqs.mutex.RLock()
-	defer reqs.mutex.RUnlock()
+	reqs.mutex.Lock()
+	defer reqs.mutex.Unlock()
 	req, ok := reqs.requests[reqID]
 	if !ok {
 		return boruta.NotFoundError("Request")
