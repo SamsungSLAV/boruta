@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2018-2022 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,110 +17,108 @@
 package requests
 
 import (
-	"errors"
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
 	"github.com/SamsungSLAV/boruta/workers"
-
-	gomock "github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Requests as WorkerChange", func() {
-	var ctrl *gomock.Controller
-	var wm *MockWorkersManager
-	var jm *MockJobsManager
-	var R *ReqsCollection
-	testErr := errors.New("Test Error")
+var (
+	noWorker         = boruta.WorkerUUID("")
+	testCapabilities = boruta.Capabilities{"key": "value"}
+	testPriority     = (boruta.HiPrio + boruta.LoPrio) / 2
+	testUser         = boruta.UserInfo{Groups: []boruta.Group{"Test Group"}}
+	trigger          = make(chan int, 1)
+)
+
+func setTrigger(val int) { trigger <- val }
+
+func eventuallyTrigger(val int) func() bool {
+	return func() bool {
+		select {
+		case v := <-trigger:
+			return val == v
+		default:
+			return false
+		}
+	}
+}
+
+func eventuallyState(s *RequestsTestSuite, reqid boruta.ReqID, state boruta.ReqState) func() bool {
+	return func() bool {
+		s.T().Helper()
+		info, err := s.rqueue.GetRequestInfo(reqid)
+		s.NoError(err)
+		s.NotZero(reqid)
+		return info.State == state
+	}
+}
+
+// ValidMatcher should do nothing if there are no waiting requests.
+func (s *RequestsTestSuite) TestOnWorkerIdleNoRequests() {
 	testWorker := boruta.WorkerUUID("Test Worker UUID")
-	noWorker := boruta.WorkerUUID("")
-	testCapabilities := boruta.Capabilities{"key": "value"}
-	testPriority := (boruta.HiPrio + boruta.LoPrio) / 2
-	testUser := boruta.UserInfo{Groups: []boruta.Group{"Test Group"}}
-	now := time.Now()
-	tomorrow := now.AddDate(0, 0, 1)
-	trigger := make(chan int, 1)
+	s.rqueue.OnWorkerIdle(testWorker)
+}
 
-	setTrigger := func(val int) {
-		trigger <- val
-	}
-	eventuallyTrigger := func(val int) {
-		EventuallyWithOffset(1, trigger).Should(Receive(Equal(val)))
-	}
-	eventuallyState := func(reqid boruta.ReqID, state boruta.ReqState) {
-		EventuallyWithOffset(1, func() boruta.ReqState {
-			info, err := R.GetRequestInfo(reqid)
-			ExpectWithOffset(1, err).NotTo(HaveOccurred())
-			ExpectWithOffset(1, info).NotTo(BeNil())
-			return info.State
-		}).Should(Equal(state))
-	}
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		wm = NewMockWorkersManager(ctrl)
-		jm = NewMockJobsManager(ctrl)
-		wm.EXPECT().SetChangeListener(gomock.Any())
-		R = NewRequestQueue(wm, jm)
+func (s *RequestsTestSuite) TestOnWorkerIdleMatchRequest() {
+	testWorker := boruta.WorkerUUID("Test Worker UUID")
+	// Add Request. Use trigger to wait for ValidMatcher goroutine to match worker.
+	s.wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).DoAndReturn(func(boruta.Groups, boruta.Capabilities) (boruta.WorkerUUID, error) {
+		setTrigger(1)
+		return noWorker, s.testErr
 	})
-	AfterEach(func() {
-		R.Finish()
-		ctrl.Finish()
-	})
+	reqid, err := s.rqueue.NewRequest(testCapabilities, testPriority, testUser, now, tomorrow)
+	s.NoError(err)
+	s.NotZero(reqid)
+	s.Eventually(eventuallyTrigger(1), time.Second, 10*time.Millisecond)
 
-	Describe("OnWorkerIdle", func() {
-		It("ValidMatcher should do nothing if there are no waiting requests", func() {
-			R.OnWorkerIdle(testWorker)
-		})
-		It("ValidMatcher should try matching request", func() {
-			// Add Request. Use trigger to wait for ValidMatcher goroutine to match worker.
-			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(boruta.Groups, boruta.Capabilities) {
-				setTrigger(1)
-			})
-			reqid, err := R.NewRequest(testCapabilities, testPriority, testUser, now, tomorrow)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(reqid).NotTo(BeZero())
-			eventuallyTrigger(1)
-
-			// Test. Use trigger to wait for ValidMatcher goroutine to match worker.
-			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(boruta.Groups, boruta.Capabilities) {
-				setTrigger(2)
-			})
-			R.OnWorkerIdle(testWorker)
-			eventuallyTrigger(2)
-		})
+	// Test. Use trigger to wait for ValidMatcher goroutine to match worker.
+	s.wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).DoAndReturn(func(boruta.Groups, boruta.Capabilities) (boruta.WorkerUUID, error) {
+		setTrigger(2)
+		return noWorker, s.testErr
 	})
-	Describe("OnWorkerFail", func() {
-		It("should return if jobs.Get fails", func() {
-			jm.EXPECT().Get(testWorker).Return(nil, testErr)
-			R.OnWorkerFail(testWorker)
-		})
-		It("should panic if failing worker was processing unknown Job", func() {
-			noReq := boruta.ReqID(0)
-			job := workers.Job{Req: noReq}
-			jm.EXPECT().Get(testWorker).Return(&job, nil)
-			Expect(func() {
-				R.OnWorkerFail(testWorker)
-			}).To(Panic())
-		})
-		It("should set request to FAILED state if call succeeds", func() {
-			// Add Request. Use trigger to wait for ValidMatcher goroutine to match worker.
-			wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).Return(noWorker, testErr).Do(func(boruta.Groups, boruta.Capabilities) {
-				setTrigger(3)
-			})
-			reqid, err := R.NewRequest(testCapabilities, testPriority, testUser, now, tomorrow)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(reqid).NotTo(BeZero())
-			eventuallyTrigger(3)
+	s.rqueue.OnWorkerIdle(testWorker)
+	s.Eventually(eventuallyTrigger(2), time.Second, 10*time.Millisecond)
 
-			// Test.
-			job := workers.Job{Req: reqid}
-			jm.EXPECT().Get(testWorker).Return(&job, nil)
-			jm.EXPECT().Finish(testWorker, false)
-			R.OnWorkerFail(testWorker)
-			eventuallyState(reqid, boruta.FAILED)
-		})
+	// Updating request should also try to match worker.
+	s.wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).DoAndReturn(func(boruta.Groups, boruta.Capabilities) (boruta.WorkerUUID, error) {
+		setTrigger(3)
+		return noWorker, s.testErr
 	})
-})
+	rinfo, err := s.rqueue.GetRequestInfo(reqid)
+	s.NoError(err)
+	s.NotEmpty(rinfo)
+	rinfo.Priority = rinfo.Priority + 1
+	err = s.rqueue.UpdateRequest(&rinfo)
+	s.NoError(err)
+	s.Eventually(eventuallyTrigger(3), time.Second, 10*time.Millisecond)
+}
+
+func (s *RequestsTestSuite) TestOnWorkerFailed() {
+	testWorker := boruta.WorkerUUID("Test Worker UUID")
+	// When jobs.Get() fails OnWorkerFail should just return (without panic nor calling jobs.Finish()).
+	s.jm.EXPECT().Get(testWorker).Return(nil, s.testErr)
+	s.NotPanics(func() { s.rqueue.OnWorkerFail(testWorker) })
+
+	// OnWorkerFail should panick when jobs.Get() returns unknown request ID.
+	noReq := boruta.ReqID(0)
+	job := workers.Job{Req: noReq}
+	s.jm.EXPECT().Get(testWorker).Return(&job, nil)
+	s.Panics(func() { s.rqueue.OnWorkerFail(testWorker) })
+
+	// When call succeeds request should be in failed state.
+	s.wm.EXPECT().TakeBestMatchingWorker(testUser.Groups, testCapabilities).DoAndReturn(func(boruta.Groups, boruta.Capabilities) (boruta.WorkerUUID, error) {
+		setTrigger(4)
+		return noWorker, s.testErr
+	})
+	reqid, err := s.rqueue.NewRequest(testCapabilities, testPriority, testUser, now, tomorrow)
+	s.NoError(err)
+	s.NotZero(reqid)
+	// Wait until match is done.
+	s.Eventually(eventuallyTrigger(4), time.Second, 10*time.Millisecond)
+	job.Req = reqid
+	s.jm.EXPECT().Get(testWorker).Return(&job, nil)
+	s.jm.EXPECT().Finish(testWorker, false)
+	s.NotPanics(func() { s.rqueue.OnWorkerFail(testWorker) })
+	s.Eventually(eventuallyState(s, reqid, boruta.FAILED), time.Second, 10*time.Millisecond)
+}
