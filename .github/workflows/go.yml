@@ -23,11 +23,19 @@ jobs:
 
     - name: Test
       run: go test -v -coverprofile cover.out ./...
-      
+
     - name: Generate coverage report
       run: go tool cover -html=cover.out -o coverage.html
-      
+
     - uses: actions/upload-artifact@v2
       with:
         name: coverage
         path: ./coverage.html
+
+    - name: Check formatting
+      run: gofmt -s -l $(go list -f {{.Dir}} ./...)
+      continue-on-error: true
+
+    - name: Check old APIs
+      run: go tool fix -diff $(go list -f {{.Dir}} ./...)
+      continue-on-error: true
