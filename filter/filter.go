@@ -144,11 +144,11 @@ func NewWorkers(groups boruta.Groups, caps boruta.Capabilities) *Workers {
 // * value of every required capability matches the value of the capability in worker.
 //
 // TODO Caps matching is a complex problem and it should be changed to satisfy usecases below:
-// * matching any of the values and at least one:
-//   "SERIAL": "57600,115200" should be satisfied by "SERIAL": "9600, 38400, 57600" (as "57600"
-//   matches)
-// * match value in range:
-//   "VOLTAGE": "2.9-3.6" should satisfy "VOLTAGE": "3.3"
+//   - matching any of the values and at least one:
+//     "SERIAL": "57600,115200" should be satisfied by "SERIAL": "9600, 38400, 57600" (as "57600"
+//     matches)
+//   - match value in range:
+//     "VOLTAGE": "2.9-3.6" should satisfy "VOLTAGE": "3.3"
 func isCapsMatching(worker *boruta.WorkerInfo, caps boruta.Capabilities) bool {
 	if len(caps) == 0 {
 		return true

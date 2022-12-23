@@ -38,7 +38,7 @@ const UUID string = "UUID"
 
 // sizeRSA is a length of the RSA key.
 // It is a variable for test purposes.
-//var sizeRSA = 4096
+// var sizeRSA = 4096
 var sizeRSA = 2048
 
 // backgroundOperationsBufferSize defines buffer size of the channel
