@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2022 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 package filter
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/SamsungSLAV/boruta"
@@ -76,32 +77,36 @@ func TestNewRequest(t *testing.T) {
 	}
 
 	for _, tcase := range newRequestTests {
-		filter := NewRequests(tcase.ids, tcase.priorities, tcase.states)
-		assert.NotNil(filter, tcase.name)
+		tcase := tcase
+		t.Run(tcase.name, func(t *testing.T) {
+			t.Parallel()
+			filter := NewRequests(tcase.ids, tcase.priorities, tcase.states)
+			assert.NotNil(filter, tcase.name)
 
-		// Verify IDs.
-		assert.Len(filter.IDs, len(tcase.ids), tcase.name)
-		if len(tcase.ids) > 0 {
-			assert.Equal(tcase.ids, filter.IDs, tcase.name)
-		} else {
-			assert.Nil(filter.IDs)
-		}
+			// Verify IDs.
+			assert.Len(filter.IDs, len(tcase.ids), tcase.name)
+			if len(tcase.ids) > 0 {
+				assert.Equal(tcase.ids, filter.IDs, tcase.name)
+			} else {
+				assert.Nil(filter.IDs)
+			}
 
-		// Verify Priorities.
-		assert.Len(filter.Priorities, len(tcase.priorities), tcase.name)
-		if len(tcase.priorities) > 0 {
-			assert.Equal(tcase.priorities, filter.Priorities, tcase.name)
-		} else {
-			assert.Nil(filter.Priorities)
-		}
+			// Verify Priorities.
+			assert.Len(filter.Priorities, len(tcase.priorities), tcase.name)
+			if len(tcase.priorities) > 0 {
+				assert.Equal(tcase.priorities, filter.Priorities, tcase.name)
+			} else {
+				assert.Nil(filter.Priorities)
+			}
 
-		// Verify States.
-		assert.Len(filter.States, len(tcase.states), tcase.name)
-		if len(tcase.states) > 0 {
-			assert.Equal(tcase.expectedStates, filter.States, tcase.name)
-		} else {
-			assert.Nil(filter.States)
-		}
+			// Verify States.
+			assert.Len(filter.States, len(tcase.states), tcase.name)
+			if len(tcase.states) > 0 {
+				assert.Equal(tcase.expectedStates, filter.States, tcase.name)
+			} else {
+				assert.Nil(filter.States)
+			}
+		})
 	}
 }
 
@@ -203,17 +208,32 @@ func TestRequestMatch(t *testing.T) {
 		},
 	}
 
-	var filter Requests
+	makeName := func(states []boruta.ReqState, priorities []boruta.Priority, ids []boruta.ReqID) string {
+		return fmt.Sprintf("States: %v, Priorities: %v, ISs: %v", states, priorities, ids)
+	}
+	makeFilter := func(states []boruta.ReqState, priorities []boruta.Priority, ids []boruta.ReqID) Requests {
+		return Requests{
+			States:     states,
+			Priorities: priorities,
+			IDs:        ids,
+		}
+	}
+
 	for _, stest := range statesTests {
-		filter.States = stest.states
+		stest := stest
 		for _, ptest := range priorityTests {
-			filter.Priorities = ptest.priorities
+			ptest := ptest
 			for _, idstest := range idsTests {
-				filter.IDs = idstest.ids
-				assert.Equal(stest.result && ptest.result && idstest.result, filter.Match(&req))
+				idtest := idstest
+				filter := makeFilter(stest.states, ptest.priorities, idtest.ids)
+				t.Run(makeName(filter.States, filter.Priorities, filter.IDs), func(t *testing.T) {
+					t.Parallel()
+					assert.Equal(stest.result && ptest.result && idtest.result, filter.Match(&req))
+				})
 			}
 		}
 	}
+	var filter Requests
 	assert.False(filter.Match(nil))
 	assert.False(filter.Match(5))
 }
@@ -261,63 +281,80 @@ func TestWorkerMatch(t *testing.T) {
 	other := boruta.Group("other")
 
 	var tests = [...]struct {
+		name   string
 		worker *boruta.WorkerInfo
 		filter *Workers
 		result bool
 	}{
 		{
+			name:   "NilGroupsAndCaps",
 			worker: newWorker(groups(all), caps("armv7", "true")),
 			filter: NewWorkers(nil, nil),
 			result: true,
 		},
 		{
+			name:   "EmptyGroupsAndNilCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(groups(empty), nil),
 			result: false,
 		},
 		{
+			name:   "NilGroupsAndMatchingCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(nil, caps("aarch64", "true")),
 			result: true,
 		},
 		{
+			name:   "NilGroupsAndDefaultCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(nil, make(boruta.Capabilities)),
 			result: true,
 		},
 		{
+			name:   "DefaultGroupsAndNilCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(make(boruta.Groups, 0), nil),
 			result: true,
 		},
 		{
+			name:   "MatchingOtherGroupsAndMatchingCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(groups(all, other), caps("aarch64", "true")),
 			result: true,
 		},
 		{
+			name:   "NotMatchingGroupsAndMatchingCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(groups(other), caps("aarch64", "true")),
 			result: false,
 		},
 		{
+			name:   "MatchingAllGroupsAndMatchingCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(groups(all, other), caps("aarch64", "false")),
 			result: false,
 		},
 		{
+			name:   "MatchingAllGroupsAndNotMatchingCaps",
 			worker: newWorker(groups(all, some), caps("aarch64", "true")),
 			filter: NewWorkers(groups(all, other),
 				boruta.Capabilities{"foo": "bar"}),
 			result: false,
 		},
+		{
+			name:   "DefaultFilterNil",
+			worker: nil,
+			filter: new(Workers),
+			result: false,
+		},
 	}
 
 	for _, tcase := range tests {
-		assert.Equal(tcase.result, tcase.filter.Match(tcase.worker))
+		tcase := tcase
+		t.Run(tcase.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(tcase.result, tcase.filter.Match(tcase.worker))
+		})
 	}
-
-	filter := new(Workers)
-	assert.False(filter.Match(nil))
-	assert.False(filter.Match(5))
+	assert.False(new(Workers).Match(5), "WrongType")
 }
