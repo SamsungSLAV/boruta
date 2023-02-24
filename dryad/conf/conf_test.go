@@ -14,21 +14,29 @@
  *  limitations under the License
  */
 
-package conf_test
+package conf
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"strings"
+	"testing"
 
 	"github.com/SamsungSLAV/boruta"
-	. "github.com/SamsungSLAV/boruta/dryad/conf"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 )
 
-var _ = Describe("Conf", func() {
-	marshaled := `listen_address = ":7175"
+type brokenReader struct {
+	io.Reader
+}
+
+func (*brokenReader) Read(_ []byte) (n int, err error) {
+	return 0, errors.New("broken reader")
+}
+
+var (
+	marshaled = `listen_address = ":7175"
 boruta_address = ""
 ssh_address = ":22"
 sdcard = "/dev/sdX"
@@ -40,7 +48,13 @@ stm_path = "/run/stm.socket"
   name = "boruta-user"
   groups = []
 `
-	unmarshaled := &General{
+	empty = `listen_address = ""
+boruta_address = ""
+ssh_address = ""
+sdcard = ""
+stm_path = ""
+`
+	unmarshaled = &General{
 		Address:   ":7175",
 		SSHAdress: ":22",
 		Caps:      boruta.Capabilities(map[string]string{}),
@@ -51,27 +65,69 @@ stm_path = "/run/stm.socket"
 		SDcard:    "/dev/sdX",
 		STMsocket: "/run/stm.socket",
 	}
-	var g *General
+)
 
-	BeforeEach(func() {
-		g = NewConf()
-	})
+func TestNewConf(t *testing.T) {
+	assert.Equal(t, NewConf(), unmarshaled)
+}
 
-	It("should initially have default configuration", func() {
-		Expect(g).To(Equal(unmarshaled))
-	})
+func TestMarshal(t *testing.T) {
+	testCases := [...]struct {
+		name string
+		conf *General
+		str  string
+		err  error
+	}{
+		{name: "valid", conf: NewConf(), str: marshaled, err: nil},
+		{name: "empty", conf: new(General), str: empty, err: nil},
+		{name: "nil", conf: nil, str: "", err: nil},
+	}
+	assert := assert.New(t)
 
-	It("should encode default configuration", func() {
-		var w bytes.Buffer
-		g.Marshal(&w)
-		result := w.String()
-		Expect(result).ToNot(BeEmpty())
-		Expect(result).To(Equal(marshaled))
-	})
+	for _, test := range testCases {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var b bytes.Buffer
+			assert.ErrorIs(test.conf.Marshal(&b), test.err)
+			assert.Equal(b.String(), test.str)
+		})
+	}
+}
 
-	It("should decode default configuration", func() {
-		g = new(General)
-		g.Unmarshal(strings.NewReader(marshaled))
-		Expect(g).To(Equal(unmarshaled))
-	})
-})
+func TestUnmarshal(t *testing.T) {
+	testCases := [...]struct {
+		name   string
+		conf   *General
+		read   io.Reader
+		err    error
+		panics bool
+	}{
+		{name: "valid", conf: NewConf(), read: strings.NewReader(marshaled), err: nil},
+		{name: "invalid", conf: new(General), read: strings.NewReader(`/4`), err: errors.New(`toml: line 1: expected '.' or '=', but got '/' instead`)},
+		{name: "empty", conf: new(General), read: strings.NewReader(empty), err: nil},
+		{name: "brokenReader", conf: new(General), read: new(brokenReader), err: errors.New("broken reader")},
+		{name: "nil", conf: new(General), read: nil, err: nil, panics: true},
+	}
+	assert := assert.New(t)
+
+	for _, test := range testCases {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var err error
+			g := new(General)
+			if test.panics {
+				assert.Panics(func() { err = g.Unmarshal(test.read) })
+			} else {
+				assert.NotPanics(func() { err = g.Unmarshal(test.read) })
+			}
+			if test.err != nil {
+				assert.ErrorContains(err, test.err.Error())
+			} else {
+				assert.NoError(err)
+			}
+			assert.Equal(g, test.conf)
+		})
+	}
+}
