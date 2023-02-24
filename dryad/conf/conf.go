@@ -20,7 +20,6 @@ package conf
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/BurntSushi/toml"
 
@@ -84,9 +83,9 @@ func (g *General) Marshal(w io.Writer) error {
 	return toml.NewEncoder(w).Encode(g)
 }
 
-// Unmarshal reads TOML representation from r and parses it into g.
+// Unmarshal reads TOML representation from r and parses it into g. Function may panic (e.g. when reader is nil).
 func (g *General) Unmarshal(r io.Reader) error {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
