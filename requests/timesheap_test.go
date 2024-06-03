@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017-2018 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2017-2022 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,139 +17,115 @@
 package requests
 
 import (
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/suite"
 )
 
-var _ = Describe("TimesHeap", func() {
-	var h *timesHeap
-	var t []time.Time
-	var r []requestTime
-	BeforeEach(func() {
-		now := time.Now()
-		t = make([]time.Time, 0)
-		for i := 0; i < 4; i++ {
-			t = append(t, now.AddDate(0, 0, i))
+type TimesHeapTestSuite struct {
+	suite.Suite
+	h *timesHeap
+	t []time.Time
+	r []requestTime
+}
 
-		}
+func (s *TimesHeapTestSuite) SetupTest() {
+	now := time.Now()
+	s.t = make([]time.Time, 0, 4)
+	for i := 0; i < 4; i++ {
+		s.t = append(s.t, now.AddDate(0, 0, i))
+	}
 
-		r = []requestTime{
-			{time: t[0], req: 1},
-			{time: t[1], req: 2},
-			{time: t[2], req: 3},
-			{time: t[3], req: 4},
-			{time: t[3], req: 5},
-			{time: t[1], req: 6},
-		}
+	s.r = []requestTime{
+		{time: s.t[0], req: 1},
+		{time: s.t[1], req: 2},
+		{time: s.t[2], req: 3},
+		{time: s.t[3], req: 4},
+		{time: s.t[3], req: 5},
+		{time: s.t[1], req: 6},
+	}
 
-		h = newTimesHeap()
-	})
+	s.h = newTimesHeap()
+}
 
-	Describe("newTimesHeap", func() {
-		It("should create an empty heap", func() {
-			Expect(h).NotTo(BeNil())
-			Expect(h.Len()).To(BeZero())
-		})
-		It("should create a new heap every time called", func() {
-			h2 := newTimesHeap()
+func (s *TimesHeapTestSuite) TestNewTimesHeap() {
+	// Created heap should be empty.
+	s.NotNil(s.h)
+	s.Zero(s.h.Len())
+	// It should create a new heap every time called.
+	h := newTimesHeap()
+	s.Equal(s.h, h)
+	s.NotSame(s.h, h)
+}
 
-			h.Push(r[1])
-			h2.Push(r[2])
+func (s *TimesHeapTestSuite) TestLen() {
+	for i, e := range s.r {
+		s.h.Push(e)
+		s.Equal(i+1, s.h.Len())
+	}
 
-			Expect(h.Len()).To(Equal(1))
-			Expect(h2.Len()).To(Equal(1))
-			Expect(h.Min()).To(Equal(r[1]))
-			Expect(h2.Min()).To(Equal(r[2]))
-		})
-	})
+	for i := len(s.r) - 1; i >= 0; i-- {
+		s.h.Pop()
+		s.Equal(i, s.h.Len())
+	}
+}
 
-	Describe("Len", func() {
-		It("should return valid heap size", func() {
-			for i, e := range r {
-				h.Push(e)
-				Expect(h.Len()).To(Equal(i+1), "i=%v", i)
-			}
+func (s *TimesHeapTestSuite) TestMin() {
+	// Empty heap causes panic.
+	s.Panics(func() { s.h.Min() })
 
-			for i := len(r) - 1; i >= 0; i-- {
-				h.Pop()
-				Expect(h.Len()).To(Equal(i), "i=%v", i)
-			}
-		})
-	})
+	// Return minimum value of the heap.
+	toPush := [...]int{3, 5, 1, 2}
+	pushMin := [...]int{3, 5, 1, 1}
+	s.Zero(s.h.Len())
+	for i, e := range toPush {
+		s.h.Push(s.r[e])
+		s.Equal(s.r[pushMin[i]], s.h.Min())
+	}
 
-	Describe("Min", func() {
-		It("should return minimum value of the heap", func() {
-			toPush := []int{3, 5, 1, 2}
-			pushMin := []int{3, 5, 1, 1}
-			for i, e := range toPush {
-				h.Push(r[e])
-				Expect(h.Min()).To(Equal(r[pushMin[i]]))
-			}
+	// Min doesn't remove elements from heap, contraty to Pop.
+	s.NotZero(s.h.Len())
 
-			popMin := []int{5, 2, 3}
-			for _, e := range popMin {
-				h.Pop()
-				Expect(h.Min()).To(Equal(r[e]))
-			}
-		})
-		It("should panic in case of empty heap", func() {
-			Expect(func() {
-				h.Min()
-			}).Should(Panic())
-		})
-	})
+	popMin := [...]int{5, 2, 3}
+	for _, e := range popMin {
+		s.h.Pop()
+		s.Equal(s.r[e], s.h.Min())
+	}
+}
 
-	Describe("Pop", func() {
-		It("should pop minimal element", func() {
-			toPush := []int{5, 3, 1, 0}
-			for _, e := range toPush {
-				h.Push(r[e])
-			}
+func (s *TimesHeapTestSuite) TestPop() {
+	// Empty heap causes panic.
+	s.Panics(func() { s.h.Pop() })
 
-			pushMin := []int{0, 1, 5, 3}
-			for _, e := range pushMin {
-				Expect(h.Min()).To(Equal(r[e]))
-				Expect(h.Pop()).To(Equal(r[e]))
-			}
-		})
-		It("should decrease heap size by one", func() {
-			toPush := []int{0, 2, 1, 5}
-			for _, e := range toPush {
-				h.Push(r[e])
-			}
+	// Pops minial element and decreases heap size by one.
+	toPush := [...]int{5, 3, 1, 0}
+	for _, e := range toPush {
+		s.h.Push(s.r[e])
+	}
+	pushMin := [...]int{0, 1, 5, 3}
+	for i, e := range pushMin {
+		s.Equal(s.r[e], s.h.Min())
+		// Min shouldn't remove element.
+		s.Equal(len(pushMin)-i, s.h.Len())
+		s.Equal(s.r[e], s.h.Pop())
+		// Pop should remove element.
+		s.Equal(len(pushMin)-i-1, s.h.Len())
+	}
+	s.Zero(s.h.Len())
+}
 
-			popMin := []int{0, 1, 5, 2}
-			for i, e := range popMin {
-				Expect(h.Len()).To(Equal(len(popMin) - i))
-				Expect(h.Pop()).To(Equal(r[e]))
-			}
-			Expect(h.Len()).To(BeZero())
-		})
-		It("should panic in case of empty heap", func() {
-			Expect(func() {
-				h.Pop()
-			}).Should(Panic())
-		})
-	})
+func (s *TimesHeapTestSuite) TestPush() {
+	// Push adds element to heap. Size of heap is increased and minimum property is kept.
+	toPush := [...]int{4, 5, 1, 3}
+	pushMin := [...]int{4, 5, 1, 1}
+	for i, e := range toPush {
+		s.h.Push(s.r[e])
+		s.Equal(s.r[pushMin[i]], s.h.Min())
+		s.Equal(i+1, s.h.Len())
+	}
+}
 
-	Describe("Push", func() {
-		It("should add elements to the heap keeping minimum property", func() {
-			toPush := []int{4, 5, 1, 3}
-			pushMin := []int{4, 5, 1, 1}
-			for i, e := range toPush {
-				h.Push(r[e])
-				Expect(h.Min()).To(Equal(r[pushMin[i]]))
-			}
-		})
-		It("should increase heap size by one", func() {
-			Expect(h.Len()).To(BeZero())
-			toPush := []int{1, 0, 2, 4}
-			for i, e := range toPush {
-				h.Push(r[e])
-				Expect(h.Len()).To(Equal(i + 1))
-			}
-		})
-	})
-})
+func TestTimesHeapTestSuite(t *testing.T) {
+	suite.Run(t, new(TimesHeapTestSuite))
+}

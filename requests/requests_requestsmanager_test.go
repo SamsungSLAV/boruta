@@ -20,356 +20,463 @@ package requests
 //go:generate mockgen -package requests -destination=jobsmanager_mock_test.go -write_package_comment=false github.com/SamsungSLAV/boruta/matcher JobsManager
 
 import (
-	"errors"
+	"sync"
 	"time"
 
 	"github.com/SamsungSLAV/boruta"
 
 	gomock "github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Requests as RequestsManager", func() {
-	Describe("With RequestsManager created", func() {
-		var ctrl *gomock.Controller
-		var wm *MockWorkersManager
-		var jm *MockJobsManager
-		var R *ReqsCollection
-		testErr := errors.New("Test Error")
+func tryLock(mtx *sync.RWMutex, ch chan bool) {
+	mtx.Lock()
+	defer mtx.Unlock()
+	ch <- true
+}
 
-		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-			wm = NewMockWorkersManager(ctrl)
-			jm = NewMockJobsManager(ctrl)
-			wm.EXPECT().SetChangeListener(gomock.Any())
-			R = NewRequestQueue(wm, jm)
-		})
-		AfterEach(func() {
-			R.Finish()
-			ctrl.Finish()
-		})
+func tryReceive(ch chan bool) func() bool {
+	return func() bool {
+		select {
+		case <-ch:
+			return true
+		default:
+			return false
+		}
+	}
+}
 
-		Describe("Iterations", func() {
-			var entered chan int
-			testMutex := func() {
-				R.mutex.Lock()
-				defer R.mutex.Unlock()
-				entered <- 1
-			}
-			BeforeEach(func() {
-				entered = make(chan int)
-			})
-			Describe("InitIteration", func() {
-				It("should init iterations and lock requests mutex", func() {
-					err := R.InitIteration()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(R.iterating).To(BeTrue())
+func (s *RequestsTestSuite) TestInitIteration() {
+	entered := make(chan bool)
+	mutexUnlocked := tryReceive(entered)
 
-					// Verify that mutex is locked.
-					go testMutex()
-					Consistently(entered).ShouldNot(Receive())
+	s.Run("ValidInit", func() {
+		s.NoError(s.rqueue.InitIteration())
+		s.True(s.rqueue.iterating)
 
-					// Release the mutex
-					R.mutex.Unlock()
-					Eventually(entered).Should(Receive())
-				})
-				It("should return error and remain mutex unlocked if iterations are already started", func() {
-					R.mutex.Lock()
-					R.iterating = true
-					R.mutex.Unlock()
+		// Verify that mutex is locked.
+		go tryLock(s.rqueue.mutex, entered)
+		s.Never(mutexUnlocked, time.Second, 10*time.Millisecond)
 
-					err := R.InitIteration()
-					Expect(err).To(Equal(boruta.ErrInternalLogicError))
-
-					// Verify that mutex is not locked.
-					go testMutex()
-					Eventually(entered).Should(Receive())
-				})
-			})
-			Describe("TerminateIteration", func() {
-				It("should terminate iterations and unlock requests mutex", func() {
-					err := R.InitIteration()
-					Expect(err).NotTo(HaveOccurred())
-
-					R.TerminateIteration()
-					Expect(R.iterating).To(BeFalse())
-
-					// Verify that mutex is not locked.
-					go testMutex()
-					Eventually(entered).Should(Receive())
-				})
-				It("should just release mutex if iterations are not started", func() {
-					R.mutex.Lock()
-
-					R.TerminateIteration()
-
-					// Verify that mutex is not locked.
-					go testMutex()
-					Eventually(entered).Should(Receive())
-				})
-			})
-		})
-		Describe("Iterating over requests", func() {
-			verify := []boruta.ReqID{3, 5, 1, 2, 7, 4, 6}
-			BeforeEach(func() {
-				now := time.Now()
-				tomorrow := now.AddDate(0, 0, 1)
-				wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), testErr).AnyTimes()
-				insert := func(p boruta.Priority) {
-					_, err := R.NewRequest(boruta.Capabilities{}, p, boruta.UserInfo{}, now, tomorrow)
-					Expect(err).NotTo(HaveOccurred())
-				}
-				insert(3) //1
-				insert(3) //2
-				insert(1) //3
-				insert(5) //4
-				insert(1) //5
-				insert(5) //6
-				insert(3) //7
-			})
-			It("should properly iterate over requests", func() {
-				reqs := make([]boruta.ReqID, 0)
-
-				R.InitIteration()
-				for r, ok := R.Next(); ok; r, ok = R.Next() {
-					reqs = append(reqs, r)
-				}
-				R.TerminateIteration()
-
-				Expect(reqs).To(Equal(verify))
-			})
-			It("should restart iterations in new critical section", func() {
-				for times := 0; times < len(verify); times++ {
-					reqs := make([]boruta.ReqID, 0)
-					i := 0
-					R.InitIteration()
-					for r, ok := R.Next(); ok && i < times; r, ok = R.Next() {
-						reqs = append(reqs, r)
-						i++
-					}
-					R.TerminateIteration()
-					Expect(reqs).To(Equal(verify[:times]))
-				}
-			})
-			It("should panic if Next is called without InitIteration", func() {
-				wrap := func() {
-					R.mutex.Lock()
-					defer R.mutex.Unlock()
-					R.Next()
-				}
-				Expect(wrap).To(Panic())
-			})
-		})
-		Describe("With request in the queue", func() {
-			var now, tomorrow time.Time
-			var req, noreq boruta.ReqID
-			var rinfo *boruta.ReqInfo
-			BeforeEach(func() {
-				now = time.Now()
-				tomorrow = now.AddDate(0, 0, 1)
-				wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), testErr).AnyTimes()
-				var err error
-				req, err = R.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
-				Expect(err).NotTo(HaveOccurred())
-				var ok bool
-				R.mutex.Lock()
-				rinfo, ok = R.requests[req]
-				R.mutex.Unlock()
-				Expect(ok).To(BeTrue())
-				noreq = req + 1
-			})
-			Describe("VerifyIfReady", func() {
-				It("should fail if reqID is unknown", func() {
-					Expect(R.VerifyIfReady(noreq, now)).To(BeFalse())
-				})
-				It("should fail if state is not WAIT", func() {
-					states := []boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
-						boruta.DONE, boruta.FAILED}
-					for _, s := range states {
-						R.mutex.Lock()
-						rinfo.State = s
-						R.mutex.Unlock()
-						Expect(R.VerifyIfReady(req, now)).To(BeFalse(), "state = %v", s)
-					}
-				})
-				It("should fail if Deadline is reached or passed", func() {
-					Expect(R.VerifyIfReady(req, tomorrow.Add(-time.Hour))).To(BeTrue())
-					Expect(R.VerifyIfReady(req, tomorrow)).To(BeFalse())
-					Expect(R.VerifyIfReady(req, tomorrow.Add(time.Hour))).To(BeFalse())
-				})
-				It("should fail if ValidAfter is in future", func() {
-					Expect(R.VerifyIfReady(req, now.Add(-time.Hour))).To(BeFalse())
-					Expect(R.VerifyIfReady(req, now)).To(BeTrue())
-					Expect(R.VerifyIfReady(req, now.Add(time.Hour))).To(BeTrue())
-				})
-				It("should succeed if request is known, in WAIT state and now is between ValidAfter and Deadline", func() {
-					Expect(R.VerifyIfReady(req, now.Add(12*time.Hour))).To(BeTrue())
-				})
-			})
-			Describe("Get", func() {
-				It("should fail if reqID is unknown", func() {
-					r, err := R.Get(noreq)
-					Expect(err).To(Equal(boruta.NotFoundError("Request")))
-					Expect(r).To(Equal(boruta.ReqInfo{}))
-				})
-				It("should succeed if reqID is valid", func() {
-					r, err := R.Get(req)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(r).To(Equal(*rinfo))
-				})
-			})
-			Describe("Timeout", func() {
-				It("should fail if reqID is unknown", func() {
-					Expect(R.queue.length).To(Equal(uint(1)))
-					err := R.Timeout(noreq)
-					Expect(err).To(Equal(boruta.NotFoundError("Request")))
-					Expect(R.queue.length).To(Equal(uint(1)))
-				})
-				It("should fail if request is not in WAIT state", func() {
-					R.mutex.Lock()
-					rinfo.Deadline = now.Add(-time.Hour)
-					R.mutex.Unlock()
-					Expect(R.queue.length).To(Equal(uint(1)))
-					states := []boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
-						boruta.DONE, boruta.FAILED}
-					for _, s := range states {
-						R.mutex.Lock()
-						rinfo.State = s
-						R.mutex.Unlock()
-						err := R.Timeout(req)
-						Expect(err).To(Equal(ErrModificationForbidden), "state = %v", s)
-						Expect(R.queue.length).To(Equal(uint(1)), "state = %v", s)
-					}
-				})
-				It("should fail if deadline is in the future", func() {
-					Expect(R.queue.length).To(Equal(uint(1)))
-					err := R.Timeout(req)
-					Expect(err).To(Equal(ErrModificationForbidden))
-					Expect(R.queue.length).To(Equal(uint(1)))
-				})
-				It("should pass if deadline is past", func() {
-					R.mutex.Lock()
-					rinfo.Deadline = now.Add(-time.Hour)
-					R.mutex.Unlock()
-					Expect(R.queue.length).To(Equal(uint(1)))
-					err := R.Timeout(req)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(boruta.TIMEOUT))
-					Expect(R.queue.length).To(BeZero())
-				})
-			})
-			Describe("Close", func() {
-				It("should fail if reqID is unknown", func() {
-					err := R.Close(noreq)
-					Expect(err).To(Equal(boruta.NotFoundError("Request")))
-				})
-				It("should fail if request is not in INPROGRESS state", func() {
-					states := []boruta.ReqState{boruta.WAIT, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
-						boruta.DONE, boruta.FAILED}
-					for _, state := range states {
-						R.mutex.Lock()
-						rinfo.State = state
-						R.mutex.Unlock()
-
-						err := R.Close(req)
-						Expect(err).To(Equal(ErrModificationForbidden), "state = %s", state)
-					}
-				})
-				It("should fail if request has no job assigned", func() {
-					R.mutex.Lock()
-					rinfo.State = boruta.INPROGRESS
-					Expect(rinfo.Job).To(BeNil())
-					R.mutex.Unlock()
-
-					err := R.Close(req)
-					Expect(err).To(Equal(boruta.ErrInternalLogicError))
-				})
-				It("should fail if job's is not yet timed out", func() {
-					R.mutex.Lock()
-					rinfo.State = boruta.INPROGRESS
-					rinfo.Job = &boruta.JobInfo{
-						Timeout: time.Now().AddDate(0, 0, 1),
-					}
-					R.mutex.Unlock()
-
-					err := R.Close(req)
-					Expect(err).To(Equal(ErrModificationForbidden))
-				})
-				It("should close request and release worker", func() {
-					testWorker := boruta.WorkerUUID("TestWorker")
-					R.mutex.Lock()
-					rinfo.State = boruta.INPROGRESS
-					rinfo.Job = &boruta.JobInfo{
-						Timeout:    time.Now().AddDate(0, 0, -1),
-						WorkerUUID: testWorker,
-					}
-					R.mutex.Unlock()
-					gomock.InOrder(
-						jm.EXPECT().Finish(testWorker, true),
-					)
-					err := R.Close(req)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(boruta.DONE))
-				})
-			})
-			Describe("Run", func() {
-				testWorker := boruta.WorkerUUID("TestWorker")
-
-				It("should fail if reqID is unknown", func() {
-					R.mutex.Lock()
-					defer R.mutex.Unlock()
-					Expect(R.queue.length).To(Equal(uint(1)))
-					err := R.Run(noreq, testWorker)
-					Expect(err).To(Equal(boruta.NotFoundError("Request")))
-					Expect(R.queue.length).To(Equal(uint(1)))
-				})
-				It("should fail if reqID is unknown during iteration", func() {
-					R.InitIteration()
-					defer R.TerminateIteration()
-					Expect(R.iterating).To(BeTrue())
-					Expect(R.queue.length).To(Equal(uint(1)))
-					err := R.Run(noreq, testWorker)
-					Expect(err).To(Equal(boruta.NotFoundError("Request")))
-					Expect(R.iterating).To(BeTrue())
-					Expect(R.queue.length).To(Equal(uint(1)))
-				})
-				It("should fail if request is not in WAIT state", func() {
-					states := []boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID,
-						boruta.DONE, boruta.FAILED}
-					for _, state := range states {
-						R.InitIteration()
-						Expect(R.queue.length).To(Equal(uint(1)), "state = %s", state)
-						rinfo.State = state
-						err := R.Run(req, boruta.WorkerUUID("TestWorker"))
-						Expect(err).To(Equal(ErrModificationForbidden), "state = %s", state)
-						Expect(R.queue.length).To(Equal(uint(1)), "state = %s", state)
-						R.TerminateIteration()
-					}
-				})
-				It("should start progress for valid reqID", func() {
-					R.InitIteration()
-					defer R.TerminateIteration()
-					Expect(R.queue.length).To(Equal(uint(1)))
-					err := R.Run(req, testWorker)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(boruta.INPROGRESS))
-					Expect(rinfo.Job.Timeout).To(BeTemporally(">", time.Now()))
-					Expect(R.queue.length).To(BeZero())
-				})
-				It("should start progress and break iterations when iterating", func() {
-					R.InitIteration()
-					defer R.TerminateIteration()
-					Expect(R.queue.length).To(Equal(uint(1)))
-					Expect(R.iterating).To(BeTrue())
-					err := R.Run(req, testWorker)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(rinfo.State).To(Equal(boruta.INPROGRESS))
-					Expect(rinfo.Job.Timeout).To(BeTemporally(">", time.Now()))
-					Expect(R.iterating).To(BeFalse())
-					Expect(R.queue.length).To(BeZero())
-				})
-			})
-		})
+		// Release the mutex
+		s.rqueue.mutex.Unlock()
+		s.Eventually(mutexUnlocked, time.Second, 10*time.Millisecond)
+		s.TearDownTest()
 	})
-})
+
+	s.Run("InitError", func() {
+		s.SetupTest()
+		s.rqueue.mutex.Lock()
+		s.rqueue.iterating = true
+		s.rqueue.mutex.Unlock()
+		s.EqualError(s.rqueue.InitIteration(), boruta.ErrInternalLogicError.Error())
+		go tryLock(s.rqueue.mutex, entered)
+		s.Eventually(mutexUnlocked, time.Second, 10*time.Millisecond)
+	})
+}
+
+func (s *RequestsTestSuite) TestTerminateIteration() {
+	entered := make(chan bool)
+	mutexUnlocked := tryReceive(entered)
+
+	s.NoError(s.rqueue.InitIteration())
+	s.True(s.rqueue.iterating)
+	s.rqueue.TerminateIteration()
+	// iterating is set to false and mutex is unlocked
+	s.False(s.rqueue.iterating)
+	go tryLock(s.rqueue.mutex, entered)
+	s.Eventually(mutexUnlocked, time.Second, 10*time.Millisecond)
+
+	// When iterating is false and mutex is locked, then TerminateIteration should unlock the mutex.
+	s.rqueue.mutex.Lock()
+	s.rqueue.TerminateIteration()
+	s.False(s.rqueue.iterating) // iterating hasn't changed
+	go tryLock(s.rqueue.mutex, entered)
+	s.Eventually(mutexUnlocked, time.Second, 10*time.Millisecond)
+}
+
+func (s *RequestsTestSuite) TestIteration() {
+	s.Panics(func() {
+		s.rqueue.mutex.Lock()
+		defer s.rqueue.mutex.Unlock()
+		s.rqueue.Next()
+	})
+
+	verify := []boruta.ReqID{3, 5, 1, 2, 7, 4, 6}
+	now := time.Now()
+	tomorrow := now.AddDate(0, 0, 1)
+	s.wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), s.testErr).AnyTimes()
+	insert := func(p boruta.Priority) {
+		_, err := s.rqueue.NewRequest(boruta.Capabilities{}, p, boruta.UserInfo{}, now, tomorrow)
+		s.NoError(err)
+	}
+	insert(3) //1
+	insert(3) //2
+	insert(1) //3
+	insert(5) //4
+	insert(1) //5
+	insert(5) //6
+	insert(3) //7
+
+	s.Run("IterateOverAll", func() {
+		reqs := make([]boruta.ReqID, 0, len(verify))
+
+		s.NoError(s.rqueue.InitIteration())
+		for r, ok := s.rqueue.Next(); ok; r, ok = s.rqueue.Next() {
+			reqs = append(reqs, r)
+		}
+		s.rqueue.TerminateIteration()
+		s.Equal(verify, reqs)
+	})
+
+	s.Run("RestartIterations", func() {
+		for times := 0; times < len(verify); times++ {
+			reqs := make([]boruta.ReqID, 0, len(verify))
+			i := 0
+			s.NoError(s.rqueue.InitIteration())
+			for r, ok := s.rqueue.Next(); ok && i < times; r, ok = s.rqueue.Next() {
+				reqs = append(reqs, r)
+				i++
+			}
+			s.rqueue.TerminateIteration()
+			s.Equal(verify[:times], reqs)
+		}
+	})
+
+}
+
+func (s *RequestsTestSuite) TestVerifyIfReady() {
+	now := time.Now()
+	tomorrow := now.AddDate(0, 0, 1)
+	s.wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), s.testErr).AnyTimes()
+	req, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
+	s.NoError(err)
+	s.NotZero(req)
+	noreq := req + 1
+
+	s.Run("Requests", func() {
+		testCases := [...]struct {
+			name string
+			req  boruta.ReqID
+			t    time.Time
+			ret  bool
+		}{
+			{name: "UnknownReqID", req: noreq, t: now, ret: false},
+			{name: "DeadlineOK", req: req, t: tomorrow.Add(-time.Hour), ret: true},
+			{name: "OnDeadline", req: req, t: tomorrow, ret: false},
+			{name: "DeadlinePassed", req: req, t: tomorrow.Add(time.Hour), ret: false},
+			{name: "ValidAfterInFuture", req: req, t: now.Add(-time.Hour), ret: false},
+			{name: "OnValidAfter", req: req, t: now, ret: true},
+			{name: "ValidAfterPassed", req: req, t: now.Add(time.Hour), ret: true},
+			// Request is known, in WAIT state and now is between ValidAfter and Deadline.
+			{name: "ValidReqOnTime", req: req, t: now.Add(12 * time.Hour), ret: true},
+		}
+
+		for _, test := range testCases {
+			s.Run(test.name, func() {
+				s.T().Parallel()
+				s.Equalf(test.ret, s.rqueue.VerifyIfReady(test.req, test.t), "test case: %s", test.name)
+			})
+		}
+	})
+
+	s.Run("States", func() {
+		states := [...]boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID, boruta.DONE, boruta.FAILED}
+		for _, state := range states {
+			state := state
+			s.rqueue.mutex.Lock()
+			s.rqueue.requests[req].State = state
+			s.rqueue.mutex.Unlock()
+			s.Run(string(state), func() {
+				s.T().Parallel()
+				s.Falsef(s.rqueue.VerifyIfReady(req, now), "state: %s", state)
+			})
+		}
+	})
+}
+
+func (s *RequestsTestSuite) TestGet() {
+	s.wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), s.testErr).AnyTimes()
+
+	now := time.Now()
+	req, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
+	s.NoError(err)
+	s.NotZero(req)
+	noreq := req + 1
+
+	testCases := [...]struct {
+		name string
+		id   boruta.ReqID
+		err  error
+	}{
+		{name: "Missing", id: noreq, err: boruta.NotFoundError("Request")},
+		{name: "Valid", id: req, err: nil},
+	}
+
+	for _, test := range testCases {
+		test := test
+		s.Run(test.name, func() {
+			s.T().Parallel()
+			r, err := s.rqueue.Get(test.id)
+			s.ErrorIs(test.err, err)
+			if err != nil {
+				s.Empty(r)
+			} else {
+				s.rqueue.mutex.RLock()
+				rinfo, ok := s.rqueue.requests[req]
+				s.rqueue.mutex.RUnlock()
+				s.Truef(ok, "test case: %s", test.name)
+				s.Equalf(*rinfo, r, "test case: %s", test.name)
+			}
+		})
+	}
+}
+
+func (s *RequestsTestSuite) TestTimeout() {
+	s.wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), s.testErr).AnyTimes()
+	vafter := time.Now()
+
+	s.Run("Requests", func() {
+		future, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, vafter, tomorrow)
+		s.NoError(err)
+		s.NotZero(future)
+
+		// As we want to trigger timeout manually for this request deadlineTimes is replaced with new one.
+		// After adding request previous one is restored
+		s.rqueue.mutex.Lock()
+		deadlineTimes := s.rqueue.deadlineTimes
+		s.rqueue.deadlineTimes = newRequestTimes()
+		s.rqueue.mutex.Unlock()
+		past, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, vafter, time.Now().Add(1*time.Second))
+		s.NoError(err)
+		s.NotZero(past)
+		s.rqueue.mutex.Lock()
+		// Restore previous deadlineTimes heap.
+		s.rqueue.deadlineTimes = deadlineTimes
+		s.rqueue.mutex.Unlock()
+
+		noreq := past + 1
+
+		testCases := [...]struct {
+			name   string
+			req    boruta.ReqID
+			before uint
+			after  uint
+			sleep  time.Duration
+			state  boruta.ReqState
+			err    error
+		}{
+			{name: "MissingRequest", req: noreq, before: 2, after: 2, sleep: 0 * time.Second, state: "", err: boruta.NotFoundError("Request")},
+			{name: "DeadlineInFuture", req: future, before: 2, after: 2, sleep: 0 * time.Second, state: boruta.WAIT, err: ErrModificationForbidden},
+			{name: "DeadlinePassed", req: past, before: 2, after: 1, sleep: 1 * time.Second, state: boruta.TIMEOUT, err: nil},
+		}
+
+		for _, test := range testCases {
+			test := test
+			s.Run(test.name, func() {
+				s.T().Parallel()
+				s.rqueue.queue.mtx.Lock()
+				s.Equalf(test.before, s.rqueue.queue.length, "test case: %s", test.name)
+				s.rqueue.queue.mtx.Unlock()
+				time.Sleep(test.sleep)
+				s.ErrorIsf(test.err, s.rqueue.Timeout(test.req), "test case: %s", test.name)
+				s.rqueue.queue.mtx.Lock()
+				s.Equalf(test.after, s.rqueue.queue.length, "test case: %s", test.name)
+				s.rqueue.queue.mtx.Unlock()
+				s.rqueue.mutex.RLock()
+				if test.state != "" {
+					s.Equalf(test.state, s.rqueue.requests[test.req].State, "test case: %s", test.name)
+				}
+				s.rqueue.mutex.RUnlock()
+			})
+		}
+	})
+
+	s.Run("States", func() {
+		// Timeout should only work on requests in WAIT state.
+		states := [...]boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID, boruta.DONE, boruta.FAILED}
+		req, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, vafter, tomorrow)
+		s.NoError(err)
+		s.NotZero(req)
+
+		for _, state := range states {
+			state := state
+			s.rqueue.mutex.Lock()
+			s.rqueue.requests[req].State = state
+			s.rqueue.mutex.Unlock()
+			s.rqueue.queue.mtx.Lock()
+			qlen := s.rqueue.queue.length
+			s.rqueue.queue.mtx.Unlock()
+			s.Run(string(state), func() {
+				s.T().Parallel()
+				s.rqueue.queue.mtx.Lock()
+				s.EqualValuesf(qlen, s.rqueue.queue.length, "state: %s", state)
+				s.rqueue.queue.mtx.Unlock()
+				s.ErrorIsf(ErrModificationForbidden, s.rqueue.Timeout(req), "state: %s", state)
+				s.rqueue.queue.mtx.Lock()
+				s.EqualValuesf(qlen, s.rqueue.queue.length, "state: %s", state)
+				s.rqueue.queue.mtx.Unlock()
+			})
+		}
+	})
+}
+
+func (s *RequestsTestSuite) TestClose() {
+	s.wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), s.testErr).AnyTimes()
+
+	now := time.Now()
+	const reqsCnt = 3
+	var reqs [reqsCnt]boruta.ReqID
+	for i := 0; i < reqsCnt; i++ {
+		req, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
+		s.NoError(err)
+		s.NotZero(req)
+		reqs[i] = req
+	}
+
+	s.Run("JobsAndRequests", func() {
+		testWorker := boruta.WorkerUUID("TestWorker")
+		noreq := reqs[reqsCnt-1] + 1
+		testCases := [...]struct {
+			name   string
+			req    boruta.ReqID
+			job    *boruta.JobInfo
+			before boruta.ReqState
+			after  boruta.ReqState
+			err    error
+		}{
+			{name: "MissingRequest", req: noreq, job: nil, before: "", after: "", err: boruta.NotFoundError("Request")},
+			{
+				name:   "MissingJob",
+				req:    reqs[0],
+				job:    nil,
+				before: boruta.INPROGRESS,
+				after:  boruta.INPROGRESS,
+				err:    boruta.ErrInternalLogicError,
+			},
+			{
+				name:   "JobRunning",
+				req:    reqs[0],
+				job:    &boruta.JobInfo{Timeout: tomorrow},
+				before: boruta.INPROGRESS,
+				after:  boruta.INPROGRESS,
+				err:    ErrModificationForbidden,
+			},
+			{
+				name:   "CloseAndReleaseWorker",
+				req:    reqs[1],
+				job:    &boruta.JobInfo{Timeout: now.AddDate(0, 0, -1), WorkerUUID: testWorker},
+				before: boruta.INPROGRESS,
+				after:  boruta.DONE,
+				err:    nil,
+			},
+		}
+
+		// Successful Close will finish the job, so Finish will be called only once.
+		s.jm.EXPECT().Finish(testWorker, true).Times(1)
+		for _, test := range testCases {
+			test := test
+			s.Run(test.name, func() {
+				s.T().Parallel()
+				s.rqueue.mutex.Lock()
+				rinfo, ok := s.rqueue.requests[test.req]
+				if ok {
+					rinfo.State = test.before
+					rinfo.Job = test.job
+				}
+				s.rqueue.mutex.Unlock()
+				s.ErrorIsf(test.err, s.rqueue.Close(test.req), "test case: %s", test.name)
+				if test.after != "" {
+					s.rqueue.mutex.RLock()
+					s.Equalf(test.after, rinfo.State, "test case: %s", test.name)
+					s.rqueue.mutex.RUnlock()
+				}
+			})
+		}
+	})
+
+	// Only requests that are INPROGRESS can be closed.
+	s.Run("RequestStates", func() {
+		states := [...]boruta.ReqState{boruta.WAIT, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID, boruta.DONE, boruta.FAILED}
+		for _, state := range states {
+			state := state
+			s.rqueue.mutex.Lock()
+			s.rqueue.requests[reqs[2]].State = state
+			s.rqueue.mutex.Unlock()
+			s.Run(string(state), func() {
+				s.T().Parallel()
+				s.ErrorIsf(ErrModificationForbidden, s.rqueue.Close(reqs[2]), "state: %s", state)
+			})
+		}
+	})
+}
+
+func (s *RequestsTestSuite) TestRun() {
+	s.wm.EXPECT().TakeBestMatchingWorker(gomock.Any(), gomock.Any()).Return(boruta.WorkerUUID(""), s.testErr).AnyTimes()
+	now := time.Now()
+	req, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
+	s.NoError(err)
+	req2, err := s.rqueue.NewRequest(boruta.Capabilities{}, 3, boruta.UserInfo{}, now, tomorrow)
+	s.NoError(err)
+	testWorker := boruta.WorkerUUID("TestWorker")
+	noreq := req2 + 1
+
+	doChecks := func(s *RequestsTestSuite, r boruta.ReqID, worker boruta.WorkerUUID, after uint, iter bool, err error) {
+		s.T().Helper()
+		s.NoError(s.rqueue.InitIteration())
+		s.EqualValues(2, s.rqueue.queue.length)
+		s.True(s.rqueue.iterating)
+		s.ErrorIs(err, s.rqueue.Run(r, worker))
+		rinfo, ok := s.rqueue.requests[r]
+		if ok && rinfo.Job != nil {
+			s.Greater(rinfo.Job.Timeout, time.Now())
+		}
+		s.Equal(iter, s.rqueue.iterating)
+		s.Equal(after, s.rqueue.queue.length)
+		s.rqueue.TerminateIteration()
+	}
+
+	s.Run("States", func() {
+		// Only requests that are WAIT can be run.
+		states := [...]boruta.ReqState{boruta.INPROGRESS, boruta.CANCEL, boruta.TIMEOUT, boruta.INVALID, boruta.DONE, boruta.FAILED}
+		for _, state := range states {
+			state := state
+			s.rqueue.mutex.Lock()
+			s.rqueue.requests[req2].State = state
+			s.rqueue.mutex.Unlock()
+			s.Run(string(state), func() {
+				s.T().Parallel()
+				doChecks(s, req2, testWorker, 2, true, ErrModificationForbidden)
+			})
+		}
+	})
+	s.Run("UnknownID", func() {
+		s.rqueue.mutex.Lock()
+		defer s.rqueue.mutex.Unlock()
+		s.rqueue.queue.mtx.Lock()
+		s.EqualValues(2, s.rqueue.queue.length)
+		s.rqueue.queue.mtx.Unlock()
+		s.ErrorIs(boruta.NotFoundError("Request"), s.rqueue.Run(noreq, testWorker))
+		s.rqueue.queue.mtx.Lock()
+		s.EqualValues(2, s.rqueue.queue.length)
+		s.rqueue.queue.mtx.Unlock()
+	})
+	s.Run("Iterating", func() {
+		testCases := [...]struct {
+			name   string
+			req    boruta.ReqID
+			worker boruta.WorkerUUID
+			after  uint
+			iter   bool
+			err    error
+		}{
+			{name: "UnknownID", req: noreq, worker: testWorker, after: 2, iter: true, err: boruta.NotFoundError("Request")},
+			{name: "ValidRequest", req: req, worker: testWorker, after: 1, iter: false, err: nil},
+		}
+		for _, test := range testCases {
+			test := test
+			s.Run(test.name, func() {
+				doChecks(s, test.req, test.worker, test.after, test.iter, test.err)
+			})
+		}
+	})
+}
