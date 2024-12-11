@@ -14,5 +14,5 @@ require (
 	github.com/rs/cors v1.8.3
 	github.com/stretchr/testify v1.8.1
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07 // indirect
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.31.0
 )
