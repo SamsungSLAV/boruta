@@ -17,12 +17,20 @@
 package requests
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/SamsungSLAV/boruta"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-var validReqs = []boruta.ReqInfo{
+type SorterTestSuite struct {
+	suite.Suite
+	sorter *sorter
+}
+
+var validReqs = [...]boruta.ReqInfo{
 	{
 		ID:         1,
 		Priority:   4,
@@ -53,138 +61,120 @@ var validReqs = []boruta.ReqInfo{
 	},
 }
 
+func (s *SorterTestSuite) SetupTest() {
+	s.sorter = new(sorter)
+	s.sorter.reqs = make([]boruta.ReqInfo, len(validReqs))
+	copy(s.sorter.reqs, validReqs[:])
+}
+
 func TestNewSorter(t *testing.T) {
-	assert, rqueue, ctrl, _ := initTest(t)
-	defer finiTest(rqueue, ctrl)
+	assert := assert.New(t)
 
-	sorter, err := newSorter(nil)
-	assert.Nil(err)
-	assert.Equal("", sorter.item)
-	assert.Equal(boruta.SortOrderAsc, sorter.order)
+	testCases := [...]struct {
+		name  string
+		si    *boruta.SortInfo
+		order boruta.SortOrder
+		err   error
+	}{
+		{name: "NilSortInfo", si: nil, order: boruta.SortOrderAsc, err: nil},
+		{name: "EmptySortInfo", si: new(boruta.SortInfo), order: boruta.SortOrderAsc, err: nil},
+		{name: "EmptySortItem", si: &boruta.SortInfo{Item: "", Order: boruta.SortOrderAsc}, order: boruta.SortOrderAsc, err: nil},
+		{name: "IdSortItem", si: &boruta.SortInfo{Item: "id", Order: boruta.SortOrderDesc}, order: boruta.SortOrderDesc, err: nil},
+		{
+			name:  "PrioritySortItem",
+			si:    &boruta.SortInfo{Item: "priority", Order: boruta.SortOrderDesc},
+			order: boruta.SortOrderDesc,
+			err:   nil,
+		},
+		{
+			name:  "CaseInsencitiveSortItem",
+			si:    &boruta.SortInfo{Item: "DeadLine", Order: boruta.SortOrderDesc},
+			order: boruta.SortOrderDesc,
+			err:   nil,
+		},
+		{
+			name:  "ValidAfterSortItem",
+			si:    &boruta.SortInfo{Item: "ValidAfter", Order: boruta.SortOrderAsc},
+			order: boruta.SortOrderAsc,
+			err:   nil,
+		},
+		{
+			name:  "StateSortItem",
+			si:    &boruta.SortInfo{Item: "STATE", Order: boruta.SortOrderAsc},
+			order: boruta.SortOrderAsc,
+			err:   nil,
+		},
+		{
+			name:  "WrongSortItem",
+			si:    &boruta.SortInfo{Item: "foobar", Order: boruta.SortOrderAsc},
+			order: boruta.SortOrderAsc,
+			err:   boruta.ErrWrongSortItem,
+		},
+	}
 
-	si := new(boruta.SortInfo)
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("", sorter.item)
-	assert.Equal(boruta.SortOrderAsc, sorter.order)
-
-	si.Item = "foobar"
-	si.Order = boruta.SortOrderAsc
-	sorter, err = newSorter(si)
-	assert.Equal(boruta.ErrWrongSortItem, err)
-	assert.Nil(sorter)
-
-	si.Item = ""
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("", sorter.item)
-	assert.Equal(boruta.SortOrderAsc, sorter.order)
-
-	si.Item = "id"
-	si.Order = boruta.SortOrderDesc
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("id", sorter.item)
-	assert.Equal(boruta.SortOrderDesc, sorter.order)
-
-	si.Item = "priority"
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("priority", sorter.item)
-	assert.Equal(boruta.SortOrderDesc, sorter.order)
-
-	// newSorter should be case insensitive.
-	si.Item = "DeadLine"
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("deadline", sorter.item)
-	assert.Equal(boruta.SortOrderDesc, sorter.order)
-
-	si.Item = "validafter"
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("validafter", sorter.item)
-	assert.Equal(boruta.SortOrderDesc, sorter.order)
-
-	si.Item = "STATE"
-	sorter, err = newSorter(si)
-	assert.Nil(err)
-	assert.Equal("state", sorter.item)
-	assert.Equal(boruta.SortOrderDesc, sorter.order)
+	for _, test := range testCases {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			sorter, err := newSorter(test.si)
+			assert.Equalf(test.err, err, "test case: %s", test.name)
+			if err != nil {
+				assert.Nilf(sorter, "test case: %s", test.name)
+			} else {
+				assert.Equalf(test.order, sorter.order, "test case: %s", test.name)
+				if test.si != nil {
+					assert.Equalf(strings.ToLower(test.si.Item), sorter.item, "test case: %s", test.name)
+				}
+			}
+		})
+	}
 }
 
-func TestSorterLen(t *testing.T) {
-	assert, rqueue, ctrl, _ := initTest(t)
-	defer finiTest(rqueue, ctrl)
-	s := new(sorter)
-	s.reqs = make([]boruta.ReqInfo, len(validReqs))
-	copy(s.reqs, validReqs)
-	assert.Equal(len(validReqs), s.Len())
+func (s *SorterTestSuite) TestSorterLen() {
+	s.Equal(len(validReqs), s.sorter.Len())
 }
 
-func TestSorterSwap(t *testing.T) {
-	assert, rqueue, ctrl, _ := initTest(t)
-	defer finiTest(rqueue, ctrl)
-	s := new(sorter)
-	s.reqs = make([]boruta.ReqInfo, len(validReqs))
-	copy(s.reqs, validReqs)
-	s.Swap(0, 1)
-	assert.Equal(s.reqs[0], validReqs[1])
-	assert.Equal(s.reqs[1], validReqs[0])
+func (s *SorterTestSuite) TestSorterSwap() {
+	s.sorter.Swap(0, 1)
+	s.Equal(s.sorter.reqs[0], validReqs[1])
+	s.Equal(s.sorter.reqs[1], validReqs[0])
 }
 
-func TestSorterLess(t *testing.T) {
-	assert, rqueue, ctrl, _ := initTest(t)
-	defer finiTest(rqueue, ctrl)
-	s := new(sorter)
-	s.reqs = make([]boruta.ReqInfo, len(validReqs))
-	copy(s.reqs, validReqs)
-	s.item = "panic"
-	assert.Panics(func() { s.Less(0, 1) })
+func (s *SorterTestSuite) TestSorterLess() {
+	testCases := [...]struct {
+		name, item string
+		i, j       int
+	}{
+		{name: "EmptyItem", item: "", i: 0, j: 1},
+		{name: "ID", item: "id", i: 0, j: 1},
+		{name: "Priority", item: "priority", i: 1, j: 2},
+		{name: "PriorityEqual", item: "priority", i: 0, j: 2}, // sort by IO
+		{name: "Deadline", item: "deadline", i: 1, j: 2},
+		{name: "DeadlineEqual", item: "deadline", i: 0, j: 1}, // sort by IO
+		{name: "ValidAfter", item: "validafter", i: 0, j: 2},
+		{name: "ValidAfterEqual", item: "validafter", i: 0, j: 3}, // sort by IO
+		{name: "State", item: "state", i: 1, j: 0},
+		{name: "StateEqual", item: "state", i: 0, j: 3}, // sort by IO
+	}
 
-	s.item = ""
-	assert.True(s.Less(0, 1))
-	s.order = boruta.SortOrderDesc
-	assert.False(s.Less(0, 1))
+	s.Run("panic", func() {
+		s.sorter.item = "panic"
+		s.Panics(func() { s.sorter.Less(0, 1) })
+	})
 
-	s.item = "id"
-	assert.False(s.Less(0, 1))
-	s.order = boruta.SortOrderAsc
-	assert.True(s.Less(0, 1))
+	for _, test := range testCases {
+		test := test
+		sorter := s.sorter
+		sorter.item = test.item
+		s.Run(test.name, func() {
+			sorter.order = boruta.SortOrderAsc
+			s.Truef(sorter.Less(test.i, test.j), "test case: %s", test.name)
+			sorter.order = boruta.SortOrderDesc
+			s.Falsef(sorter.Less(test.i, test.j), "test case: %s", test.name)
+		})
+	}
+}
 
-	s.item = "priority"
-	assert.True(s.Less(1, 2))
-	// equal priorities, sort by ID
-	assert.True(s.Less(0, 2))
-	s.order = boruta.SortOrderDesc
-	assert.False(s.Less(1, 2))
-	// equal priorities, sort by ID
-	assert.False(s.Less(0, 2))
-
-	s.item = "deadline"
-	assert.False(s.Less(1, 2))
-	// equal deadlines, sort by ID
-	assert.False(s.Less(0, 1))
-	s.order = boruta.SortOrderAsc
-	assert.True(s.Less(1, 2))
-	// equal deadlines, sort by ID
-	assert.True(s.Less(0, 1))
-
-	s.item = "validafter"
-	assert.True(s.Less(0, 2))
-	// equal validafters, sort by ID
-	assert.True(s.Less(0, 3))
-	s.order = boruta.SortOrderDesc
-	assert.False(s.Less(0, 2))
-	// equal validafters, sort by ID
-	assert.False(s.Less(0, 3))
-
-	s.item = "state"
-	assert.True(s.Less(0, 1))
-	// equal states, sort by ID
-	assert.False(s.Less(0, 3))
-	s.order = boruta.SortOrderAsc
-	assert.False(s.Less(0, 1))
-	// equal states, sort by ID
-	assert.True(s.Less(0, 3))
+func TestSorterTestSuite(t *testing.T) {
+	suite.Run(t, new(SorterTestSuite))
 }

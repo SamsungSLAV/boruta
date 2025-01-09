@@ -17,137 +17,130 @@
 package requests
 
 import (
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/suite"
 )
 
-var _ = Describe("TimesHeapContainer", func() {
-	var thc timesHeapContainer
-	var t0, t1, t2, t3 time.Time
-	var thcLen int
-	BeforeEach(func() {
-		t0 = time.Now()
-		t1 = t0.AddDate(0, 0, 1)
-		t2 = t1.AddDate(0, 0, 1)
-		t3 = t2.AddDate(0, 0, 1)
+type TimesHeapContainerTestSuite struct {
+	suite.Suite
+	thc            timesHeapContainer
+	t0, t1, t2, t3 time.Time
+	thcLen         int
+}
 
-		thc = []requestTime{
-			{time: t0, req: 1},
-			{time: t3, req: 2},
-			{time: t1, req: 3},
-			{time: t2, req: 4},
-			{time: t1, req: 1},
-			{time: t3, req: 2},
-		}
-		thcLen = len(thc)
+func (s *TimesHeapContainerTestSuite) SetupTest() {
+	s.t0 = time.Now()
+	s.t1 = s.t0.AddDate(0, 0, 1)
+	s.t2 = s.t1.AddDate(0, 0, 1)
+	s.t3 = s.t2.AddDate(0, 0, 1)
+
+	s.thc = []requestTime{
+		{time: s.t0, req: 1},
+		{time: s.t3, req: 2},
+		{time: s.t1, req: 3},
+		{time: s.t2, req: 4},
+		{time: s.t1, req: 1},
+		{time: s.t3, req: 2},
+	}
+	s.thcLen = len(s.thc)
+}
+
+func (s *TimesHeapContainerTestSuite) TestLen() {
+	var c timesHeapContainer
+	s.Zero(c.Len())
+
+	e := make([]requestTime, 0)
+	c = e
+	s.Zero(c.Len())
+
+	s.Equal(s.thcLen, s.thc.Len())
+}
+
+func (s *TimesHeapContainerTestSuite) TestLess() {
+	s.True(s.thc.Less(0, 1))  // t0 < t3
+	s.False(s.thc.Less(1, 0)) // t3 < t0
+
+	s.False(s.thc.Less(1, 2)) // t3 < t1
+	s.True(s.thc.Less(2, 1))  // t1 < t3
+
+	s.False(s.thc.Less(3, 3)) // t2 < t2
+
+	s.False(s.thc.Less(2, 4)) // t1/3 < t1/1
+	s.True(s.thc.Less(4, 2))  // t1/1 < t1/3
+
+	s.False(s.thc.Less(1, 5)) // t3/2 < t3/2
+	s.False(s.thc.Less(5, 1)) // t3/2 < t3/2
+}
+
+func (s *TimesHeapContainerTestSuite) TestSwap() {
+	// swap different elements
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[1])
+	s.Equal(requestTime{time: s.t2, req: 4}, s.thc[3])
+	s.thc.Swap(1, 3)
+	s.Equal(requestTime{time: s.t2, req: 4}, s.thc[1])
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[3])
+	// restore original order
+	s.thc.Swap(1, 3)
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[1])
+	s.Equal(requestTime{time: s.t2, req: 4}, s.thc[3])
+
+	// swap same values
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[1])
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[5])
+	s.thc.Swap(1, 5)
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[1])
+	s.Equal(requestTime{time: s.t3, req: 2}, s.thc[5])
+
+	// swap in place
+	s.Equal(requestTime{time: s.t2, req: 4}, s.thc[3])
+	s.thc.Swap(3, 3)
+	s.Equal(requestTime{time: s.t2, req: 4}, s.thc[3])
+}
+
+func (s *TimesHeapContainerTestSuite) TestPush() {
+	// Push to empty container.
+	var c timesHeapContainer
+	s.Zero(c.Len())
+	c.Push(requestTime{time: s.t2, req: 4})
+	s.Equal(1, c.Len())
+	s.Equal(requestTime{time: s.t2, req: 4}, c[0])
+
+	// Push to non empty container.
+	s.Equal(s.thcLen, s.thc.Len())
+	s.thc.Push(requestTime{time: s.t0, req: 7})
+	s.Equal(s.thcLen+1, s.thc.Len())
+	s.Equal(requestTime{time: s.t0, req: 7}, s.thc[s.thcLen])
+
+	s.thc.Push(requestTime{time: s.t2, req: 5})
+	s.Equal(s.thcLen+2, s.thc.Len())
+	s.Equal(requestTime{time: s.t2, req: 5}, s.thc[s.thcLen+1])
+}
+
+func (s *TimesHeapContainerTestSuite) TestPop() {
+	// Panic when container is empty.
+	s.Panics(func() {
+		var c timesHeapContainer
+		c.Pop()
 	})
 
-	Describe("Len", func() {
-		It("should work with nil container", func() {
-			var c timesHeapContainer
-			Expect(c.Len()).To(BeZero())
-		})
-		It("should work with empty container", func() {
-			s := make([]requestTime, 0)
-			var c timesHeapContainer = s
-			Expect(c.Len()).To(BeZero())
-		})
-		It("should work with non-empty container", func() {
-			Expect(thc.Len()).To(Equal(thcLen))
-		})
-	})
+	// Pop elements from container
+	s.Equal(s.thcLen, s.thc.Len())
 
-	Describe("Less", func() {
-		It("should compare elements", func() {
-			Expect(thc.Less(0, 1)).To(BeTrue())  //t0 < t3
-			Expect(thc.Less(1, 0)).To(BeFalse()) //t3 < t0
+	t := s.thc.Pop()
+	s.Equal(s.thcLen-1, s.thc.Len())
+	s.Equal(requestTime{time: s.t3, req: 2}, t)
 
-			Expect(thc.Less(1, 2)).To(BeFalse()) //t3 < t1
-			Expect(thc.Less(2, 1)).To(BeTrue())  //t1 < t3
+	t = s.thc.Pop()
+	s.Equal(s.thcLen-2, s.thc.Len())
+	s.Equal(requestTime{time: s.t1, req: 1}, t)
 
-			Expect(thc.Less(3, 3)).To(BeFalse()) //t2 < t2
+	t = s.thc.Pop()
+	s.Equal(s.thcLen-3, s.thc.Len())
+	s.Equal(requestTime{time: s.t2, req: 4}, t)
+}
 
-			Expect(thc.Less(2, 4)).To(BeFalse()) //t1/3 < t1/1
-			Expect(thc.Less(4, 2)).To(BeTrue())  //t1/1 < t1/3
-
-			Expect(thc.Less(1, 5)).To(BeFalse()) //t3/2 < t3/2
-			Expect(thc.Less(5, 1)).To(BeFalse()) //t3/2 < t3/2
-		})
-	})
-
-	Describe("Swap", func() {
-		It("should swap different elements", func() {
-			Expect(thc[1]).To(Equal(requestTime{time: t3, req: 2}))
-			Expect(thc[3]).To(Equal(requestTime{time: t2, req: 4}))
-			thc.Swap(1, 3)
-			Expect(thc[1]).To(Equal(requestTime{time: t2, req: 4}))
-			Expect(thc[3]).To(Equal(requestTime{time: t3, req: 2}))
-		})
-		It("should swap same values", func() {
-			Expect(thc[1]).To(Equal(requestTime{time: t3, req: 2}))
-			Expect(thc[5]).To(Equal(requestTime{time: t3, req: 2}))
-			thc.Swap(1, 5)
-			Expect(thc[1]).To(Equal(requestTime{time: t3, req: 2}))
-			Expect(thc[5]).To(Equal(requestTime{time: t3, req: 2}))
-		})
-		It("should swap in place", func() {
-			Expect(thc[3]).To(Equal(requestTime{time: t2, req: 4}))
-			thc.Swap(3, 3)
-			Expect(thc[3]).To(Equal(requestTime{time: t2, req: 4}))
-		})
-	})
-
-	Describe("Push", func() {
-		It("should work with empty container", func() {
-			var c timesHeapContainer
-			Expect(c.Len()).To(BeZero())
-
-			c.Push(requestTime{time: t2, req: 4})
-
-			Expect(c.Len()).To(Equal(1))
-			Expect(c[0]).To(Equal(requestTime{time: t2, req: 4}))
-		})
-		It("should add elements to non empty container", func() {
-			Expect(thc.Len()).To(Equal(thcLen))
-
-			thc.Push(requestTime{time: t0, req: 7})
-
-			Expect(thc.Len()).To(Equal(thcLen + 1))
-			Expect(thc[thcLen]).To(Equal(requestTime{time: t0, req: 7}))
-
-			thc.Push(requestTime{time: t2, req: 5})
-
-			Expect(thc.Len()).To(Equal(thcLen + 2))
-			Expect(thc[thcLen+1]).To(Equal(requestTime{time: t2, req: 5}))
-		})
-	})
-
-	Describe("Pop", func() {
-		It("should pop elements from container", func() {
-			Expect(thc.Len()).To(Equal(thcLen))
-
-			t := thc.Pop()
-
-			Expect(thc.Len()).To(Equal(thcLen - 1))
-			Expect(t).To(Equal(requestTime{time: t3, req: 2}))
-
-			t = thc.Pop()
-
-			Expect(thc.Len()).To(Equal(thcLen - 2))
-			Expect(t).To(Equal(requestTime{time: t1, req: 1}))
-
-			t = thc.Pop()
-
-			Expect(thc.Len()).To(Equal(thcLen - 3))
-			Expect(t).To(Equal(requestTime{time: t2, req: 4}))
-		})
-		It("should panic if container is empty", func() {
-			Expect(func() {
-				var c timesHeapContainer
-				c.Pop()
-			}).Should(Panic())
-		})
-	})
-})
+func TestTimesHeapContainerTestSuite(t *testing.T) {
+	suite.Run(t, new(TimesHeapContainerTestSuite))
+}
